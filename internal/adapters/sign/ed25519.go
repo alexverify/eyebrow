@@ -9,7 +9,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
 
 const prefix = "ed25519:"
@@ -69,4 +74,66 @@ func (s *Signer) Verify(data []byte, sig string) error {
 // in a trust registry.
 func (s *Signer) PublicKeyBase64() string {
 	return base64.StdEncoding.EncodeToString(s.pub)
+}
+
+// LoadOrCreate loads an ed25519 private key from path, or generates one and
+// saves it (0600) if the file does not exist. The parent directory is created
+// 0700. This gives a stable local signing identity.
+func LoadOrCreate(path string) (*Signer, error) {
+	b, err := os.ReadFile(path)
+	if err == nil {
+		raw, derr := base64.StdEncoding.DecodeString(strings.TrimSpace(string(b)))
+		if derr != nil {
+			return nil, fmt.Errorf("key %s: %w", path, derr)
+		}
+		if len(raw) != ed25519.PrivateKeySize {
+			return nil, fmt.Errorf("key %s: unexpected size %d", path, len(raw))
+		}
+		priv := ed25519.PrivateKey(raw)
+		return New(priv, priv.Public().(ed25519.PublicKey)), nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+
+	s, err := Generate()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, err
+	}
+	enc := base64.StdEncoding.EncodeToString(s.priv)
+	if err := os.WriteFile(path, []byte(enc), 0o600); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// SignLockfile signs the lockfile's canonical bytes and returns a copy with the
+// signature set.
+func (s *Signer) SignLockfile(lf lockfile.Lockfile) (lockfile.Lockfile, error) {
+	canon, err := lockfile.CanonicalBytes(lf)
+	if err != nil {
+		return lf, err
+	}
+	sig, err := s.Sign(canon)
+	if err != nil {
+		return lf, err
+	}
+	lf.Sig = sig
+	return lf, nil
+}
+
+// VerifyLockfile checks the lockfile's signature against this signer's public
+// key. It errors if the lockfile is unsigned or the signature does not match.
+func (s *Signer) VerifyLockfile(lf lockfile.Lockfile) error {
+	if lf.Sig == "" {
+		return errors.New("lockfile is not signed")
+	}
+	canon, err := lockfile.CanonicalBytes(lf)
+	if err != nil {
+		return err
+	}
+	return s.Verify(canon, lf.Sig)
 }

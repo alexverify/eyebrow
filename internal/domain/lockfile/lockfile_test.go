@@ -106,6 +106,32 @@ func TestCompareIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestCanonicalBytesIgnoresSignature(t *testing.T) {
+	base := buildOne(art("srv", "sha256-a"))
+	signed := base
+	signed.Sig = "ed25519:somesig"
+
+	a, err := CanonicalBytes(base)
+	if err != nil {
+		t.Fatalf("CanonicalBytes: %v", err)
+	}
+	b, err := CanonicalBytes(signed)
+	if err != nil {
+		t.Fatalf("CanonicalBytes: %v", err)
+	}
+	if string(a) != string(b) {
+		t.Fatal("CanonicalBytes must be independent of the Sig field")
+	}
+}
+
+func TestCanonicalBytesChangesWithContent(t *testing.T) {
+	a, _ := CanonicalBytes(buildOne(art("srv", "sha256-a")))
+	b, _ := CanonicalBytes(buildOne(art("srv", "sha256-b")))
+	if string(a) == string(b) {
+		t.Fatal("CanonicalBytes must change when artifact content changes")
+	}
+}
+
 func TestNewFindingsAtThreshold(t *testing.T) {
 	prev := art("srv", "h")
 	prev.Findings = []finding.Finding{{RuleID: "OLD", Severity: finding.SeverityHigh, File: "a.js", Line: 1}}

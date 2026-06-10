@@ -7,6 +7,7 @@
 package lockfile
 
 import (
+	"encoding/json"
 	"sort"
 	"strconv"
 	"time"
@@ -14,6 +15,15 @@ import (
 	"github.com/alexverify/agentguard/internal/domain/artifact"
 	"github.com/alexverify/agentguard/internal/domain/finding"
 )
+
+// CanonicalBytes returns the deterministic serialization of the lockfile used
+// for signing: the same content with the signature field cleared, so a
+// signature commits to everything except itself. Entries are already sorted by
+// Build, and JSON marshals map keys in order, so the output is stable.
+func CanonicalBytes(lf Lockfile) ([]byte, error) {
+	lf.Sig = ""
+	return json.Marshal(lf)
+}
 
 // Version is the current agentlock.json schema version.
 const Version = 1
