@@ -50,7 +50,7 @@ func Default() *Multi {
 		NewClaudeCode(),
 		NewCursor(),
 		NewGemini(),
+		NewOpenCode(),
 		Codex{},
-		OpenCode{},
 	)
 }
