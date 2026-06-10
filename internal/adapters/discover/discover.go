@@ -47,7 +47,7 @@ func (m *Multi) Discover(ctx context.Context, scopes []ports.Scope) ([]artifact.
 func Default() *Multi {
 	return NewMulti(
 		NewClaudeCode(),
-		Cursor{},
+		NewCursor(),
 		Codex{},
 		Gemini{},
 		OpenCode{},
