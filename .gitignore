@@ -16,3 +16,6 @@ coverage.*
 
 # Local lockfiles produced during manual testing
 /agentlock.json
+
+# Local-only working docs (specs/plans); never committed
+docs/superpowers/
