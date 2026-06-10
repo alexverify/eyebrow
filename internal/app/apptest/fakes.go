@@ -9,10 +9,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
-	"github.com/agentguard/agentguard/internal/domain/finding"
-	"github.com/agentguard/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
 
 // Discoverer returns a fixed set of artifacts.

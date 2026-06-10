@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/agentguard/agentguard/internal/adapters/parse"
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/adapters/parse"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
 )
 
 // ClaudeCode discovers Claude Code MCP servers and skills.

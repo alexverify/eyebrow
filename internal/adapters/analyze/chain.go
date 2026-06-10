@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
-	"github.com/agentguard/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/finding"
 )
 
 // Chain runs several analyzers in sequence and concatenates their findings.

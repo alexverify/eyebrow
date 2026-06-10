@@ -11,7 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/agentguard/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/domain/finding"
 )
 
 // Type enumerates the kinds of artifacts agentguard tracks.

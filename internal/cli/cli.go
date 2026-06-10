@@ -10,16 +10,16 @@ import (
 	"io"
 	"time"
 
-	"github.com/agentguard/agentguard/internal/adapters/analyze"
-	"github.com/agentguard/agentguard/internal/adapters/discover"
-	"github.com/agentguard/agentguard/internal/adapters/hash"
-	"github.com/agentguard/agentguard/internal/adapters/lockstore"
-	"github.com/agentguard/agentguard/internal/adapters/report"
-	"github.com/agentguard/agentguard/internal/adapters/resolve"
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/app/scan"
-	"github.com/agentguard/agentguard/internal/app/verify"
-	"github.com/agentguard/agentguard/internal/buildinfo"
+	"github.com/alexverify/agentguard/internal/adapters/analyze"
+	"github.com/alexverify/agentguard/internal/adapters/discover"
+	"github.com/alexverify/agentguard/internal/adapters/hash"
+	"github.com/alexverify/agentguard/internal/adapters/lockstore"
+	"github.com/alexverify/agentguard/internal/adapters/report"
+	"github.com/alexverify/agentguard/internal/adapters/resolve"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/app/scan"
+	"github.com/alexverify/agentguard/internal/app/verify"
+	"github.com/alexverify/agentguard/internal/buildinfo"
 )
 
 // Exit codes form a stable contract for CI consumers.

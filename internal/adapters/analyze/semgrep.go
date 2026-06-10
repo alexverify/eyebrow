@@ -4,8 +4,8 @@ import (
 	"context"
 	"os/exec"
 
-	"github.com/agentguard/agentguard/internal/domain/artifact"
-	"github.com/agentguard/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/finding"
 )
 
 // Semgrep is an optional static-analysis accelerator that shells out to the

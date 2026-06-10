@@ -1,3 +1,3 @@
-module github.com/agentguard/agentguard
+module github.com/alexverify/agentguard
 
 go 1.25

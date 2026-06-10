@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
-	"github.com/agentguard/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/finding"
 )
 
 // CertFetcher returns the SPKI pin (base64 SHA-256 of the leaf certificate's

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
-	"github.com/agentguard/agentguard/internal/domain/finding"
-	"github.com/agentguard/agentguard/internal/platform/run"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/platform/run"
 )
 
 // Git resolves git sources by pinning the requested ref to a concrete commit

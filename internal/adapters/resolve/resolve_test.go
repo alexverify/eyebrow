@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agentguard/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
 )
 
 func TestNewRouterWiresRealResolvers(t *testing.T) {

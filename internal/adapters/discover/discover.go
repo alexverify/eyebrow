@@ -9,8 +9,8 @@ package discover
 import (
 	"context"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
 )
 
 // ToolDiscoverer discovers artifacts for a single tool.

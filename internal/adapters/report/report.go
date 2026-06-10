@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/agentguard/agentguard/internal/domain/finding"
-	"github.com/agentguard/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
 
 // JSON renders machine-readable output.

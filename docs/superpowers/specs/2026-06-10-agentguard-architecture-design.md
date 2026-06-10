@@ -34,7 +34,7 @@ These were settled before implementation:
 | Scope of this pass | Full repo skeleton + Component 1 fully built | The wedge has standalone value and is the distribution engine; the rest are clean seams to avoid premature abstraction. |
 | Architecture style | Pragmatic hexagonal (ports & adapters) | Pure, testable core; swappable edges; idiomatic and approachable. See [ADR-0001](../../architecture/adr/0001-hexagonal-architecture.md). |
 | Deliverable | Buildable skeleton + docs | `go build`/`go test` green from commit one; a working CLI to grow from. |
-| Module path | `github.com/agentguard/agentguard` | Dedicated org namespace for a multi-repo product. |
+| Module path | `github.com/alexverify/agentguard` | Dedicated org namespace for a multi-repo product. |
 | License | Apache-2.0 | Permissive with patent grant; the norm for security/infra tooling. |
 | Dependencies | Standard library only (MVP) | A supply-chain tool should be auditable to the byte. See [ADR-0002](../../architecture/adr/0002-standard-library-only.md). |
 | Static analysis | Native matchers first; Semgrep optional | Zero-dependency analysis that still works; Semgrep accelerates when present. See [ADR-0003](../../architecture/adr/0003-semgrep-optional-accelerator.md). |

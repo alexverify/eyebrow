@@ -3,8 +3,8 @@ package discover
 import (
 	"context"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/domain/artifact"
 )
 
 // The discoverers below are documented seams. Each returns an empty inventory

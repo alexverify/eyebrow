@@ -8,11 +8,11 @@ import (
 	"os/user"
 	"strings"
 
-	"github.com/agentguard/agentguard/internal/adapters/lockstore"
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/app/scan"
-	"github.com/agentguard/agentguard/internal/app/verify"
-	"github.com/agentguard/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/agentguard/internal/adapters/lockstore"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/app/scan"
+	"github.com/alexverify/agentguard/internal/app/verify"
+	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
 
 // commonFlags are shared by the read pipeline commands.

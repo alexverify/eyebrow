@@ -2,7 +2,7 @@
 # Zero external build dependencies; everything here uses the Go toolchain only.
 
 BINARY      := agentguard
-PKG         := github.com/agentguard/agentguard
+PKG         := github.com/alexverify/agentguard
 CMD         := ./cmd/agentguard
 BIN_DIR     := bin
 VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")

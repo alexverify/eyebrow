@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentguard/agentguard/internal/app/ports"
-	"github.com/agentguard/agentguard/internal/cli"
+	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/agentguard/internal/cli"
 )
 
 // newApp returns a CLI App with a fixed clock and captured output.
