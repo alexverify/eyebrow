@@ -1,25 +1,21 @@
 // Package parse normalizes the heterogeneous config formats used by AI coding
-// tools into Go values. JSON and JSONC (Claude/Cursor/VS Code-style, with
-// comments and trailing commas) are supported. TOML (Codex) is a documented
-// seam: it returns ErrUnsupportedFormat until a parser is wired, so discovery
-// can note and skip rather than mis-parse.
+// tools into Go values: JSON, JSONC (Claude/Cursor/VS Code-style, with comments
+// and trailing commas), and TOML (Codex). Discovery picks the reader that
+// matches each tool's config format.
 package parse
 
 import (
 	"encoding/json"
-	"errors"
-)
 
-// ErrUnsupportedFormat indicates a config format whose parser is not yet wired.
-var ErrUnsupportedFormat = errors.New("config format not yet supported")
+	"github.com/BurntSushi/toml"
+)
 
 // JSON unmarshals strict JSON into v.
 func JSON(b []byte, v any) error {
 	return json.Unmarshal(b, v)
 }
 
-// TOML parses TOML (e.g. Codex config.toml). Not yet implemented; see package
-// docs. Adding it is an isolated change behind this seam.
-func TOML(_ []byte, _ any) error {
-	return ErrUnsupportedFormat
+// TOML unmarshals TOML (e.g. Codex's config.toml) into v.
+func TOML(b []byte, v any) error {
+	return toml.Unmarshal(b, v)
 }

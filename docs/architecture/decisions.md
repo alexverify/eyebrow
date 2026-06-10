@@ -27,11 +27,15 @@ credibility problem — "audit your dependencies" reads badly from a binary with
 hundred of its own.
 
 The cost is real and accepted: we hand-roll small things like CLI dispatch, and
-we've deferred a tolerant JSONC/TOML parser rather than vendor one. Those config
-formats currently return an "unsupported" error and discovery skips them instead
-of guessing. When a dependency becomes genuinely necessary — most likely for the
-runtime sandbox/proxy work — it'll be a deliberate, isolated addition, not a
-default reach.
+JSONC parsing is a hand-rolled, string-aware stripper feeding `encoding/json`.
+
+**The one exception so far:** TOML parsing for Codex configs uses
+`github.com/BurntSushi/toml`. TOML has enough edge cases (quoting, dotted keys,
+multiline strings, inline tables) that a hand-rolled subset reader would be a
+latent source of mis-parses — exactly what a security tool must not ship. So we
+made the deliberate call to pull in the de-facto standard, well-audited library,
+isolated to the `parse` adapter. That's the bar for any future dependency: only
+when hand-rolling is a correctness risk, and always behind an existing seam.
 
 ## Native matchers are the analyzer; Semgrep is optional
 

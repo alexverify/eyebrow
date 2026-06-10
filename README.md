@@ -63,8 +63,9 @@ paths, inline content, and remote-URL certificate pinning need nothing extra.
 Pragmatic **hexagonal (ports & adapters)** in idiomatic Go: a pure, exhaustively
 tested domain core (the hashing and drift logic), application use-cases that
 depend only on interfaces, and swappable adapters for every external surface.
-The MVP core uses **only the Go standard library** — a supply-chain tool should
-be auditable to the byte.
+The core leans on the **Go standard library** with a single, deliberate
+exception — a TOML parser for Codex configs — because a supply-chain tool should
+keep its own dependency surface auditable.
 
 Read [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) for
 the package map, data flow, testing strategy, and how to extend it (adding a
@@ -87,7 +88,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Component | What | Status |
 |---|---|---|
-| 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift | **implemented** (Claude Code, Cursor, Gemini; Codex/OpenCode seamed) |
+| 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex) |
 | 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | designed, seamed |
 | 3 — control plane | Policy API, signature/trust registry, audit log, CI Action, dashboard | designed, seamed |
 

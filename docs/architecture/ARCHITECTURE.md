@@ -67,8 +67,8 @@ interface that can be faked, swapped, or degraded without touching the core.
 | `internal/app/scan` | application | `scan` use case: discover → resolve → hash → analyze → lock. |
 | `internal/app/verify` | application | `verify` use case: recompute → diff → gate. |
 | `internal/app/apptest` | application | In-memory fakes implementing every port, for tests. |
-| `internal/adapters/discover` | adapter | Per-tool config discovery: Claude Code (MCP, skills, subagents, hooks, context), Cursor (MCP, rules), Gemini (MCP); Codex/OpenCode stubbed. |
-| `internal/adapters/parse` | adapter | JSON normalizer; JSONC/TOML are documented seams. |
+| `internal/adapters/discover` | adapter | Per-tool config discovery: Claude Code (MCP, skills, subagents, hooks, context), Cursor (MCP, rules), Gemini (MCP), OpenCode (MCP), Codex (MCP, context). |
+| `internal/adapters/parse` | adapter | Config normalizers: JSON, JSONC (hand-rolled), TOML (BurntSushi). |
 | `internal/adapters/resolve` | adapter | Source → concrete pinned code: local, inline, npm, git, url. |
 | `internal/adapters/hash` | adapter | Filesystem walk feeding the domain digest. |
 | `internal/adapters/analyze` | adapter | Native high-signal matchers + optional Semgrep accelerator. |
