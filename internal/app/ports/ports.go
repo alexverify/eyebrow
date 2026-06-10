@@ -101,6 +101,12 @@ type Signer interface {
 	Verify(data []byte, sig string) error
 }
 
+// LockfileVerifier checks that a lockfile carries a valid signature from a
+// trusted key. It returns nil when the signature verifies.
+type LockfileVerifier interface {
+	VerifyLockfile(lf lockfile.Lockfile) error
+}
+
 // Reporter renders results for humans and machines.
 type Reporter interface {
 	Scan(w io.Writer, lf lockfile.Lockfile) error

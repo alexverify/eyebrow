@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/alexverify/agentguard/internal/adapters/analyze"
@@ -16,6 +18,7 @@ import (
 	"github.com/alexverify/agentguard/internal/adapters/lockstore"
 	"github.com/alexverify/agentguard/internal/adapters/report"
 	"github.com/alexverify/agentguard/internal/adapters/resolve"
+	"github.com/alexverify/agentguard/internal/adapters/sign"
 	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/app/scan"
 	"github.com/alexverify/agentguard/internal/app/verify"
@@ -60,6 +63,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runList(ctx, rest)
 	case "approve":
 		return a.runApprove(ctx, rest)
+	case "sign":
+		return a.runSign(ctx, rest)
 	case "version", "-v", "--version":
 		fmt.Fprintln(a.Stdout, buildinfo.UserAgent())
 		return ExitOK
@@ -85,6 +90,7 @@ Commands:
   diff      Show what changed since the last lockfile (informational)
   list      Print the current inventory across tools
   approve   Mark artifact(s) as approved in the lockfile
+  sign      Sign the lockfile with the local key
   version   Print the version
   help      Show this help
 
@@ -129,5 +135,22 @@ func (a *App) verifyService(jsonOut bool) *verify.Service {
 		Builder:  a.scanService(jsonOut),
 		Lock:     lockstore.New(),
 		Reporter: reporter(jsonOut),
+		Verifier: a.lockfileVerifier(),
 	})
+}
+
+// keyPath is the default local signing-key location.
+func (a *App) keyPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".agentguard", "key")
+}
+
+// lockfileVerifier returns a verifier backed by the local key, or nil if no key
+// exists yet (verify only needs it when a policy requires a signature).
+func (a *App) lockfileVerifier() ports.LockfileVerifier {
+	s, err := sign.Load(a.keyPath())
+	if err != nil {
+		return nil
+	}
+	return s
 }

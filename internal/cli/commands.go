@@ -10,6 +10,7 @@ import (
 
 	"github.com/alexverify/agentguard/internal/adapters/lockstore"
 	"github.com/alexverify/agentguard/internal/adapters/policystore"
+	"github.com/alexverify/agentguard/internal/adapters/sign"
 	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/app/scan"
 	"github.com/alexverify/agentguard/internal/app/verify"
@@ -87,9 +88,12 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	for _, v := range res.Policy.Violations {
-		if v.Kind == "unapproved" {
+		switch v.Kind {
+		case "unapproved":
 			fmt.Fprintf(a.Stdout, "policy: unapproved artifact %s (%s)\n", v.Name, v.ID)
-		} else {
+		case "signature":
+			fmt.Fprintf(a.Stdout, "policy: signature — %s\n", v.Detail)
+		default:
 			fmt.Fprintf(a.Stdout, "policy: %s %s %s\n", v.Severity, v.RuleID, v.Detail)
 		}
 	}
@@ -185,6 +189,42 @@ func (a *App) runApprove(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	fmt.Fprintf(a.Stdout, "approved %d artifact(s)\n", matched)
+	return ExitOK
+}
+
+func (a *App) runSign(ctx context.Context, args []string) int {
+	fs := a.flagSet("sign")
+	lock := fs.String("lockfile", "agentlock.json", "lockfile to sign")
+	key := fs.String("key", a.keyPath(), "ed25519 private key path (created if absent)")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+
+	signer, err := sign.LoadOrCreate(*key)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
+		return ExitError
+	}
+	store := lockstore.New()
+	lf, err := store.Read(ctx, *lock)
+	if err != nil {
+		if errors.Is(err, ports.ErrNoLockfile) {
+			fmt.Fprintln(a.Stderr, "sign: no lockfile found; run 'agentguard scan' first")
+			return ExitError
+		}
+		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
+		return ExitError
+	}
+	signed, err := signer.SignLockfile(lf)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
+		return ExitError
+	}
+	if err := store.Write(ctx, *lock, signed); err != nil {
+		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(a.Stdout, "signed %s with key %s\n", *lock, signer.PublicKeyBase64())
 	return ExitOK
 }
 

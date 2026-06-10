@@ -18,6 +18,8 @@ type Policy struct {
 	IgnoreRules []string `json:"ignoreRules,omitempty"`
 	// RequireApproval fails any artifact not marked approved in the lockfile.
 	RequireApproval bool `json:"requireApproval,omitempty"`
+	// RequireSignature fails when the lockfile carries no valid signature.
+	RequireSignature bool `json:"requireSignature,omitempty"`
 }
 
 // Default is the policy used when no policy file is present.

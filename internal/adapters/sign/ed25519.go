@@ -76,23 +76,31 @@ func (s *Signer) PublicKeyBase64() string {
 	return base64.StdEncoding.EncodeToString(s.pub)
 }
 
+// Load reads an ed25519 private key from path (base64-encoded). It returns the
+// underlying fs error (e.g. fs.ErrNotExist) when the file is absent.
+func Load(path string) (*Signer, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	raw, derr := base64.StdEncoding.DecodeString(strings.TrimSpace(string(b)))
+	if derr != nil {
+		return nil, fmt.Errorf("key %s: %w", path, derr)
+	}
+	if len(raw) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("key %s: unexpected size %d", path, len(raw))
+	}
+	priv := ed25519.PrivateKey(raw)
+	return New(priv, priv.Public().(ed25519.PublicKey)), nil
+}
+
 // LoadOrCreate loads an ed25519 private key from path, or generates one and
 // saves it (0600) if the file does not exist. The parent directory is created
 // 0700. This gives a stable local signing identity.
 func LoadOrCreate(path string) (*Signer, error) {
-	b, err := os.ReadFile(path)
-	if err == nil {
-		raw, derr := base64.StdEncoding.DecodeString(strings.TrimSpace(string(b)))
-		if derr != nil {
-			return nil, fmt.Errorf("key %s: %w", path, derr)
-		}
-		if len(raw) != ed25519.PrivateKeySize {
-			return nil, fmt.Errorf("key %s: unexpected size %d", path, len(raw))
-		}
-		priv := ed25519.PrivateKey(raw)
-		return New(priv, priv.Public().(ed25519.PublicKey)), nil
-	}
-	if !errors.Is(err, fs.ErrNotExist) {
+	if s, err := Load(path); err == nil {
+		return s, nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 

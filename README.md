@@ -29,6 +29,7 @@ make build            # builds ./bin/agentguard (zero external dependencies)
 ./bin/agentguard verify --ci   # strict: apply the policy gate (see Policy below)
 ./bin/agentguard diff          # informational: what changed since the lockfile
 ./bin/agentguard approve <id>  # mark an artifact approved in the lockfile
+./bin/agentguard sign          # sign the lockfile with your local ed25519 key
 ```
 
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
@@ -44,7 +45,8 @@ finding. Example:
 {
   "failOnSeverity": "high",          // gate on new findings at/above this severity
   "ignoreRules": ["EXEC-PRIMITIVE"], // accepted false positives, suppressed
-  "requireApproval": true            // fail any artifact not `agentguard approve`d
+  "requireApproval": true,           // fail any artifact not `agentguard approve`d
+  "requireSignature": true           // fail unless the lockfile is validly signed
 }
 ```
 

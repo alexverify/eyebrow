@@ -22,6 +22,7 @@ type Deps struct {
 	Builder  *scan.Service // computes the current state
 	Lock     ports.LockStore
 	Reporter ports.Reporter
+	Verifier ports.LockfileVerifier // optional; required only for policy.RequireSignature
 }
 
 // Service orchestrates verification.
@@ -71,9 +72,26 @@ func (s *Service) Run(ctx context.Context, opts Options, out io.Writer) (Result,
 	var pres policy.Result
 	if opts.CI {
 		pres = policy.Evaluate(opts.Policy, locked, current)
+		if opts.Policy.RequireSignature {
+			if v := s.signatureViolation(locked); v != nil {
+				pres.Violations = append(pres.Violations, *v)
+			}
+		}
 		if !pres.OK() {
 			ok = false
 		}
 	}
 	return Result{Diff: diff, Policy: pres, OK: ok}, nil
+}
+
+// signatureViolation returns a policy violation if the locked lockfile is not
+// validly signed, or nil if it is.
+func (s *Service) signatureViolation(locked lockfile.Lockfile) *policy.Violation {
+	if s.deps.Verifier == nil {
+		return &policy.Violation{Kind: "signature", Detail: "no signing key available to verify the lockfile"}
+	}
+	if err := s.deps.Verifier.VerifyLockfile(locked); err != nil {
+		return &policy.Violation{Kind: "signature", Detail: err.Error()}
+	}
+	return nil
 }
