@@ -1,0 +1,114 @@
+// Package apptest provides in-memory fakes implementing the application ports.
+// They let the scan and verify use cases be tested end-to-end with no
+// filesystem, network, or subprocess access — the central benefit of the
+// ports-and-adapters design.
+package apptest
+
+import (
+	"context"
+	"io"
+	"time"
+
+	"github.com/agentguard/agentguard/internal/app/ports"
+	"github.com/agentguard/agentguard/internal/domain/artifact"
+	"github.com/agentguard/agentguard/internal/domain/finding"
+	"github.com/agentguard/agentguard/internal/domain/lockfile"
+)
+
+// Discoverer returns a fixed set of artifacts.
+type Discoverer struct {
+	Artifacts []artifact.Artifact
+	Err       error
+}
+
+// Discover satisfies ports.Discoverer.
+func (d Discoverer) Discover(context.Context, []ports.Scope) ([]artifact.Artifact, error) {
+	// Return copies so callers mutating results don't affect the fixture.
+	out := make([]artifact.Artifact, len(d.Artifacts))
+	copy(out, d.Artifacts)
+	return out, d.Err
+}
+
+// Resolver delegates to Func, or echoes the Source's Ref as a local path.
+type Resolver struct {
+	Func func(src artifact.Source) (ports.Resolution, error)
+}
+
+// Resolve satisfies ports.Resolver.
+func (r Resolver) Resolve(_ context.Context, src artifact.Source) (ports.Resolution, error) {
+	if r.Func != nil {
+		return r.Func(src)
+	}
+	return ports.Resolution{LocalPath: src.Ref}, nil
+}
+
+// Hasher returns a fixed hash and file list.
+type Hasher struct {
+	HashValue string
+	Files     []artifact.FileRef
+	Err       error
+}
+
+// Hash satisfies ports.Hasher.
+func (h Hasher) Hash(context.Context, string) (string, []artifact.FileRef, error) {
+	hv := h.HashValue
+	if hv == "" {
+		hv = "sha256-fake"
+	}
+	return hv, h.Files, h.Err
+}
+
+// Analyzer returns fixed findings.
+type Analyzer struct {
+	Findings []finding.Finding
+	Err      error
+}
+
+// Analyze satisfies ports.Analyzer.
+func (a Analyzer) Analyze(context.Context, artifact.Artifact, string) ([]finding.Finding, error) {
+	return a.Findings, a.Err
+}
+
+// LockStore is an in-memory ports.LockStore keyed by path.
+type LockStore struct {
+	store map[string]lockfile.Lockfile
+}
+
+// NewLockStore returns an empty in-memory lock store.
+func NewLockStore() *LockStore { return &LockStore{store: map[string]lockfile.Lockfile{}} }
+
+// Read satisfies ports.LockStore.
+func (s *LockStore) Read(_ context.Context, path string) (lockfile.Lockfile, error) {
+	lf, ok := s.store[path]
+	if !ok {
+		return lockfile.Lockfile{}, ports.ErrNoLockfile
+	}
+	return lf, nil
+}
+
+// Write satisfies ports.LockStore.
+func (s *LockStore) Write(_ context.Context, path string, lf lockfile.Lockfile) error {
+	s.store[path] = lf
+	return nil
+}
+
+// Exists satisfies ports.LockStore.
+func (s *LockStore) Exists(path string) bool { _, ok := s.store[path]; return ok }
+
+// Reporter discards output; tests assert on returned values, not text.
+type Reporter struct{}
+
+// Scan satisfies ports.Reporter.
+func (Reporter) Scan(io.Writer, lockfile.Lockfile) error { return nil }
+
+// Verify satisfies ports.Reporter.
+func (Reporter) Verify(io.Writer, lockfile.Diff) error { return nil }
+
+// List satisfies ports.Reporter.
+func (Reporter) List(io.Writer, lockfile.Lockfile) error { return nil }
+
+// FixedClock returns a constant time so lockfiles are byte-stable in tests.
+type FixedClock struct{ T time.Time }
+
+// Now satisfies ports.Clock.
+func (c FixedClock) Now() time.Time { return c.T }

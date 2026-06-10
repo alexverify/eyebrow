@@ -1,0 +1,18 @@
+# Build output
+/bin/
+/dist/
+agentguard
+
+# Go
+*.test
+*.out
+coverage.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local lockfiles produced during manual testing
+/agentlock.json

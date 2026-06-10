@@ -1,0 +1,24 @@
+# golangci-lint configuration for agentguard.
+# Optional locally; recommended in CI. Install: https://golangci-lint.run
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck      # unchecked errors
+    - govet         # suspicious constructs
+    - ineffassign   # ineffectual assignments
+    - staticcheck   # broad correctness/style analysis
+    - unused        # unused code
+    - misspell      # common spelling mistakes
+    - revive        # idiomatic Go style
+    - gocritic      # opinionated diagnostics
+    - bodyclose     # ensure HTTP bodies are closed (matters once proxy lands)
+    - copyloopvar   # loop variable capture
+    - nilerr        # returning nil after a non-nil error check
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
