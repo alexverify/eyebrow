@@ -110,6 +110,50 @@ func rulesFromDir(tool, root, scope, suffix string) []artifact.Artifact {
 	return out
 }
 
+// mdFilesFromDir discovers *.md files directly under root as artifacts of the
+// given type (e.g. Claude Code subagents under .claude/agents).
+func mdFilesFromDir(tool, root, scope string, typ artifact.Type) []artifact.Artifact {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil
+	}
+	var out []artifact.Artifact
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		path := filepath.Join(root, e.Name())
+		a := artifact.Artifact{
+			Tool:           tool,
+			Scope:          scope,
+			Type:           typ,
+			Name:           strings.TrimSuffix(e.Name(), ".md"),
+			Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: path},
+			DiscoveredFrom: path,
+		}
+		a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
+		out = append(out, a)
+	}
+	return out
+}
+
+// fileArtifact builds a single local-file artifact if the file exists, else nil.
+func fileArtifact(tool, path, scope string, typ artifact.Type, name string) []artifact.Artifact {
+	if fi, err := os.Stat(path); err != nil || fi.IsDir() {
+		return nil
+	}
+	a := artifact.Artifact{
+		Tool:           tool,
+		Scope:          scope,
+		Type:           typ,
+		Name:           name,
+		Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: path},
+		DiscoveredFrom: path,
+	}
+	a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
+	return []artifact.Artifact{a}
+}
+
 // sourceFromMCP maps an MCP server declaration to a Source, inferring the kind.
 // baseDir is the directory of the config file, used to absolutize local paths.
 func sourceFromMCP(d mcpDecl, baseDir string) artifact.Source {
