@@ -48,8 +48,8 @@ func Default() *Multi {
 	return NewMulti(
 		NewClaudeCode(),
 		NewCursor(),
+		NewGemini(),
 		Codex{},
-		Gemini{},
 		OpenCode{},
 	)
 }
