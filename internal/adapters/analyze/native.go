@@ -115,7 +115,7 @@ func (n *Native) Analyze(ctx context.Context, _ artifact.Artifact, root string) 
 			return ctx.Err()
 		}
 		if d.IsDir() {
-			if d.Name() == ".git" {
+			if isVendorDir(d.Name()) {
 				return fs.SkipDir
 			}
 			return nil
@@ -170,6 +170,33 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max] + "…"
+}
+
+// vendorDirNames are directories holding third-party dependency code. Analysis
+// skips them: flagging pip's or PIL's internals is noise that buries real
+// findings in the author's own code. Note this affects analysis only — the
+// hasher (internal/adapters/hash) still includes these dirs, because vendored
+// code does run and must be part of the integrity anchor.
+var vendorDirNames = map[string]bool{
+	".git":             true,
+	"node_modules":     true,
+	"bower_components": true,
+	".venv":            true,
+	"venv":             true,
+	"site-packages":    true,
+	"__pycache__":      true,
+	".tox":             true,
+	".mypy_cache":      true,
+	"vendor":           true,
+}
+
+// isVendorDir reports whether a directory name is a dependency/vendor dir that
+// analysis should skip, including Python package-metadata suffixes.
+func isVendorDir(name string) bool {
+	if vendorDirNames[name] {
+		return true
+	}
+	return strings.HasSuffix(name, ".dist-info") || strings.HasSuffix(name, ".egg-info")
 }
 
 // looksBinary reports whether the first chunk of b contains a NUL byte.
