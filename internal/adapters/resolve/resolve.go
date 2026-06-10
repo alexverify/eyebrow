@@ -1,11 +1,7 @@
 // Package resolve turns a Source declaration into concrete, pinned,
 // content-addressable code (or an integrity anchor for sources that cannot be
-// hashed locally). A Router dispatches by source kind to per-kind resolvers.
-//
-// Implemented now: local directories/files and inline content — enough for an
-// end-to-end scan of locally-installed artifacts. npm, git, and remote-url
-// resolution are documented seams returning ports.ErrNotImplemented, which the
-// scan service degrades into a finding rather than a hard failure.
+// hashed locally). A Router dispatches by source kind to per-kind resolvers:
+// local, inline, npm, git, and url.
 package resolve
 
 import (
@@ -17,6 +13,7 @@ import (
 	"github.com/agentguard/agentguard/internal/app/ports"
 	"github.com/agentguard/agentguard/internal/domain/artifact"
 	"github.com/agentguard/agentguard/internal/domain/digest"
+	"github.com/agentguard/agentguard/internal/platform/run"
 )
 
 // Router dispatches resolution by Source.Kind.
@@ -26,12 +23,13 @@ type Router struct {
 
 // NewRouter wires the default per-kind resolvers.
 func NewRouter() *Router {
+	runner := run.OS{}
 	return &Router{resolvers: map[artifact.SourceKind]ports.Resolver{
 		artifact.SourceLocal:  Local{},
 		artifact.SourceInline: Inline{},
-		artifact.SourceNPM:    notImplemented{artifact.SourceNPM},
-		artifact.SourceGit:    notImplemented{artifact.SourceGit},
-		artifact.SourceURL:    notImplemented{artifact.SourceURL},
+		artifact.SourceNPM:    NewNPM(runner),
+		artifact.SourceGit:    NewGit(runner),
+		artifact.SourceURL:    NewURL(TLSCertFetcher{}),
 	}}
 }
 
@@ -70,13 +68,4 @@ type Inline struct{}
 // Resolve satisfies ports.Resolver.
 func (Inline) Resolve(_ context.Context, src artifact.Source) (ports.Resolution, error) {
 	return ports.Resolution{ContentHash: digest.Inline([]byte(src.Ref))}, nil
-}
-
-// notImplemented is the shared stub for resolvers that are scaffolded but not
-// yet built (npm, git, url). It reports the kind so logs are actionable.
-type notImplemented struct{ kind artifact.SourceKind }
-
-// Resolve satisfies ports.Resolver.
-func (n notImplemented) Resolve(context.Context, artifact.Source) (ports.Resolution, error) {
-	return ports.Resolution{}, fmt.Errorf("%s resolver: %w", n.kind, ports.ErrNotImplemented)
 }
