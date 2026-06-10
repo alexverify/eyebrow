@@ -133,6 +133,20 @@ func (n *Native) Analyze(ctx context.Context, _ artifact.Artifact, root string) 
 	return out, nil
 }
 
+// AnalyzeContent scans an in-memory blob (e.g. an inline hook command) using
+// the same ruleset. Findings are labelled with the artifact's name since there
+// is no file path. Binary blobs are skipped.
+func (n *Native) AnalyzeContent(_ context.Context, a artifact.Artifact, content []byte) ([]finding.Finding, error) {
+	if looksBinary(content) {
+		return nil, nil
+	}
+	label := a.Name
+	if label == "" {
+		label = "<inline>"
+	}
+	return n.scanContent(label, content), nil
+}
+
 // scanContent applies every rule line-by-line so findings carry line numbers.
 func (n *Native) scanContent(relPath string, content []byte) []finding.Finding {
 	var out []finding.Finding

@@ -36,3 +36,19 @@ func (c *Chain) Analyze(ctx context.Context, a artifact.Artifact, root string) (
 	}
 	return out, nil
 }
+
+// AnalyzeContent satisfies ports.Analyzer for in-memory blobs.
+func (c *Chain) AnalyzeContent(ctx context.Context, a artifact.Artifact, content []byte) ([]finding.Finding, error) {
+	var out []finding.Finding
+	for _, an := range c.analyzers {
+		fs, err := an.AnalyzeContent(ctx, a, content)
+		if err != nil {
+			if errors.Is(err, ports.ErrNotImplemented) {
+				continue
+			}
+			return out, err
+		}
+		out = append(out, fs...)
+	}
+	return out, nil
+}

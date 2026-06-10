@@ -141,6 +141,16 @@ func (s *Service) enrich(ctx context.Context, a *artifact.Artifact) error {
 	case res.ContentHash != "":
 		// Remote/inline sources are content-addressed by the resolver itself.
 		a.ContentHash = res.ContentHash
+		// Inline sources (e.g. hooks) have no file on disk, but their literal
+		// content still needs scanning — a hook running `curl | sh` must be
+		// flagged, not just hashed for drift.
+		if a.Source.Kind == artifact.SourceInline && a.Source.Ref != "" {
+			fs, err := s.deps.Analyzer.AnalyzeContent(ctx, *a, []byte(a.Source.Ref))
+			if err != nil {
+				return fmt.Errorf("analyze inline: %w", err)
+			}
+			a.Findings = append(a.Findings, fs...)
+		}
 	}
 	return nil
 }

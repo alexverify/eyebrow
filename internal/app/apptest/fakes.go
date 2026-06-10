@@ -69,6 +69,11 @@ func (a Analyzer) Analyze(context.Context, artifact.Artifact, string) ([]finding
 	return a.Findings, a.Err
 }
 
+// AnalyzeContent satisfies ports.Analyzer.
+func (a Analyzer) AnalyzeContent(context.Context, artifact.Artifact, []byte) ([]finding.Finding, error) {
+	return a.Findings, a.Err
+}
+
 // LockStore is an in-memory ports.LockStore keyed by path.
 type LockStore struct {
 	store map[string]lockfile.Lockfile

@@ -42,3 +42,8 @@ func (s *Semgrep) Analyze(_ context.Context, _ artifact.Artifact, _ string) ([]f
 	// matchers authoritative.
 	return nil, nil
 }
+
+// AnalyzeContent is a no-op: Semgrep operates on files, not in-memory blobs.
+func (s *Semgrep) AnalyzeContent(_ context.Context, _ artifact.Artifact, _ []byte) ([]finding.Finding, error) {
+	return nil, nil
+}

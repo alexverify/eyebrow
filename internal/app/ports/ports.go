@@ -79,9 +79,12 @@ type Hasher interface {
 }
 
 // Analyzer runs static analysis over an artifact's resolved code, returning
-// findings mapped to the OWASP taxonomy.
+// findings mapped to the OWASP taxonomy. Analyze scans a directory or file on
+// disk; AnalyzeContent scans an in-memory blob (e.g. an inline hook command
+// that has no file on disk).
 type Analyzer interface {
 	Analyze(ctx context.Context, a artifact.Artifact, root string) ([]finding.Finding, error)
+	AnalyzeContent(ctx context.Context, a artifact.Artifact, content []byte) ([]finding.Finding, error)
 }
 
 // LockStore reads and writes agentlock.json.
