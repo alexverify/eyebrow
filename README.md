@@ -34,6 +34,19 @@ make build            # builds ./bin/agentguard (zero external dependencies)
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
 `2` usage error · `3` internal error.
 
+## Requirements
+
+The binary itself has no runtime dependencies. To **pin and hash remote sources**
+during a scan, agentguard shells out to the relevant tool:
+
+- `npm` — to resolve `npx`/npm MCP servers to an exact version + integrity and
+  fetch the package code.
+- `git` — to resolve git sources to a commit SHA.
+
+These are optional: if `npm`/`git` aren't on `PATH`, that source simply can't be
+pinned and is recorded as a finding instead — the scan still completes. Local
+paths, inline content, and remote-URL certificate pinning need nothing extra.
+
 ## What it detects today
 
 - **Drift / rug pulls** — any artifact whose content hash, pinned version, npm
