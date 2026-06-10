@@ -109,7 +109,7 @@ func TestVerifyCIGatesOnNewCriticalFinding(t *testing.T) {
 	if res.OK {
 		t.Fatal("CI verify must fail when a new critical finding appears")
 	}
-	if len(res.NewFindings) != 1 {
-		t.Fatalf("expected 1 new finding, got %+v", res.NewFindings)
+	if len(res.Policy.Violations) != 1 || res.Policy.Violations[0].RuleID != "RCE" {
+		t.Fatalf("expected 1 RCE policy violation, got %+v", res.Policy.Violations)
 	}
 }

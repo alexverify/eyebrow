@@ -26,13 +26,30 @@ make build            # builds ./bin/agentguard (zero external dependencies)
 ./bin/agentguard scan          # discover, hash, analyze → writes agentlock.json
 ./bin/agentguard list          # pretty inventory across tools
 ./bin/agentguard verify        # recompute & diff vs the lockfile (rug-pull check)
-./bin/agentguard verify --ci   # strict: also fail on new high/critical findings
+./bin/agentguard verify --ci   # strict: apply the policy gate (see Policy below)
 ./bin/agentguard diff          # informational: what changed since the lockfile
 ./bin/agentguard approve <id>  # mark an artifact approved in the lockfile
 ```
 
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
 `2` usage error · `3` internal error.
+
+## Policy (CI gating)
+
+`verify --ci` applies an optional `agentguard.policy.json` (commit it next to the
+lockfile). Absent a file, the default gate fails on any **new** high/critical
+finding. Example:
+
+```jsonc
+{
+  "failOnSeverity": "high",          // gate on new findings at/above this severity
+  "ignoreRules": ["EXEC-PRIMITIVE"], // accepted false positives, suppressed
+  "requireApproval": true            // fail any artifact not `agentguard approve`d
+}
+```
+
+A committed lockfile + policy + the `verify --ci` exit code give a small team
+"only approved, unmodified, clean artifacts run here" with no infrastructure.
 
 ## Requirements
 

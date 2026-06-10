@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/alexverify/agentguard/internal/adapters/lockstore"
+	"github.com/alexverify/agentguard/internal/adapters/policystore"
 	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/app/scan"
 	"github.com/alexverify/agentguard/internal/app/verify"
@@ -58,15 +59,24 @@ func (a *App) runScan(ctx context.Context, args []string) int {
 func (a *App) runVerify(ctx context.Context, args []string) int {
 	fs := a.flagSet("verify")
 	c := bindCommon(fs)
-	ci := fs.Bool("ci", false, "strict mode: also fail on newly introduced high/critical findings")
+	ci := fs.Bool("ci", false, "strict mode: also apply the policy gate (severity threshold, approvals)")
+	policyPath := fs.String("policy", "agentguard.policy.json", "policy file applied in --ci mode")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
+
+	pol, _, err := policystore.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
+		return ExitError
+	}
+
 	svc := a.verifyService(*c.json)
 	res, err := svc.Run(ctx, verify.Options{
 		Scopes:       a.scopes(*c.path, *c.global),
 		LockfilePath: *c.lockfile,
 		CI:           *ci,
+		Policy:       pol,
 	}, a.Stdout)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
@@ -75,6 +85,13 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 		}
 		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
 		return ExitError
+	}
+	for _, v := range res.Policy.Violations {
+		if v.Kind == "unapproved" {
+			fmt.Fprintf(a.Stdout, "policy: unapproved artifact %s (%s)\n", v.Name, v.ID)
+		} else {
+			fmt.Fprintf(a.Stdout, "policy: %s %s %s\n", v.Severity, v.RuleID, v.Detail)
+		}
 	}
 	if !res.OK {
 		return ExitDrift

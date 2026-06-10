@@ -2,7 +2,8 @@
 //
 // It recomputes the current inventory (reusing the scan pipeline), reads the
 // approved lockfile, diffs them, and decides pass/fail. In CI mode it also
-// fails on newly introduced findings at or above a severity threshold.
+// applies the team policy (severity threshold, rule suppression, required
+// approval) via the pure policy.Evaluate.
 package verify
 
 import (
@@ -12,8 +13,8 @@ import (
 
 	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/app/scan"
-	"github.com/alexverify/agentguard/internal/domain/finding"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/agentguard/internal/domain/policy"
 )
 
 // Deps are the collaborators verify needs.
@@ -35,16 +36,16 @@ func New(d Deps) *Service { return &Service{deps: d} }
 type Options struct {
 	Scopes       []ports.Scope
 	LockfilePath string
-	CI           bool             // strict mode: also gate on new findings
-	Threshold    finding.Severity // CI new-findings threshold (default: high)
+	CI           bool          // strict mode: also apply the policy gate
+	Policy       policy.Policy // the team policy (defaults applied by Evaluate)
 }
 
 // Result captures the verification outcome. OK is the single source of truth
 // the CLI maps to an exit code.
 type Result struct {
-	Diff        lockfile.Diff
-	NewFindings []finding.Finding
-	OK          bool
+	Diff   lockfile.Diff
+	Policy policy.Result
+	OK     bool
 }
 
 // Run reads the locked snapshot, rebuilds the current one, compares them, and
@@ -62,22 +63,17 @@ func (s *Service) Run(ctx context.Context, opts Options, out io.Writer) (Result,
 
 	diff := lockfile.Compare(locked, current)
 
-	var newFindings []finding.Finding
-	if opts.CI {
-		threshold := opts.Threshold
-		if threshold == "" {
-			threshold = finding.SeverityHigh
-		}
-		newFindings = lockfile.NewFindings(locked, current, threshold)
-	}
-
 	if err := s.deps.Reporter.Verify(out, diff); err != nil {
 		return Result{}, fmt.Errorf("report: %w", err)
 	}
 
 	ok := !diff.HasDrift()
-	if opts.CI && len(newFindings) > 0 {
-		ok = false
+	var pres policy.Result
+	if opts.CI {
+		pres = policy.Evaluate(opts.Policy, locked, current)
+		if !pres.OK() {
+			ok = false
+		}
 	}
-	return Result{Diff: diff, NewFindings: newFindings, OK: ok}, nil
+	return Result{Diff: diff, Policy: pres, OK: ok}, nil
 }

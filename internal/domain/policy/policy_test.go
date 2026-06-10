@@ -67,10 +67,12 @@ func TestEvaluateRespectsThreshold(t *testing.T) {
 }
 
 func TestEvaluateRequireApproval(t *testing.T) {
-	current := lf(entry("a", false), entry("b", true))
+	// Approval lives in the lockfile (locked); current is rebuilt without it.
+	locked := lf(entry("a", false), entry("b", true))
+	current := lf(entry("a", false), entry("b", false))
 	p := Policy{RequireApproval: true}
 
-	res := Evaluate(p, lf(), current)
+	res := Evaluate(p, locked, current)
 	if res.OK() {
 		t.Fatal("an unapproved artifact must violate requireApproval")
 	}

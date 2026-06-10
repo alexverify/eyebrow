@@ -63,6 +63,7 @@ interface that can be faked, swapped, or degraded without touching the core.
 | `internal/domain/finding` | domain | Static-analysis result type, severity ranking, OWASP mapping. |
 | `internal/domain/digest` | domain | Canonical Merkle content digest (pure, IO-free). |
 | `internal/domain/lockfile` | domain | Lockfile model, deterministic `Build`, and `Compare` (the rug-pull detector). |
+| `internal/domain/policy` | domain | Team policy model + pure `Evaluate` (the CI gate). |
 | `internal/app/ports` | application | All interface definitions + sentinel errors + `Scope`. |
 | `internal/app/scan` | application | `scan` use case: discover → resolve → hash → analyze → lock. |
 | `internal/app/verify` | application | `verify` use case: recompute → diff → gate. |
@@ -73,6 +74,7 @@ interface that can be faked, swapped, or degraded without touching the core.
 | `internal/adapters/hash` | adapter | Filesystem walk feeding the domain digest. |
 | `internal/adapters/analyze` | adapter | Native high-signal matchers + optional Semgrep accelerator. |
 | `internal/adapters/lockstore` | adapter | Atomic, deterministic `agentlock.json` read/write. |
+| `internal/adapters/policystore` | adapter | Loads `agentguard.policy.json` (optional; defaults if absent). |
 | `internal/adapters/sign` | adapter | ed25519 detached signatures. |
 | `internal/adapters/report` | adapter | Text and JSON reporters. |
 | `internal/cli` | adapter (driving) | Argument parsing, composition root, exit-code mapping. |

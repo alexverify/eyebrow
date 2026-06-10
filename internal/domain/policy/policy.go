@@ -77,8 +77,17 @@ func Evaluate(p Policy, locked, current lockfile.Lockfile) Result {
 	}
 
 	if p.RequireApproval {
+		// Approval state is recorded in the lockfile (locked), not in the freshly
+		// rebuilt current snapshot. An artifact passes only if it is present now
+		// AND approved in the lockfile, matched by stable ID.
+		approved := make(map[string]bool, len(locked.Artifacts))
+		for _, e := range locked.Artifacts {
+			if e.Approval != nil && e.Approval.Status == "approved" {
+				approved[e.ID] = true
+			}
+		}
 		for _, e := range current.Artifacts {
-			if e.Approval == nil || e.Approval.Status != "approved" {
+			if !approved[e.ID] {
 				violations = append(violations, Violation{
 					Kind: "unapproved",
 					ID:   e.ID,
