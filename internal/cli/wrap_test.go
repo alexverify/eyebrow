@@ -95,6 +95,29 @@ func TestWrapStatusListsServers(t *testing.T) {
 	}
 }
 
+// TestWrapCausesNoDrift is the regression that keeps scan and wrap compatible:
+// wrapping must not change what verify sees, or every wrap would read as a
+// rug pull.
+func TestWrapCausesNoDrift(t *testing.T) {
+	ctx := context.Background()
+	dir, lock := fixtureProject(t) // local stdio server, no network needed
+
+	app, _, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"scan", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
+		t.Fatalf("scan exit = %d, stderr=%s", code, errBuf.String())
+	}
+	app, _, _ = newApp()
+	if code := app.Execute(ctx, []string{"wrap", "--path", dir}); code != cli.ExitOK {
+		t.Fatal("wrap failed")
+	}
+
+	app, out, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"verify", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
+		t.Fatalf("verify after wrap: exit = %d (wrap must not read as drift)\nstdout=%s stderr=%s",
+			code, out.String(), errBuf.String())
+	}
+}
+
 func TestWrapUnsupportedTool(t *testing.T) {
 	app, _, errBuf := newApp()
 	if code := app.Execute(context.Background(), []string{"wrap", "--tool", "cursor", "--path", t.TempDir()}); code != cli.ExitUsage {

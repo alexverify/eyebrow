@@ -73,7 +73,7 @@ func inspect(name string, entry map[string]any) Server {
 	}
 	cmd, _ := entry["command"].(string)
 	args := stringSlice(entry["args"])
-	if orig, ok := unwrapArgv(args); ok {
+	if orig, ok := UnwrapArgv(args); ok {
 		s.Wrapped = true
 		s.Command = orig[0]
 		s.Args = orig[1:]
@@ -143,10 +143,12 @@ func (c *Config) Unwrap() int {
 	return changed
 }
 
-// unwrapArgv recognizes the shim's argument shape and returns the original
+// UnwrapArgv recognizes the shim's argument shape and returns the original
 // argv after "--". A malformed shim entry (no "--", nothing after it) is not
-// considered wrapped — it will never be modified.
-func unwrapArgv(args []string) ([]string, bool) {
+// considered wrapped — it will never be modified. Exported because discovery
+// also needs to see through wrapped entries (a wrapped server must produce
+// the same artifact as its unwrapped form, or wrap would read as drift).
+func UnwrapArgv(args []string) ([]string, bool) {
 	if len(args) == 0 || args[0] != shimSubcommand {
 		return nil, false
 	}

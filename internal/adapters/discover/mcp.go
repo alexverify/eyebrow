@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alexverify/agentguard/internal/adapters/mcpconfig"
 	"github.com/alexverify/agentguard/internal/domain/artifact"
 )
 
@@ -39,6 +40,7 @@ func mcpServersFromConfig(tool, path, scope string, parseFn func([]byte, any) er
 	}
 	out := make([]artifact.Artifact, 0, len(cfg.MCPServers))
 	for name, decl := range cfg.MCPServers {
+		decl = unshim(decl)
 		a := artifact.Artifact{
 			Tool:           tool,
 			Scope:          scope,
@@ -152,6 +154,17 @@ func fileArtifact(tool, path, scope string, typ artifact.Type, name string) []ar
 	}
 	a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
 	return []artifact.Artifact{a}
+}
+
+// unshim sees through `agentguard wrap`: a declaration routed via the
+// mcp-shim is normalized back to the underlying server, so wrapping never
+// changes the discovered artifact (and never reads as drift on verify).
+func unshim(d mcpDecl) mcpDecl {
+	if orig, ok := mcpconfig.UnwrapArgv(d.Args); ok {
+		d.Command = orig[0]
+		d.Args = orig[1:]
+	}
+	return d
 }
 
 // sourceFromMCP maps an MCP server declaration to a Source, inferring the kind.
