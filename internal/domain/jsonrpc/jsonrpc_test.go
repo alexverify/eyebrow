@@ -95,6 +95,24 @@ func TestTrackerCorrelatesCallAndResponse(t *testing.T) {
 	}
 }
 
+func TestTrackerCarriesArgsDigest(t *testing.T) {
+	tr := NewTracker()
+	t0 := time.Unix(0, 0)
+	tr.Observe(Parse([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run","arguments":{"cmd":"ls"}}}`)), t0)
+	done := tr.Observe(Parse([]byte(`{"jsonrpc":"2.0","id":1,"result":{}}`)), t0)
+	if done == nil || done.ArgsDigest == "" {
+		t.Fatalf("completed call must carry an args digest, got %+v", done)
+	}
+	// Same args → same digest; different args → different digest.
+	tr.Observe(Parse([]byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run","arguments":{"cmd":"ls"}}}`)), t0)
+	same := tr.Observe(Parse([]byte(`{"jsonrpc":"2.0","id":2,"result":{}}`)), t0)
+	tr.Observe(Parse([]byte(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"run","arguments":{"cmd":"rm"}}}`)), t0)
+	diff := tr.Observe(Parse([]byte(`{"jsonrpc":"2.0","id":3,"result":{}}`)), t0)
+	if same.ArgsDigest != done.ArgsDigest || diff.ArgsDigest == done.ArgsDigest {
+		t.Errorf("digest stability broken: %q %q %q", done.ArgsDigest, same.ArgsDigest, diff.ArgsDigest)
+	}
+}
+
 func TestTrackerErrorResponse(t *testing.T) {
 	tr := NewTracker()
 	t0 := time.Unix(0, 0)

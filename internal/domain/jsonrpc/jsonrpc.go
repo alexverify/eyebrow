@@ -9,6 +9,8 @@ package jsonrpc
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/alexverify/agentguard/internal/domain/digest"
 )
 
 // Kind classifies a wire line.
@@ -33,6 +35,7 @@ type Message struct {
 	ID       string // raw JSON token of the id ("1" vs "\"1\"" stay distinct)
 	Method   string // requests and notifications
 	ToolName string // params.name for tools/call requests
+	ArgsJSON []byte // raw params.arguments for tools/call requests
 	IsError  bool   // responses: error member present
 	ErrCode  int    // responses: error.code
 }
@@ -42,7 +45,8 @@ type wire struct {
 	ID     json.RawMessage `json:"id"`
 	Method string          `json:"method"`
 	Params struct {
-		Name string `json:"name"`
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
 	} `json:"params"`
 	Result json.RawMessage `json:"result"`
 	Error  *struct {
@@ -66,6 +70,7 @@ func Parse(line []byte) Message {
 		m := Message{Kind: KindRequest, ID: id, Method: w.Method}
 		if w.Method == MethodToolCall {
 			m.ToolName = w.Params.Name
+			m.ArgsJSON = w.Params.Arguments
 		}
 		return m
 	case w.Method != "":
@@ -79,19 +84,22 @@ func Parse(line []byte) Message {
 	}
 }
 
-// Pending is an in-flight tools/call.
+// Pending is an in-flight tools/call. Arguments are kept only as a digest —
+// the audit trail must never hold raw values (they routinely contain secrets).
 type Pending struct {
-	ID   string
-	Tool string
-	At   time.Time
+	ID         string
+	Tool       string
+	ArgsDigest string
+	At         time.Time
 }
 
 // Completed is a tools/call whose response arrived.
 type Completed struct {
-	Tool     string
-	Duration time.Duration
-	OK       bool
-	ErrCode  int
+	Tool       string
+	ArgsDigest string
+	Duration   time.Duration
+	OK         bool
+	ErrCode    int
 }
 
 // Tracker correlates tools/call requests with their responses by id.
@@ -111,7 +119,9 @@ func (t *Tracker) Observe(m Message, at time.Time) *Completed {
 	switch m.Kind {
 	case KindRequest:
 		if m.Method == MethodToolCall {
-			t.pending[m.ID] = Pending{ID: m.ID, Tool: m.ToolName, At: at}
+			t.pending[m.ID] = Pending{
+				ID: m.ID, Tool: m.ToolName, ArgsDigest: digest.Inline(m.ArgsJSON), At: at,
+			}
 		}
 	case KindResponse:
 		p, ok := t.pending[m.ID]
@@ -120,10 +130,11 @@ func (t *Tracker) Observe(m Message, at time.Time) *Completed {
 		}
 		delete(t.pending, m.ID)
 		return &Completed{
-			Tool:     p.Tool,
-			Duration: at.Sub(p.At),
-			OK:       !m.IsError,
-			ErrCode:  m.ErrCode,
+			Tool:       p.Tool,
+			ArgsDigest: p.ArgsDigest,
+			Duration:   at.Sub(p.At),
+			OK:         !m.IsError,
+			ErrCode:    m.ErrCode,
 		}
 	}
 	return nil

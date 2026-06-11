@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/audit"
 	"github.com/alexverify/agentguard/internal/domain/finding"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
@@ -105,6 +106,12 @@ type Signer interface {
 // trusted key. It returns nil when the signature verifies.
 type LockfileVerifier interface {
 	VerifyLockfile(lf lockfile.Lockfile) error
+}
+
+// AuditSink records shim audit events (see internal/domain/audit). Emitting
+// must be cheap and safe to call from the relay hot path.
+type AuditSink interface {
+	Emit(ctx context.Context, e audit.Event) error
 }
 
 // Reporter renders results for humans and machines.
