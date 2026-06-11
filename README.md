@@ -1,5 +1,7 @@
 # agentguard
 
+[![ci](https://github.com/alexverify/agentguard/actions/workflows/ci.yml/badge.svg)](https://github.com/alexverify/agentguard/actions/workflows/ci.yml)
+
 **Supply-chain integrity for AI coding tools.** A single static binary that
 discovers every skill, MCP server, plugin, hook, and rule installed across your
 AI coding tools, hashes them into a lockfile, statically scans them, and detects
@@ -16,6 +18,22 @@ Skills, MCP servers, and hooks run with your privileges and can change after you
 audit them. agentguard gives you a committable lockfile (`agentlock.json`) of
 exactly what's installed and what it does, and tells you the moment any of it
 changes.
+
+## Install
+
+Grab a static binary from the
+[releases page](https://github.com/alexverify/agentguard/releases) (Linux and
+macOS, amd64/arm64) and check it against the published `checksums.txt`:
+
+```sh
+shasum -a 256 -c --ignore-missing checksums.txt
+```
+
+Or build from source (requires Go 1.25+, nothing else):
+
+```sh
+make build   # → ./bin/agentguard
+```
 
 ## Quickstart
 
