@@ -156,12 +156,17 @@ func (a *App) runList(ctx context.Context, args []string) int {
 func (a *App) runApprove(ctx context.Context, args []string) int {
 	fs := a.flagSet("approve")
 	lock := fs.String("lockfile", "agentlock.json", "lockfile path")
+	all := fs.Bool("all", false, "approve every artifact in the lockfile (bulk onboarding)")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
 	ids := fs.Args()
-	if len(ids) == 0 {
-		fmt.Fprintln(a.Stderr, "approve: provide one or more artifact IDs (prefixes accepted)")
+	if *all && len(ids) > 0 {
+		fmt.Fprintln(a.Stderr, "approve: --all and explicit IDs are mutually exclusive")
+		return ExitUsage
+	}
+	if !*all && len(ids) == 0 {
+		fmt.Fprintln(a.Stderr, "approve: provide one or more artifact IDs (prefixes accepted), or --all")
 		return ExitUsage
 	}
 
@@ -180,12 +185,9 @@ func (a *App) runApprove(ctx context.Context, args []string) int {
 	who := currentUser()
 	matched := 0
 	for i := range lf.Artifacts {
-		for _, id := range ids {
-			if strings.HasPrefix(lf.Artifacts[i].ID, id) {
-				lf.Artifacts[i].Approval = &lockfile.Approval{Status: "approved", By: who, At: now}
-				matched++
-				break
-			}
+		if *all || matchesAnyPrefix(lf.Artifacts[i].ID, ids) {
+			lf.Artifacts[i].Approval = &lockfile.Approval{Status: "approved", By: who, At: now}
+			matched++
 		}
 	}
 	if matched == 0 {
@@ -288,6 +290,15 @@ func (a *App) runKeyTrust(args []string) int {
 	}
 	fmt.Fprintf(a.Stdout, "trusted key added to %s\n", *file)
 	return ExitOK
+}
+
+func matchesAnyPrefix(id string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(id, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func currentUser() string {
