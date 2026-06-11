@@ -7,10 +7,12 @@ package apptest
 import (
 	"context"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/agentguard/internal/domain/audit"
 	"github.com/alexverify/agentguard/internal/domain/finding"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
@@ -111,6 +113,28 @@ func (Reporter) Verify(io.Writer, lockfile.Diff) error { return nil }
 
 // List satisfies ports.Reporter.
 func (Reporter) List(io.Writer, lockfile.Lockfile) error { return nil }
+
+// AuditSink records emitted events in memory. Safe for concurrent emitters —
+// the shim relay audits from two goroutines.
+type AuditSink struct {
+	mu     sync.Mutex
+	events []audit.Event
+}
+
+// Emit satisfies ports.AuditSink.
+func (s *AuditSink) Emit(_ context.Context, e audit.Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.events = append(s.events, e)
+	return nil
+}
+
+// Events returns a copy of everything emitted so far.
+func (s *AuditSink) Events() []audit.Event {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]audit.Event(nil), s.events...)
+}
 
 // FixedClock returns a constant time so lockfiles are byte-stable in tests.
 type FixedClock struct{ T time.Time }
