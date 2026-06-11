@@ -55,6 +55,9 @@ make build            # builds ./bin/agentguard (zero external dependencies)
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
 `2` usage error · `3` internal error.
 
+The full solo and team workflows — policy, approvals, signing, trusted keys,
+CI — are walked through in [docs/usage.md](docs/usage.md).
+
 ## Policy (CI gating)
 
 `verify --ci` applies an optional `agentguard.policy.json` (commit it next to the
