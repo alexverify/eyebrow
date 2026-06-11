@@ -1,7 +1,7 @@
 # Build output
 /bin/
 /dist/
-agentguard
+/agentguard
 
 # Go
 *.test
