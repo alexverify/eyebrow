@@ -1,0 +1,38 @@
+# GoReleaser config: static cross-platform binaries with the version stamped
+# into buildinfo, plus a checksums file so installs are verifiable.
+# Validate with: goreleaser check && goreleaser release --snapshot --clean
+version: 2
+
+project_name: agentguard
+
+builds:
+  - main: ./cmd/agentguard
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/alexverify/agentguard/internal/buildinfo.Version={{.Version}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev"
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs"
+      - "^chore"
