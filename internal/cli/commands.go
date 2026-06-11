@@ -62,6 +62,7 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 	c := bindCommon(fs)
 	ci := fs.Bool("ci", false, "strict mode: also apply the policy gate (severity threshold, approvals)")
 	policyPath := fs.String("policy", "agentguard.policy.json", "policy file applied in --ci mode")
+	trustedKeys := fs.String("trusted-keys", "agentguard.trustedkeys", "committed trusted-keys registry checked by requireSignature")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -71,8 +72,13 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
 		return ExitError
 	}
+	verifier, err := a.lockfileVerifier(*trustedKeys)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
+		return ExitError
+	}
 
-	svc := a.verifyService(*c.json)
+	svc := a.verifyService(*c.json, verifier)
 	res, err := svc.Run(ctx, verify.Options{
 		Scopes:       a.scopes(*c.path, *c.global),
 		LockfilePath: *c.lockfile,
@@ -110,7 +116,7 @@ func (a *App) runDiff(ctx context.Context, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
-	svc := a.verifyService(*c.json)
+	svc := a.verifyService(*c.json, nil)
 	_, err := svc.Run(ctx, verify.Options{
 		Scopes:       a.scopes(*c.path, *c.global),
 		LockfilePath: *c.lockfile,
@@ -225,6 +231,60 @@ func (a *App) runSign(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	fmt.Fprintf(a.Stdout, "signed %s with key %s\n", *lock, signer.PublicKeyBase64())
+	return ExitOK
+}
+
+// runKey dispatches the key subcommands: `key show` prints (creating if
+// needed) the local public key to share with a team; `key trust` adds a
+// teammate's public key to a trusted-keys registry.
+func (a *App) runKey(ctx context.Context, args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(a.Stderr, "key: usage: agentguard key <show|trust> [flags]")
+		return ExitUsage
+	}
+	sub, rest := args[0], args[1:]
+	switch sub {
+	case "show":
+		return a.runKeyShow(rest)
+	case "trust":
+		return a.runKeyTrust(rest)
+	default:
+		fmt.Fprintf(a.Stderr, "key: unknown subcommand %q (want show or trust)\n", sub)
+		return ExitUsage
+	}
+}
+
+func (a *App) runKeyShow(args []string) int {
+	fs := a.flagSet("key show")
+	key := fs.String("key", a.keyPath(), "ed25519 private key path (created if absent)")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	signer, err := sign.LoadOrCreate(*key)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "key show: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintln(a.Stdout, signer.PublicKeyBase64())
+	return ExitOK
+}
+
+func (a *App) runKeyTrust(args []string) int {
+	fs := a.flagSet("key trust")
+	file := fs.String("file", a.trustedKeysPath(), "trusted-keys registry to add the key to")
+	name := fs.String("name", "", "optional label for the key (e.g. who owns it)")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(a.Stderr, "key trust: provide exactly one base64 public key (from 'agentguard key show')")
+		return ExitUsage
+	}
+	if err := sign.AppendTrustedKey(*file, fs.Arg(0), *name); err != nil {
+		fmt.Fprintf(a.Stderr, "key trust: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(a.Stdout, "trusted key added to %s\n", *file)
 	return ExitOK
 }
 

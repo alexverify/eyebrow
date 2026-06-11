@@ -65,6 +65,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runApprove(ctx, rest)
 	case "sign":
 		return a.runSign(ctx, rest)
+	case "key":
+		return a.runKey(ctx, rest)
 	case "version", "-v", "--version":
 		fmt.Fprintln(a.Stdout, buildinfo.UserAgent())
 		return ExitOK
@@ -91,6 +93,7 @@ Commands:
   list      Print the current inventory across tools
   approve   Mark artifact(s) as approved in the lockfile
   sign      Sign the lockfile with the local key
+  key       Manage signing identity (show) and trusted keys (trust)
   version   Print the version
   help      Show this help
 
@@ -129,13 +132,14 @@ func (a *App) scanService(jsonOut bool) *scan.Service {
 }
 
 // verifyService assembles the verify use case. It reuses a scan service purely
-// as the current-state builder (only Build is called, never Run).
-func (a *App) verifyService(jsonOut bool) *verify.Service {
+// as the current-state builder (only Build is called, never Run). The verifier
+// may be nil when the caller never applies a signature policy (diff).
+func (a *App) verifyService(jsonOut bool, verifier ports.LockfileVerifier) *verify.Service {
 	return verify.New(verify.Deps{
 		Builder:  a.scanService(jsonOut),
 		Lock:     lockstore.New(),
 		Reporter: reporter(jsonOut),
-		Verifier: a.lockfileVerifier(),
+		Verifier: verifier,
 	})
 }
 
@@ -145,12 +149,28 @@ func (a *App) keyPath() string {
 	return filepath.Join(home, ".agentguard", "key")
 }
 
-// lockfileVerifier returns a verifier backed by the local key, or nil if no key
-// exists yet (verify only needs it when a policy requires a signature).
-func (a *App) lockfileVerifier() ports.LockfileVerifier {
-	s, err := sign.Load(a.keyPath())
+// trustedKeysPath is the user-level trusted-keys registry.
+func (a *App) trustedKeysPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".agentguard", "trusted_keys")
+}
+
+// lockfileVerifier builds the trust set used to check lockfile signatures: the
+// committed project registry plus the user registry. Only when neither declares
+// any key does the local signing key count as trusted, so a single user
+// verifies their own signatures with zero ceremony while a committed registry
+// stays authoritative (local verify --ci behaves exactly like CI).
+func (a *App) lockfileVerifier(projectRegistry string) (ports.LockfileVerifier, error) {
+	kr, err := sign.LoadKeyring(projectRegistry, a.trustedKeysPath())
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return s
+	if kr.Len() == 0 {
+		if s, err := sign.Load(a.keyPath()); err == nil {
+			if err := kr.AddBase64(s.PublicKeyBase64()); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return kr, nil
 }

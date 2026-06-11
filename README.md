@@ -30,6 +30,8 @@ make build            # builds ./bin/agentguard (zero external dependencies)
 ./bin/agentguard diff          # informational: what changed since the lockfile
 ./bin/agentguard approve <id>  # mark an artifact approved in the lockfile
 ./bin/agentguard sign          # sign the lockfile with your local ed25519 key
+./bin/agentguard key show      # print your public key (share it with your team)
+./bin/agentguard key trust <k> # trust a teammate's public key
 ```
 
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
@@ -50,8 +52,19 @@ finding. Example:
 }
 ```
 
-A committed lockfile + policy + the `verify --ci` exit code give a small team
-"only approved, unmodified, clean artifacts run here" with no infrastructure.
+With `requireSignature`, the lockfile signature is checked against a
+**trusted-keys registry**: `agentguard.trustedkeys` committed next to the
+lockfile (one base64 ed25519 public key per line, optional label, `#` comments)
+merged with your personal `~/.agentguard/trusted_keys`. Each teammate shares
+their key with `agentguard key show` and registers others with
+`agentguard key trust <key> --name alice --file agentguard.trustedkeys`. When no
+registry declares any key, your own local key is trusted, so the single-user
+flow needs no setup; once a registry exists it is authoritative — local
+`verify --ci` behaves exactly like CI.
+
+A committed lockfile + policy + trusted keys + the `verify --ci` exit code give
+a small team "only approved, unmodified, clean, signed-by-us artifacts run
+here" with no infrastructure.
 
 ## Requirements
 
