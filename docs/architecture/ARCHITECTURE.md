@@ -156,17 +156,38 @@ The seams are deliberate. Common extensions:
 - **Change the signature scheme** (cosign/Sigstore): implement `ports.Signer`
   with a new prefix; callers are unaffected.
 
-## Roadmap seams (Components 2 & 3)
+## Component 2 — the MCP shim (observe-only slice built)
+
+`agentguard wrap` routes a tool's stdio MCP servers through
+`agentguard mcp-shim`, which relays JSON-RPC byte-for-byte and audits every
+`tools/call`. The slice follows the same hexagon:
+
+- **`internal/domain/jsonrpc`** — pure message classification and the
+  request/response tracker correlating each `tools/call` with its outcome.
+- **`internal/domain/audit`** — the event model; tool-call arguments are
+  recorded only as a content digest, never raw.
+- **`internal/app/shim`** — the relay use case: two line pumps over abstract
+  readers/writers, inspection on a parsed copy, forwarding untouched. Tested
+  entirely with in-memory pipes.
+- **`internal/adapters/auditlog`** — JSONL sink, one file per UTC day under
+  `~/.agentguard/audit/`.
+- **`internal/adapters/mcpconfig`** — the `.mcp.json` rewrite. The wrapped
+  form embeds the original argv after a `--`, so unwrap and `wrap --status`
+  are derived from the config itself, no side-channel state. Discovery reuses
+  the same recognition (`mcpconfig.UnwrapArgv`) to see through wrapped
+  entries — wrapping never reads as drift on verify.
+
+## Roadmap seams (rest of Components 2 & 3)
 
 These are documented, not yet built. Each plugs into the same model:
 
-- **`internal/wrap`, `internal/sandbox`, `internal/proxy`, `internal/audit`** —
-  the runtime MCP firewall (interposition supervisor + OS sandbox + egress
-  proxy with secret redaction). Driven by a future `wrap` command.
+- **`internal/sandbox`, `internal/proxy`** — OS sandbox profiles and the
+  egress proxy with secret redaction. Policy enforcement inside the shim's
+  `tools/call` path comes first and needs no new packages.
 - **`internal/client`, `controlplane/`** — the team control plane (policy pull,
   lockfile submission, audit ingest, dashboard).
-- **`rules/`, `action/`, `packaging/`** — the Semgrep rules pack, the GitHub CI
-  Action, and release tooling (GoReleaser, Homebrew, install.sh, npm shim).
+- **`packaging/`** — release tooling beyond GoReleaser (Homebrew, install.sh,
+  npm shim).
 
 See each directory's `README.md` / `doc.go` for the specific seam.
 

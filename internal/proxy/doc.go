@@ -7,7 +7,7 @@
 // request bodies/headers (AWS AKIA…, OpenAI/Anthropic keys, Solana/base58 seeds,
 // JWTs, KEY=value env leaks) before forwarding, and logs every connection
 // { server, host, method, bytesUp, bytesDown, allowed, redactions, ts } to the
-// audit trail (see internal/audit).
+// audit trail (see internal/domain/audit and internal/adapters/auditlog).
 //
 // Defaults for the MVP: fail-open-with-alert, because a security tool that
 // silently breaks workflows gets uninstalled. Not yet implemented.

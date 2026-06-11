@@ -83,6 +83,35 @@ language-aware findings (`SEMGREP-*`) on top of the native matchers. Nothing is
 required: no semgrep, no rules dir, or a broken semgrep all degrade to the
 native analysis alone.
 
+## Watching your MCP servers (`wrap`)
+
+Static analysis tells you what an MCP server *could* do; the shim records what
+it *actually does*:
+
+```sh
+agentguard wrap              # route this project's stdio MCP servers through the shim
+agentguard wrap --status     # what's wrapped, and what really runs underneath
+agentguard unwrap            # restore the original config
+```
+
+`wrap` rewrites `.mcp.json` so each stdio server launches via
+`agentguard mcp-shim`, which relays the protocol byte-for-byte (the tool can't
+tell the difference) and appends one line per tool call to
+`~/.agentguard/audit/<date>.jsonl`:
+
+```json
+{"ts":"…","session":"3f2a…","server":"github","kind":"tool_call","tool":"create_issue","argsDigest":"sha256-…","durationMs":412,"status":"ok"}
+```
+
+Arguments are recorded only as a digest — the log never holds raw values, so
+it can't leak the secrets that pass through tool calls. Session start, server
+exit, and calls the server died without answering are logged too.
+
+Wrapping is invisible to `scan`/`verify`: discovery sees through the shim to
+the real underlying server, so wrapping never shows up as drift. Claude Code
+projects only for now; enforcement (blocking calls by policy) is the next
+slice on this foundation.
+
 ## Exit codes (stable contract)
 
 `0` clean · `1` drift or policy violation · `2` usage error · `3` internal

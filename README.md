@@ -50,6 +50,9 @@ make build            # builds ./bin/agentguard (zero external dependencies)
 ./bin/agentguard sign          # sign the lockfile with your local ed25519 key
 ./bin/agentguard key show      # print your public key (share it with your team)
 ./bin/agentguard key trust <k> # trust a teammate's public key
+./bin/agentguard wrap          # audit every MCP tool call via the stdio shim
+./bin/agentguard wrap --status # what's wrapped + the real underlying commands
+./bin/agentguard unwrap        # restore the original MCP config
 ```
 
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
@@ -153,7 +156,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 | Component | What | Status |
 |---|---|---|
 | 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex) |
-| 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | designed, seamed |
+| 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **in progress** — stdio shim + tool-call audit log shipped (observe-only) |
 | 3 — control plane | Policy API, audit log, approval workflow, dashboard | designed, seamed |
 
 ## License
