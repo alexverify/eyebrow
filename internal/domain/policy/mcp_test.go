@@ -73,6 +73,35 @@ func TestDecideToolStarServerAppliesEverywhere(t *testing.T) {
 	}
 }
 
+func TestDecideHostSemanticsMirrorTools(t *testing.T) {
+	p := Policy{MCP: MCPPolicy{Servers: map[string]ToolRule{
+		"github": {AllowHosts: []string{"api.github.com", "*.githubusercontent.com"}},
+		"*":      {DenyHosts: []string{"*.evil.example"}},
+	}}}
+
+	for _, tc := range []struct {
+		server, host string
+		want         bool
+	}{
+		{"github", "api.github.com", true},
+		{"github", "raw.githubusercontent.com", true},
+		{"github", "exfil.attacker.net", false}, // allowlist is exhaustive
+		{"github", "cdn.evil.example", false},   // star deny stacks on top
+		{"other", "anywhere.example", true},     // no rules for this server
+		{"other", "x.evil.example", false},      // star deny reaches everyone
+	} {
+		if d := p.DecideHost(tc.server, tc.host); d.Allowed != tc.want {
+			t.Errorf("DecideHost(%s, %s) = %v, want %v (%s)", tc.server, tc.host, d.Allowed, tc.want, d.Reason)
+		}
+	}
+}
+
+func TestDecideHostNoRulesAllows(t *testing.T) {
+	if d := (Policy{}).DecideHost("any", "example.com"); !d.Allowed {
+		t.Fatalf("no network rules must allow everything: %+v", d)
+	}
+}
+
 func TestDecideToolServerAllowlistFallsBackToStar(t *testing.T) {
 	p := Policy{MCP: MCPPolicy{Servers: map[string]ToolRule{
 		"*": {AllowTools: []string{"read_*"}},
