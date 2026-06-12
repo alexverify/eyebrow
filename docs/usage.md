@@ -184,6 +184,22 @@ and the standard system paths may need their location made writable/readable;
 start with `--workspace` pointed at a dir that contains what the server needs
 to write.
 
+### Reading the audit log
+
+`agentguard audit` queries what the shim recorded:
+
+```sh
+agentguard audit                          # summary: counts by server, denials, redactions
+agentguard audit --list                   # every event, newest filters applied
+agentguard audit --status denied --list   # just what got blocked
+agentguard audit --server github --since 2026-06-01 --list
+agentguard audit --list --json            # machine-readable
+```
+
+Filters (`--server`, `--tool`, `--status`, `--kind`, `--since`) compose. The
+summary is the fast "what have my MCP servers been doing" view; `--list` is the
+forensic detail.
+
 ## Exit codes (stable contract)
 
 `0` clean · `1` drift or policy violation · `2` usage error · `3` internal

@@ -72,6 +72,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runWrap(ctx, rest)
 	case "unwrap":
 		return a.runUnwrap(ctx, rest)
+	case "audit":
+		return a.runAudit(ctx, rest)
 	case "mcp-shim":
 		return a.runMCPShim(ctx, rest)
 	case "version", "-v", "--version":
@@ -103,6 +105,7 @@ Commands:
   key       Manage signing identity (show) and trusted keys (trust)
   wrap      Route a tool's MCP servers through the auditing shim (--status to inspect)
   unwrap    Restore the original MCP config
+  audit     Summarize or list the MCP shim's audit log
   version   Print the version
   help      Show this help
 
