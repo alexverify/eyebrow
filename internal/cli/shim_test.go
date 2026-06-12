@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -205,6 +207,60 @@ func TestMcpShimSandboxConfinesWrites(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"out":"denied"`) {
 		t.Errorf("sandbox failed to deny out-of-workspace write: %q", out.String())
+	}
+}
+
+// TestMcpShimSandboxBlocksOffProxyEgress is the payoff of the slice: with the
+// sandbox on, a server bypassing HTTP_PROXY to hit a host directly cannot
+// connect (network is confined to the proxy port); with --no-sandbox it can.
+func TestMcpShimSandboxBlocksOffProxyEgress(t *testing.T) {
+	if sandbox.Select(sandbox.Profile{}).Name() == "none" {
+		t.Skip("no sandbox backend on this host")
+	}
+	if _, err := exec.LookPath("curl"); err != nil {
+		t.Skip("curl not available")
+	}
+	// A listener the server will try to reach directly (bypassing the proxy).
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			c.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 7\r\n\r\nREACHED"))
+			c.Close()
+		}
+	}()
+	target := "http://" + ln.Addr().String() + "/"
+
+	run := func(extra ...string) string {
+		work := t.TempDir()
+		server := filepath.Join(work, "server.sh")
+		// --noproxy '*' forces a direct connection, ignoring HTTP(S)_PROXY.
+		script := "#!/bin/sh\nread line\n" +
+			"r=$(curl -s --noproxy '*' --max-time 3 " + target + " 2>/dev/null)\n" +
+			`printf '{"jsonrpc":"2.0","id":1,"result":{"got":"%s"}}\n' "$r"` + "\n"
+		if err := os.WriteFile(server, []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		app, out, _ := newApp()
+		app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"x","arguments":{}}}` + "\n")
+		args := append([]string{"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--workspace", work}, extra...)
+		args = append(args, "--", "/bin/sh", server)
+		app.Execute(context.Background(), args)
+		return out.String()
+	}
+
+	if got := run("--no-sandbox"); !strings.Contains(got, "REACHED") {
+		t.Fatalf("control: unsandboxed server should reach the listener, got %q", got)
+	}
+	if got := run(); strings.Contains(got, "REACHED") {
+		t.Fatalf("sandbox failed to block a direct off-proxy connection: %q", got)
 	}
 }
 
