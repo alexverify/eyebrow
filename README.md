@@ -159,7 +159,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Component | What | Status |
 |---|---|---|
-| 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex) |
+| 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex, Windsurf, Copilot CLI) |
 | 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **implemented** — shim with audit log, live tool policy, egress proxy + secret redaction, OS sandbox (Seatbelt/bwrap) |
 | 3 — control plane | Policy API, audit log, approval workflow, dashboard | designed, seamed |
 

@@ -43,7 +43,7 @@ func (m *Multi) Discover(ctx context.Context, scopes []ports.Scope) ([]artifact.
 }
 
 // Default returns discoverers for every supported tool: Claude Code, Cursor,
-// Gemini, OpenCode, and Codex.
+// Gemini, OpenCode, Codex, Windsurf, and GitHub Copilot CLI.
 func Default() *Multi {
 	return NewMulti(
 		NewClaudeCode(),
@@ -51,5 +51,7 @@ func Default() *Multi {
 		NewGemini(),
 		NewOpenCode(),
 		NewCodex(),
+		NewWindsurf(),
+		NewCopilot(),
 	)
 }
