@@ -19,6 +19,8 @@ const (
 	KindToolCall Kind = "tool_call"
 	// KindServerExit marks the wrapped server terminating.
 	KindServerExit Kind = "server_exit"
+	// KindEgress records one outbound connection through the egress proxy.
+	KindEgress Kind = "egress"
 )
 
 // Statuses for KindToolCall events.
@@ -40,5 +42,12 @@ type Event struct {
 	DurationMs int64     `json:"durationMs,omitempty"`
 	Status     string    `json:"status,omitempty"`
 	ErrCode    int       `json:"errCode,omitempty"`
-	Detail     string    `json:"detail,omitempty"` // e.g. exit status for server_exit
+	Detail     string    `json:"detail,omitempty"` // e.g. exit status, denial reason
+
+	// Egress fields (KindEgress only).
+	Host       string `json:"host,omitempty"`
+	Method     string `json:"method,omitempty"` // HTTP method, or CONNECT for tunnels
+	BytesUp    int64  `json:"bytesUp,omitempty"`
+	BytesDown  int64  `json:"bytesDown,omitempty"`
+	Redactions int    `json:"redactions,omitempty"` // secrets stripped from the request body
 }
