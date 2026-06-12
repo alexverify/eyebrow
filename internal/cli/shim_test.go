@@ -63,6 +63,68 @@ func TestMcpShimRelaysAndAudits(t *testing.T) {
 	}
 }
 
+// TestMcpShimEnforcesPolicy proves the full enforcement path: a denied call
+// is answered by the shim, never reaches the server, and is audited.
+func TestMcpShimEnforcesPolicy(t *testing.T) {
+	dir := t.TempDir()
+	received := filepath.Join(dir, "received.log")
+	server := filepath.Join(dir, "server.sh")
+	// The server records every line it receives; answers nothing.
+	script := "#!/bin/sh\ncat > " + received + "\n"
+	if err := os.WriteFile(server, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	policyPath := filepath.Join(dir, "agentguard.policy.json")
+	pol := `{"mcp": {"servers": {"demo": {"denyTools": ["delete_*"]}}}}`
+	if err := os.WriteFile(policyPath, []byte(pol), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	auditDir := filepath.Join(dir, "audit")
+
+	app, out, errBuf := newApp()
+	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"delete_repo","arguments":{"repo":"prod"}}}` + "\n")
+	code := app.Execute(context.Background(), []string{
+		"mcp-shim", "--server", "demo", "--audit-dir", auditDir, "--policy", policyPath,
+		"--", "/bin/sh", server,
+	})
+	if code != 0 {
+		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
+	}
+
+	if !strings.Contains(out.String(), `"id":42`) || !strings.Contains(out.String(), "agentguard policy") {
+		t.Errorf("client must receive the denial for its id: %q", out.String())
+	}
+	if b, _ := os.ReadFile(received); strings.Contains(string(b), "delete_repo") {
+		t.Errorf("denied call leaked to the server: %q", b)
+	}
+	for _, e := range readAuditEvents(t, auditDir) {
+		if e.Kind == audit.KindToolCall {
+			if e.Status != audit.StatusDenied || e.Tool != "delete_repo" {
+				t.Errorf("tool_call event = %+v", e)
+			}
+			return
+		}
+	}
+	t.Fatal("denial not audited")
+}
+
+func TestMcpShimRejectsBrokenPolicy(t *testing.T) {
+	dir := t.TempDir()
+	policyPath := filepath.Join(dir, "agentguard.policy.json")
+	if err := os.WriteFile(policyPath, []byte("{broken"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app, _, _ := newApp()
+	app.Stdin = strings.NewReader("")
+	code := app.Execute(context.Background(), []string{
+		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--policy", policyPath,
+		"--", "/bin/true",
+	})
+	if code != cli.ExitError {
+		t.Fatalf("a malformed policy must fail loudly, got exit %d", code)
+	}
+}
+
 func TestMcpShimPropagatesExitCode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "failing.sh")
 	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 7\n"), 0o755); err != nil {

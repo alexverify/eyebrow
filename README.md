@@ -72,7 +72,10 @@ finding. Example:
   "failOnSeverity": "high",          // gate on new findings at/above this severity
   "ignoreRules": ["EXEC-PRIMITIVE"], // accepted false positives, suppressed
   "requireApproval": true,           // fail any artifact not `agentguard approve`d
-  "requireSignature": true           // fail unless the lockfile is validly signed
+  "requireSignature": true,          // fail unless the lockfile is validly signed
+  "mcp": {                           // runtime tool rules, enforced live by `wrap`
+    "servers": { "github": { "denyTools": ["delete_*"] } }
+  }
 }
 ```
 
@@ -156,7 +159,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 | Component | What | Status |
 |---|---|---|
 | 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex) |
-| 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **in progress** — stdio shim + tool-call audit log shipped (observe-only) |
+| 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **in progress** — stdio shim with tool-call audit log + live policy enforcement |
 | 3 — control plane | Policy API, audit log, approval workflow, dashboard | designed, seamed |
 
 ## License

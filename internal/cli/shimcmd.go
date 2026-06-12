@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/alexverify/agentguard/internal/adapters/auditlog"
+	"github.com/alexverify/agentguard/internal/adapters/policystore"
 	"github.com/alexverify/agentguard/internal/app/shim"
 	"github.com/alexverify/agentguard/internal/domain/audit"
 )
@@ -27,6 +28,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	fs := a.flagSet("mcp-shim")
 	server := fs.String("server", "", "name of the wrapped MCP server (for the audit log)")
 	auditDir := fs.String("audit-dir", a.auditDir(), "audit log directory")
+	policyPath := fs.String("policy", "agentguard.policy.json", "policy file with mcp tool rules (cwd is the project root)")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -34,6 +36,15 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	if *server == "" || len(argv) == 0 {
 		fmt.Fprintln(a.Stderr, "mcp-shim: usage: agentguard mcp-shim --server <name> -- <command> [args...]")
 		return ExitUsage
+	}
+
+	// A missing policy file means "allow everything" (the shim stays
+	// observe-only); a malformed one fails loudly — silently dropping the
+	// team's rules would be worse than refusing to start.
+	pol, _, err := policystore.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "mcp-shim: %v\n", err)
+		return ExitError
 	}
 
 	sink := auditlog.New(*auditDir)
@@ -68,7 +79,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	}()
 
 	relay := shim.New(shim.Deps{Audit: sink, Clock: a.Clock})
-	_ = relay.Run(ctx, shim.Options{Server: *server, Session: session},
+	_ = relay.Run(ctx, shim.Options{Server: *server, Session: session, Policy: pol},
 		a.Stdin, a.Stdout, serverIn, serverOut)
 
 	exitCode, detail := waitChild(child)

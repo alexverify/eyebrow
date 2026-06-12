@@ -109,8 +109,36 @@ exit, and calls the server died without answering are logged too.
 
 Wrapping is invisible to `scan`/`verify`: discovery sees through the shim to
 the real underlying server, so wrapping never shows up as drift. Claude Code
-projects only for now; enforcement (blocking calls by policy) is the next
-slice on this foundation.
+projects only for now.
+
+### Blocking calls, not just watching them
+
+Add an `mcp` section to the same committed `agentguard.policy.json` and the
+shim enforces it live:
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "github": { "denyTools": ["delete_*"] },          // never, even if allowlisted
+      "db":     { "allowTools": ["select", "get_*"] },  // exhaustive: only these
+      "*":      { "denyTools": ["execute_raw"] }        // applies to every server
+    }
+  }
+}
+```
+
+Patterns are glob-style (`delete_*`); deny always wins over allow; a server
+with an `allowTools` list may run *only* those tools; servers without rules
+are untouched. A denied call never reaches the server — the shim answers the
+agent with a JSON-RPC error naming the rule, and the audit log records
+`"status":"denied"` with the matched pattern. A missing policy file means
+observe-only; a malformed one refuses to start rather than silently dropping
+your rules.
+
+The shim resolves the policy file relative to the server's working directory
+(the project root, for Claude Code) — the same committed file `verify --ci`
+uses, so one artifact carries both the CI gate and the runtime rules.
 
 ## Exit codes (stable contract)
 
