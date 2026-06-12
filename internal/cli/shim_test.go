@@ -125,6 +125,43 @@ func TestMcpShimRejectsBrokenPolicy(t *testing.T) {
 	}
 }
 
+// TestMcpShimInjectsEgressProxy: the wrapped server must see HTTP(S)_PROXY
+// pointing at a live agentguard proxy.
+func TestMcpShimInjectsEgressProxy(t *testing.T) {
+	dir := t.TempDir()
+	server := filepath.Join(dir, "server.sh")
+	script := `#!/bin/sh
+read line
+printf '{"jsonrpc":"2.0","id":1,"result":{"proxy":"%s %s"}}\n' "$HTTP_PROXY" "$HTTPS_PROXY"
+`
+	if err := os.WriteFile(server, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	app, out, errBuf := newApp()
+	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
+	code := app.Execute(context.Background(), []string{
+		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--", "/bin/sh", server,
+	})
+	if code != 0 {
+		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "http://127.0.0.1:") {
+		t.Fatalf("child must see HTTP(S)_PROXY set: %q", out.String())
+	}
+
+	// And --no-egress-proxy must leave the environment alone.
+	app, out, _ = newApp()
+	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
+	app.Execute(context.Background(), []string{
+		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--no-egress-proxy",
+		"--", "/bin/sh", server,
+	})
+	if strings.Contains(out.String(), "http://127.0.0.1:") {
+		t.Fatalf("--no-egress-proxy must not inject proxy env: %q", out.String())
+	}
+}
+
 func TestMcpShimPropagatesExitCode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "failing.sh")
 	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 7\n"), 0o755); err != nil {

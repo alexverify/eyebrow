@@ -176,14 +176,20 @@ The seams are deliberate. Common extensions:
   are derived from the config itself, no side-channel state. Discovery reuses
   the same recognition (`mcpconfig.UnwrapArgv`) to see through wrapped
   entries — wrapping never reads as drift on verify.
+- **`internal/domain/secrets`** — pure credential-shape detection/redaction,
+  used by the egress proxy on plain-HTTP bodies.
+- **`internal/proxy`** — the per-server egress proxy the shim injects via
+  `HTTP(S)_PROXY`: policy host rules (`policy.DecideHost`), body redaction,
+  and a `kind:"egress"` audit event per connection (host, method, bytes both
+  ways, redactions). CONNECT tunnels are allowlisted and byte-counted but not
+  inspected (no TLS interception).
 
 ## Roadmap seams (rest of Components 2 & 3)
 
 These are documented, not yet built. Each plugs into the same model:
 
-- **`internal/sandbox`, `internal/proxy`** — OS sandbox profiles and the
-  egress proxy with secret redaction. Policy enforcement inside the shim's
-  `tools/call` path comes first and needs no new packages.
+- **`internal/sandbox`** — OS sandbox profiles (Seatbelt/bwrap) that make the
+  proxy routing mandatory instead of cooperative.
 - **`internal/client`, `controlplane/`** — the team control plane (policy pull,
   lockfile submission, audit ingest, dashboard).
 - **`packaging/`** — release tooling beyond GoReleaser (Homebrew, install.sh,

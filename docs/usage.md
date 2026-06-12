@@ -140,6 +140,29 @@ The shim resolves the policy file relative to the server's working directory
 (the project root, for Claude Code) — the same committed file `verify --ci`
 uses, so one artifact carries both the CI gate and the runtime rules.
 
+### Egress: where servers may connect, and what leaves
+
+The shim also starts a local egress proxy per wrapped server and points the
+server's HTTP stack at it (`HTTP_PROXY`/`HTTPS_PROXY`). Three things happen
+to outbound traffic:
+
+- **Host rules** — `allowHosts`/`denyHosts` next to the tool rules, same
+  semantics (`"db": {"allowHosts": ["api.internal.example"]}`). Blocked
+  connections get a 403 and an audit line; the attempt is the signal.
+- **Secret redaction** — plain-HTTP request bodies are scanned for known
+  credential shapes (AWS keys, Anthropic/OpenAI/GitHub/Slack/Google tokens,
+  JWTs, PEM private keys, base58 wallet seeds) and matches are replaced with
+  `[REDACTED:<kind>]` before forwarding. The audit records counts and kinds,
+  never values.
+- **Accounting** — every connection logs `host`, `method`, `bytesUp`,
+  `bytesDown` as a `kind:"egress"` event in the same JSONL audit log.
+
+Two honest limitations until the sandbox slice: HTTPS rides CONNECT tunnels
+the proxy can't see inside, so redaction applies to plain HTTP only (host
+rules and byte accounting apply to everything); and routing through the proxy
+is cooperative — a hostile server can ignore the env vars. Disable per server
+with `--no-egress-proxy` in the wrapped args if something misbehaves.
+
 ## Exit codes (stable contract)
 
 `0` clean · `1` drift or policy violation · `2` usage error · `3` internal

@@ -15,6 +15,7 @@ import (
 	"github.com/alexverify/agentguard/internal/adapters/policystore"
 	"github.com/alexverify/agentguard/internal/app/shim"
 	"github.com/alexverify/agentguard/internal/domain/audit"
+	"github.com/alexverify/agentguard/internal/proxy"
 )
 
 // runMCPShim is the hidden command `wrap` installs into MCP configs:
@@ -29,6 +30,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	server := fs.String("server", "", "name of the wrapped MCP server (for the audit log)")
 	auditDir := fs.String("audit-dir", a.auditDir(), "audit log directory")
 	policyPath := fs.String("policy", "agentguard.policy.json", "policy file with mcp tool rules (cwd is the project root)")
+	noProxy := fs.Bool("no-egress-proxy", false, "do not route the server's HTTP(S) traffic through the auditing egress proxy")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -52,6 +54,25 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 
 	child := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	child.Stderr = a.Stderr // the server's stderr stays visible to the tool
+
+	// Point the server's HTTP stack at the egress proxy (host rules, body
+	// redaction, per-connection audit). Cooperative until the sandbox slice:
+	// well-behaved HTTP libraries honor these variables.
+	if !*noProxy {
+		egress := proxy.New(
+			proxy.Deps{Audit: sink, Clock: a.Clock},
+			proxy.Options{Server: *server, Session: session, Policy: pol},
+		)
+		addr, perr := egress.Start()
+		if perr != nil {
+			fmt.Fprintf(a.Stderr, "mcp-shim: egress proxy disabled: %v\n", perr)
+		} else {
+			defer egress.Close()
+			pu := "http://" + addr
+			child.Env = append(os.Environ(),
+				"HTTP_PROXY="+pu, "HTTPS_PROXY="+pu, "http_proxy="+pu, "https_proxy="+pu)
+		}
+	}
 	serverIn, err := child.StdinPipe()
 	if err != nil {
 		fmt.Fprintf(a.Stderr, "mcp-shim: %v\n", err)
