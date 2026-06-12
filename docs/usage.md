@@ -157,11 +157,32 @@ to outbound traffic:
 - **Accounting** — every connection logs `host`, `method`, `bytesUp`,
   `bytesDown` as a `kind:"egress"` event in the same JSONL audit log.
 
-Two honest limitations until the sandbox slice: HTTPS rides CONNECT tunnels
-the proxy can't see inside, so redaction applies to plain HTTP only (host
-rules and byte accounting apply to everything); and routing through the proxy
-is cooperative — a hostile server can ignore the env vars. Disable per server
-with `--no-egress-proxy` in the wrapped args if something misbehaves.
+One limitation: HTTPS rides CONNECT tunnels the proxy can't see inside, so
+redaction applies to plain HTTP only (host rules and byte accounting apply to
+everything). Disable per server with `--no-egress-proxy` if something
+misbehaves.
+
+### Sandbox: confinement, so the rules can't be bypassed
+
+On macOS (Seatbelt) and Linux (bubblewrap), `wrap` also runs each server
+inside an OS sandbox. This is what turns the egress proxy from *cooperative*
+(env vars a server could ignore) into *enforced* — a sandboxed server has no
+network path except the proxy port, so it cannot connect out directly even if
+it tries. The profile:
+
+- **Reads:** permissive, so the runtime and its libraries load — *except*
+  credential dirs (`~/.ssh`, `~/.aws`, `~/.config/solana`, `~/.gnupg`,
+  `~/.kube`, `~/.docker/config.json`, `~/.npmrc`), which are blocked.
+- **Writes:** only the workspace (the project root, or `--workspace <dir>`)
+  and scratch/temp dirs. A write anywhere else is denied.
+- **Network:** only the local egress proxy port.
+
+Where no sandbox backend is available (other OSes, or `sandbox-exec`/`bwrap`
+missing) it degrades to the cooperative behavior rather than failing. Disable
+with `--no-sandbox`. Note that servers whose code lives outside the workspace
+and the standard system paths may need their location made writable/readable;
+start with `--workspace` pointed at a dir that contains what the server needs
+to write.
 
 ## Exit codes (stable contract)
 

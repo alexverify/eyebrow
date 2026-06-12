@@ -184,12 +184,19 @@ The seams are deliberate. Common extensions:
   ways, redactions). CONNECT tunnels are allowlisted and byte-counted but not
   inspected (no TLS interception).
 
-## Roadmap seams (rest of Components 2 & 3)
+- **`internal/sandbox`** — OS confinement applied by the shim: a pure
+  `Profile` (workspace, proxy address, deny paths) and platform backends that
+  wrap the server's argv. Seatbelt (`sandbox-exec`) on macOS, bubblewrap on
+  Linux, identity fallback elsewhere. Permissive reads minus secret paths,
+  writes limited to the workspace + scratch, network limited to the proxy
+  port — which makes the egress proxy enforced rather than cooperative.
+  Profile generation is pure and unit-tested; confinement itself is verified
+  by host-gated integration tests.
+
+## Roadmap seams (Component 3)
 
 These are documented, not yet built. Each plugs into the same model:
 
-- **`internal/sandbox`** — OS sandbox profiles (Seatbelt/bwrap) that make the
-  proxy routing mandatory instead of cooperative.
 - **`internal/client`, `controlplane/`** — the team control plane (policy pull,
   lockfile submission, audit ingest, dashboard).
 - **`packaging/`** — release tooling beyond GoReleaser (Homebrew, install.sh,
