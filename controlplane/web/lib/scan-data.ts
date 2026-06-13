@@ -15,6 +15,17 @@ export interface TrustReason {
   delta: number
 }
 
+export interface ProvenanceRung {
+  label: string
+  ok: boolean
+}
+
+export interface ProvenanceLadder {
+  level: number
+  max: number
+  rungs: ProvenanceRung[]
+}
+
 export type FindingPattern =
   | "remote-code-exec" // curl | sh
   | "command-exec" // shell out
@@ -95,6 +106,11 @@ export interface Artifact {
   trustReasons?: TrustReason[]
   driftClass?: string
   driftDetail?: string
+
+  // Remediation state (C2) and provenance grade (B1).
+  quarantined?: boolean
+  frozen?: boolean
+  provenance?: ProvenanceLadder
 }
 
 export const SEVERITY_ORDER: Record<Severity, number> = {

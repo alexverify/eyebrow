@@ -83,6 +83,7 @@ function DrawerBody({ artifact: a, onClose }: { artifact: Artifact; onClose: () 
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <Trust a={a} />
+        <ProvenanceLadder a={a} />
         <Provenance a={a} />
         <Integrity a={a} />
         <Capabilities a={a} />
@@ -122,8 +123,20 @@ function Trust({ a }: { a: Artifact }) {
   if (a.verdict === undefined) return null
   return (
     <Section icon={ShieldAlert} title="Trust">
-      <div className="flex items-center justify-between">
-        <VerdictBadge verdict={a.verdict} score={a.trust} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <VerdictBadge verdict={a.verdict} score={a.trust} />
+          {a.quarantined ? (
+            <span className="rounded-md border border-sev-critical/40 bg-sev-critical/10 px-2 py-0.5 font-mono text-[11px] text-sev-critical">
+              quarantined
+            </span>
+          ) : null}
+          {a.frozen ? (
+            <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+              frozen
+            </span>
+          ) : null}
+        </div>
         {a.driftDetail ? <span className="text-xs text-muted-foreground">{a.driftDetail}</span> : null}
       </div>
       {a.trustReasons && a.trustReasons.length > 0 ? (
@@ -149,6 +162,25 @@ function Trust({ a }: { a: Artifact }) {
           </div>
         </div>
       ) : null}
+    </Section>
+  )
+}
+
+function ProvenanceLadder({ a }: { a: Artifact }) {
+  const p = a.provenance
+  if (!p || !p.rungs) return null
+  return (
+    <Section icon={ShieldCheck} title={`Provenance — level ${p.level} / ${p.max}`}>
+      <div className="flex flex-col gap-1">
+        {p.rungs.map((r, i) => (
+          <div key={i} className="flex items-center gap-2 font-mono text-xs">
+            <span className={cn("text-sm leading-none", r.ok ? "text-ok" : "text-muted-foreground")}>
+              {r.ok ? "✓" : "○"}
+            </span>
+            <span className={cn(r.ok ? "text-foreground" : "text-muted-foreground")}>{r.label}</span>
+          </div>
+        ))}
+      </div>
     </Section>
   )
 }
