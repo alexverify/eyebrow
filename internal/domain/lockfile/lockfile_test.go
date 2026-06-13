@@ -148,3 +148,65 @@ func TestNewFindingsAtThreshold(t *testing.T) {
 		t.Fatalf("expected only the new critical finding, got %+v", got)
 	}
 }
+
+func npmArt(name, hash, ref, integrity string) artifact.Artifact {
+	a := art(name, hash)
+	a.Source = artifact.Source{Kind: artifact.SourceNPM, Ref: ref, Integrity: integrity}
+	return a
+}
+
+func TestClassifyNoneAndAddedRemoved(t *testing.T) {
+	a := art("srv", "sha256-aaa")
+	got := Classify(buildOne(a), buildOne(a))
+	if got[a.ID] != DriftClassNone {
+		t.Fatalf("identical → none, got %q", got[a.ID])
+	}
+
+	b := art("new-one", "sha256-bbb")
+	added := Classify(buildOne(a), Build([]artifact.Artifact{a, b}, fixedTime, "t"))
+	if added[b.ID] != DriftClassAdded {
+		t.Fatalf("present only in current → added, got %q", added[b.ID])
+	}
+	removed := Classify(Build([]artifact.Artifact{a, b}, fixedTime, "t"), buildOne(a))
+	if removed[b.ID] != DriftClassRemoved {
+		t.Fatalf("present only in locked → removed, got %q", removed[b.ID])
+	}
+}
+
+func TestClassifyMutatedIsRugPull(t *testing.T) {
+	locked := npmArt("pkg", "sha256-old", "1.4.2", "sha512-AAA")
+	current := npmArt("pkg", "sha256-NEW", "1.4.2", "sha512-AAA")
+	got := Classify(buildOne(locked), buildOne(current))
+	if got[locked.ID] != DriftClassMutated {
+		t.Fatalf("content moved, version stable → mutated, got %q", got[locked.ID])
+	}
+}
+
+func TestClassifyUpdatedNpmWithIntegrity(t *testing.T) {
+	locked := npmArt("pkg", "sha256-old", "1.4.2", "sha512-AAA")
+	current := npmArt("pkg", "sha256-new", "1.5.0", "sha512-BBB")
+	got := Classify(buildOne(locked), buildOne(current))
+	if got[locked.ID] != DriftClassUpdated {
+		t.Fatalf("content+version moved, integrity present → updated, got %q", got[locked.ID])
+	}
+}
+
+func TestClassifyBrokenNpmWithoutIntegrity(t *testing.T) {
+	locked := npmArt("pkg", "sha256-old", "1.4.2", "sha512-AAA")
+	current := npmArt("pkg", "sha256-new", "1.5.0", "")
+	got := Classify(buildOne(locked), buildOne(current))
+	if got[locked.ID] != DriftClassBroken {
+		t.Fatalf("npm update with no integrity → broken, got %q", got[locked.ID])
+	}
+}
+
+func TestClassifyGitUpdateIsVerifiable(t *testing.T) {
+	locked := art("repo", "sha256-old")
+	locked.Source = artifact.Source{Kind: artifact.SourceGit, Ref: "aaaaaaaaaaaa"}
+	current := art("repo", "sha256-new")
+	current.Source = artifact.Source{Kind: artifact.SourceGit, Ref: "bbbbbbbbbbbb"}
+	got := Classify(buildOne(locked), buildOne(current))
+	if got[locked.ID] != DriftClassUpdated {
+		t.Fatalf("git content+commit moved → updated, got %q", got[locked.ID])
+	}
+}

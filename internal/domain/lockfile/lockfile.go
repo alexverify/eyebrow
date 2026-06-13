@@ -188,6 +188,85 @@ func Compare(locked, current Lockfile) Diff {
 	return Diff{Changes: changes}
 }
 
+// DriftClass is the per-artifact, display-level interpretation of a change
+// between the locked and current snapshots. Where Compare reports every changed
+// field, Classify answers the question the dashboard actually asks: does this
+// change look like a developer-initiated update, or an unexplained mutation
+// (the rug-pull signal)?
+type DriftClass string
+
+const (
+	DriftClassNone    DriftClass = "none"    // nothing changed
+	DriftClassUpdated DriftClass = "updated" // content + pinned ref moved together, integrity intact → expected
+	DriftClassMutated DriftClass = "mutated" // content moved while the pinned ref held → unexplained (rug pull)
+	DriftClassBroken  DriftClass = "broken"  // an update whose integrity could not be verified → unverifiable
+	DriftClassAdded   DriftClass = "added"   // present now, absent in the lockfile
+	DriftClassRemoved DriftClass = "removed" // present in the lockfile, absent now
+)
+
+// Classify maps each artifact ID to its DriftClass. Unchanged artifacts map to
+// DriftClassNone, so callers may treat a missing key and an explicit None
+// identically.
+func Classify(locked, current Lockfile) map[string]DriftClass {
+	lockedByID := locked.byID()
+	currentByID := current.byID()
+	out := make(map[string]DriftClass, len(current.Artifacts))
+
+	for _, cur := range current.Artifacts {
+		prev, ok := lockedByID[cur.ID]
+		if !ok {
+			out[cur.ID] = DriftClassAdded
+			continue
+		}
+		out[cur.ID] = classifyPair(prev, cur)
+	}
+	for _, prev := range locked.Artifacts {
+		if _, ok := currentByID[prev.ID]; !ok {
+			out[prev.ID] = DriftClassRemoved
+		}
+	}
+	return out
+}
+
+// classifyPair classifies one matched (locked, current) pair.
+func classifyPair(prev, cur Entry) DriftClass {
+	contentChanged := cur.ContentHash != prev.ContentHash
+	refChanged := cur.Source.Ref != prev.Source.Ref
+	integrityChanged := cur.Source.Integrity != prev.Source.Integrity
+	certChanged := cur.Source.CertSPKI != prev.Source.CertSPKI
+
+	switch {
+	case !contentChanged && !refChanged && !integrityChanged && !certChanged:
+		return DriftClassNone
+	case contentChanged && refChanged:
+		// A real release moves both the pinned ref and the bytes. It is
+		// verifiable when we could re-pin it.
+		if updateVerifiable(cur.Source) {
+			return DriftClassUpdated
+		}
+		return DriftClassBroken
+	case contentChanged && !refChanged:
+		// Same pinned version, different bytes: postmark-mcp / MCPoison. Loudest.
+		return DriftClassMutated
+	case !contentChanged && integrityChanged:
+		// Integrity moved under a stable content hash — internally inconsistent.
+		return DriftClassBroken
+	default:
+		// Metadata-only movement (ref retag, cert rotation) with stable content.
+		return DriftClassUpdated
+	}
+}
+
+// updateVerifiable reports whether a moved source can be re-pinned to a fresh
+// integrity anchor. npm packages must carry a new integrity; git/url/local/
+// inline have no integrity, so a matching content+ref move is taken at face value.
+func updateVerifiable(s artifact.Source) bool {
+	if s.Kind == artifact.SourceNPM {
+		return s.Integrity != ""
+	}
+	return true
+}
+
 // NewFindings returns findings present in current but not in locked, at or
 // above the given severity. verify --ci uses this to fail a build on newly
 // introduced critical/high issues without re-flagging accepted ones.
