@@ -26,6 +26,24 @@ export interface Finding {
   location: string // file + line
 }
 
+export interface Capabilities {
+  exec: boolean
+  network: string[]
+  filesystem: string[]
+}
+
+export interface FileEntry {
+  path: string
+  hash: string
+}
+
+export interface Approval {
+  status: string
+  by?: string
+  at?: string
+  signed: boolean
+}
+
 export interface Artifact {
   id: string
   name: string
@@ -40,6 +58,20 @@ export interface Artifact {
   lockedHash: string | null
   drift: DriftStatus
   findings: Finding[]
+
+  // Detail-view fields (present from the live /api/scan; optional so the mock
+  // fixtures remain valid).
+  scope?: string
+  sourceKind?: string
+  discoveredFrom?: string
+  command?: string
+  args?: string[]
+  envKeys?: string[]
+  integrity?: string
+  certSpki?: string
+  capabilities?: Capabilities
+  files?: FileEntry[]
+  approval?: Approval | null
 }
 
 export const SEVERITY_ORDER: Record<Severity, number> = {

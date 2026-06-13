@@ -29,6 +29,7 @@ import {
 import { useScan } from "@/lib/use-scan"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { SeverityBadge, DriftBadge } from "@/components/dashboard/badges"
+import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
 
 type TabId = "inventory" | "findings" | "drift"
 
@@ -44,6 +45,7 @@ export function Dashboard() {
   const [query, setQuery] = useState("")
   const [agentFilter, setAgentFilter] = useState<Agent | "all">("all")
   const [kindFilter, setKindFilter] = useState<ArtifactKind | "all">("all")
+  const [selected, setSelected] = useState<Artifact | null>(null)
 
   const sev = useMemo(() => severityCounts(artifacts), [artifacts])
   const drift = useMemo(() => driftCounts(artifacts), [artifacts])
@@ -153,11 +155,14 @@ export function Dashboard() {
             setAgentFilter={setAgentFilter}
             kindFilter={kindFilter}
             setKindFilter={setKindFilter}
+            onSelect={setSelected}
           />
         )}
         {tab === "findings" && <FindingsPanel findings={findings} />}
         {tab === "drift" && <DriftPanel artifacts={driftedArtifacts} />}
       </div>
+
+      <ArtifactDrawer artifact={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }
@@ -173,6 +178,7 @@ function InventoryPanel({
   setAgentFilter,
   kindFilter,
   setKindFilter,
+  onSelect,
 }: {
   artifacts: Artifact[]
   agents: Agent[]
@@ -182,6 +188,7 @@ function InventoryPanel({
   setAgentFilter: (v: Agent | "all") => void
   kindFilter: ArtifactKind | "all"
   setKindFilter: (v: ArtifactKind | "all") => void
+  onSelect: (a: Artifact) => void
 }) {
   return (
     <div>
@@ -229,9 +236,11 @@ function InventoryPanel({
           rows.map((a) => {
             const sev = topSeverity(a)
             return (
-              <div
+              <button
                 key={a.id}
-                className="grid grid-cols-1 gap-2 border-b border-border px-4 py-3 last:border-0 transition-colors hover:bg-muted/30 md:grid-cols-[1.6fr_0.7fr_0.8fr_1.4fr_0.9fr_0.7fr] md:items-center md:gap-4"
+                type="button"
+                onClick={() => onSelect(a)}
+                className="grid w-full grid-cols-1 gap-2 border-b border-border px-4 py-3 text-left last:border-0 transition-colors hover:bg-muted/30 md:grid-cols-[1.6fr_0.7fr_0.8fr_1.4fr_0.9fr_0.7fr] md:items-center md:gap-4"
               >
                 <div className="flex items-center gap-2.5">
                   <FileCode2 className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -257,7 +266,7 @@ function InventoryPanel({
                     <span className="font-mono text-sm text-ok">0</span>
                   )}
                 </span>
-              </div>
+              </button>
             )
           })
         )}
