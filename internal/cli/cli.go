@@ -60,6 +60,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runVerify(ctx, rest)
 	case "diff":
 		return a.runDiff(ctx, rest)
+	case "digest":
+		return a.runDigest(ctx, rest)
 	case "list":
 		return a.runList(ctx, rest)
 	case "approve":
@@ -101,6 +103,7 @@ Commands:
   scan      Discover, resolve, hash, and analyze artifacts; write the lockfile
   verify    Recompute and diff against the lockfile (rug-pull detector)
   diff      Show what changed since the last lockfile (informational)
+  digest    Summarize what changed since the lockfile (what to review)
   list      Print the current inventory across tools
   approve   Mark artifact(s) as approved in the lockfile
   sign      Sign the lockfile with the local key

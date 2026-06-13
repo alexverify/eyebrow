@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os/user"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/app/scan"
 	"github.com/alexverify/agentguard/internal/app/verify"
+	"github.com/alexverify/agentguard/internal/domain/finding"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
 
@@ -134,6 +136,80 @@ func (a *App) runDiff(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	return ExitOK
+}
+
+// runDigest summarizes what changed since the lockfile — the "what should I
+// review?" view, suitable for a terminal glance or a cron/CI step. It never
+// fails on drift (informational, exit 0); it is the read-side companion to the
+// dashboard's Changes view.
+func (a *App) runDigest(ctx context.Context, args []string) int {
+	fs := a.flagSet("digest")
+	c := bindCommon(fs)
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+
+	current, err := a.scanService(*c.json, *c.rules).Build(ctx, a.scopes(*c.path, *c.global))
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "digest: %v\n", err)
+		return ExitError
+	}
+	locked, err := lockstore.New().Read(ctx, *c.lockfile)
+	if err != nil && !errors.Is(err, ports.ErrNoLockfile) {
+		fmt.Fprintf(a.Stderr, "digest: %v\n", err)
+		return ExitError
+	}
+	writeDigest(a.Stdout, locked, current)
+	return ExitOK
+}
+
+// writeDigest renders the drift-class breakdown and the list of artifacts worth
+// reviewing. It uses only the pure domain (Classify + finding counts), so it
+// stays in lockstep with the dashboard's interpretation of drift.
+func writeDigest(w io.Writer, locked, current lockfile.Lockfile) {
+	classes := lockfile.Classify(locked, current)
+	var unchanged, updated, drifted, fresh int
+	type change struct{ name, label string }
+	var changes []change
+	for _, e := range current.Artifacts {
+		switch classes[e.ID] {
+		case lockfile.DriftClassUpdated:
+			updated++
+			changes = append(changes, change{e.Name, "updated"})
+		case lockfile.DriftClassMutated, lockfile.DriftClassBroken:
+			drifted++
+			changes = append(changes, change{e.Name, "drifted"})
+		case lockfile.DriftClassAdded:
+			fresh++
+			changes = append(changes, change{e.Name, "new"})
+		default:
+			unchanged++
+		}
+	}
+
+	counts := map[finding.Severity]int{}
+	total := 0
+	for _, e := range current.Artifacts {
+		for _, f := range e.Findings {
+			counts[f.Severity]++
+			total++
+		}
+	}
+
+	fmt.Fprintf(w, "agentguard digest — %d artifact(s)\n", len(current.Artifacts))
+	fmt.Fprintf(w, "  unchanged: %d\n  updated:   %d\n  drifted:   %d\n  new:       %d\n",
+		unchanged, updated, drifted, fresh)
+	fmt.Fprintf(w, "  findings:  %d (critical=%d high=%d medium=%d low=%d)\n",
+		total, counts[finding.SeverityCritical], counts[finding.SeverityHigh],
+		counts[finding.SeverityMedium], counts[finding.SeverityLow])
+	if len(changes) == 0 {
+		fmt.Fprintln(w, "\nnothing changed since the lockfile — you're clear.")
+		return
+	}
+	fmt.Fprintln(w, "\nchanges to review:")
+	for _, ch := range changes {
+		fmt.Fprintf(w, "  [%s] %s\n", ch.label, ch.name)
+	}
 }
 
 func (a *App) runList(ctx context.Context, args []string) int {

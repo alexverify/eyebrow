@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -160,5 +161,30 @@ func TestVersion(t *testing.T) {
 	}
 	if !bytes.Contains(out.Bytes(), []byte("agentguard/")) {
 		t.Fatalf("version output = %q", out.String())
+	}
+}
+
+func TestDigestReportsChangesThenClean(t *testing.T) {
+	ctx := context.Background()
+	dir, lock := fixtureProject(t)
+
+	// No lockfile yet → every discovered artifact is new.
+	app, out, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"digest", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
+		t.Fatalf("digest exit = %d, stderr=%s", code, errBuf.String())
+	}
+	if s := out.String(); !strings.Contains(s, "agentguard digest") || !strings.Contains(s, "new:       1") {
+		t.Fatalf("digest should report 1 new artifact, got:\n%s", s)
+	}
+
+	// After scan, the lockfile matches the inventory → nothing to review.
+	app2, _, _ := newApp()
+	if code := app2.Execute(ctx, []string{"scan", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
+		t.Fatalf("scan failed")
+	}
+	app3, out3, _ := newApp()
+	app3.Execute(ctx, []string{"digest", "--path", dir, "--lockfile", lock})
+	if !strings.Contains(out3.String(), "nothing changed") {
+		t.Fatalf("after scan, digest should be clean, got:\n%s", out3.String())
 	}
 }
