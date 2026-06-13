@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, FileCode2, ShieldCheck, Network, FolderTree, Terminal } from "lucide-react"
+import { X, FileCode2, ShieldCheck, ShieldAlert, Network, FolderTree, Terminal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { KIND_LABELS, PATTERN_LABELS, type Artifact } from "@/lib/scan-data"
-import { SeverityBadge, DriftBadge } from "@/components/dashboard/badges"
+import { SeverityBadge, DriftBadge, VerdictBadge } from "@/components/dashboard/badges"
 
 interface AuditEvent {
   ts: string
@@ -82,6 +82,7 @@ function DrawerBody({ artifact: a, onClose }: { artifact: Artifact; onClose: () 
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
+        <Trust a={a} />
         <Provenance a={a} />
         <Integrity a={a} />
         <Capabilities a={a} />
@@ -114,6 +115,41 @@ function Row({ label, value, mono }: { label: string; value?: string | null; mon
       <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
       <span className={cn("truncate text-right text-xs text-foreground", mono && "font-mono")}>{value}</span>
     </div>
+  )
+}
+
+function Trust({ a }: { a: Artifact }) {
+  if (a.verdict === undefined) return null
+  return (
+    <Section icon={ShieldAlert} title="Trust">
+      <div className="flex items-center justify-between">
+        <VerdictBadge verdict={a.verdict} score={a.trust} />
+        {a.driftDetail ? <span className="text-xs text-muted-foreground">{a.driftDetail}</span> : null}
+      </div>
+      {a.trustReasons && a.trustReasons.length > 0 ? (
+        <div className="mt-3 rounded-md border border-border bg-background p-3">
+          <p className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">Score breakdown</p>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline justify-between font-mono text-xs">
+              <span className="text-muted-foreground">base</span>
+              <span className="tabular-nums text-foreground">100</span>
+            </div>
+            {a.trustReasons.map((r, i) => (
+              <div key={i} className="flex items-baseline justify-between gap-4 font-mono text-xs">
+                <span className="truncate text-muted-foreground">{r.label}</span>
+                <span className={cn("shrink-0 tabular-nums", r.delta < 0 ? "text-sev-high" : "text-ok")}>
+                  {r.delta > 0 ? `+${r.delta}` : r.delta}
+                </span>
+              </div>
+            ))}
+            <div className="mt-1 flex items-baseline justify-between border-t border-border/60 pt-1 font-mono text-xs">
+              <span className="text-foreground">trust</span>
+              <span className="tabular-nums text-foreground">{a.trust}</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </Section>
   )
 }
 
@@ -182,8 +218,27 @@ function Capabilities({ a }: { a: Artifact }) {
   const c = a.capabilities
   if (!c) return null
   const none = !c.exec && c.network.length === 0 && c.filesystem.length === 0
+  const expanded =
+    c.execNewlyAdded || (c.addedNetwork?.length ?? 0) > 0 || (c.addedFilesystem?.length ?? 0) > 0
   return (
     <Section icon={Network} title="Capabilities">
+      {expanded ? (
+        <div className="mb-3 rounded-md border border-sev-high/30 bg-sev-high/5 p-2.5 text-xs text-sev-high">
+          Capability expansion since the locked version:
+          <ul className="mt-1 list-inside list-disc font-mono text-[11px]">
+            {c.execNewlyAdded ? <li>now executes commands</li> : null}
+            {(c.addedNetwork ?? []).map((h) => (
+              <li key={`n-${h}`}>+ network: {h}</li>
+            ))}
+            {(c.addedFilesystem ?? []).map((p) => (
+              <li key={`f-${p}`}>
+                + filesystem: {p}
+                {(c.sensitiveAdded ?? []).includes(p) ? " ⚠ secret path" : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {none ? (
         <p className="text-xs text-muted-foreground">No declared exec, network, or filesystem capabilities.</p>
       ) : (
