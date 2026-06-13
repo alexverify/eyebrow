@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- Placeholder UI: replaced by the Next.js static export in a later slice.
+     Kept functional so the dashboard works today and so go:embed always has a
+     target (go build must not depend on a Node toolchain). -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>agentguard</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0; padding: 2rem; max-width: 1000px; }
+  h1 { font-size: 1.3rem; } h2 { font-size: 1rem; margin-top: 2rem; border-bottom: 1px solid #8884; padding-bottom: .3rem; }
+  table { border-collapse: collapse; width: 100%; } td, th { text-align: left; padding: .25rem .6rem; border-bottom: 1px solid #8882; }
+  .sev-critical { color: #d33; font-weight: 600; } .sev-high { color: #e80; } .denied { color: #d33; } .ok { color: #2a2; }
+  .pill { display: inline-block; padding: 0 .5rem; border-radius: 1rem; background: #8883; font-size: .85em; }
+  .muted { opacity: .65; }
+</style>
+</head>
+<body>
+  <h1>agentguard <span class="muted">dashboard</span></h1>
+  <p class="muted" id="meta">loading…</p>
+
+  <h2>Inventory <span class="pill" id="inv-count"></span></h2>
+  <table id="inventory"><thead><tr><th>tool</th><th>type</th><th>name</th><th>findings</th></tr></thead><tbody></tbody></table>
+
+  <h2>Drift vs lockfile <span class="pill" id="drift-count"></span></h2>
+  <table id="drift"><thead><tr><th>kind</th><th>artifact</th><th>old → new</th></tr></thead><tbody></tbody></table>
+
+  <h2>Audit <span class="pill" id="audit-count"></span></h2>
+  <table id="audit"><thead><tr><th>server</th><th>kind</th><th>tool / host</th><th>status</th></tr></thead><tbody></tbody></table>
+
+<script>
+const el = (s) => document.querySelector(s);
+const td = (t, cls) => { const d = document.createElement("td"); d.textContent = t ?? ""; if (cls) d.className = cls; return d; };
+const row = (tbody, cells) => { const tr = document.createElement("tr"); cells.forEach(c => tr.appendChild(c)); tbody.appendChild(tr); };
+
+async function load() {
+  try {
+    const [inv, drift, audit] = await Promise.all([
+      fetch("/api/inventory").then(r => r.json()),
+      fetch("/api/drift").then(r => r.json()),
+      fetch("/api/audit").then(r => r.json()),
+    ]);
+
+    const arts = inv.artifacts || [];
+    el("#inv-count").textContent = arts.length;
+    el("#meta").textContent = "generated " + (inv.generatedAt || "") + " · " + (inv.generator || "");
+    const it = el("#inventory tbody");
+    arts.forEach(a => {
+      const worst = (a.findings || []).reduce((w, f) => rank(f.severity) > rank(w) ? f.severity : w, "");
+      row(it, [td(a.tool), td(a.type), td(a.name), td((a.findings || []).length + (worst ? " · " + worst : ""), worst ? "sev-" + worst : "")]);
+    });
+
+    const changes = drift.changes || [];
+    el("#drift-count").textContent = changes.length || "clean";
+    const dt = el("#drift tbody");
+    changes.forEach(c => row(dt, [td(c.kind), td(c.name || c.id), td((c.old || "") + (c.new ? " → " + c.new : ""), "muted")]));
+
+    const events = audit.events || [];
+    const s = audit.summary || {};
+    el("#audit-count").textContent = (s.total || 0) + " · " + (s.denied || 0) + " denied";
+    const at = el("#audit tbody");
+    events.slice(-200).reverse().forEach(e => row(at, [
+      td(e.server), td(e.kind), td(e.tool || e.host), td(e.status, e.status === "denied" ? "denied" : e.status === "ok" ? "ok" : ""),
+    ]));
+  } catch (err) {
+    el("#meta").textContent = "error: " + err;
+  }
+}
+function rank(s) { return { info: 0, low: 1, medium: 2, high: 3, critical: 4 }[s] ?? -1; }
+load();
+</script>
+</body>
+</html>
