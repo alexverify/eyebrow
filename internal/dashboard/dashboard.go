@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/alexverify/agentguard/internal/adapters/auditlog"
+	"github.com/alexverify/agentguard/internal/app/ports"
 	"github.com/alexverify/agentguard/internal/domain/audit"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
 )
@@ -35,6 +36,10 @@ type Deps struct {
 	Locked func(context.Context) (lockfile.Lockfile, error)
 	// Audit reads matching audit events.
 	Audit func(auditlog.Filter) ([]audit.Event, error)
+	// ApprovalVerifier checks each locked approval's signature against trusted
+	// keys, so the dashboard distinguishes "verified" from merely "approved".
+	// Optional: when nil, an approval bearing a signature is treated as trusted.
+	ApprovalVerifier ports.ApprovalVerifier
 	// Static overrides the embedded UI assets (used in tests); nil uses the
 	// embedded Next.js export.
 	Static fs.FS
@@ -111,7 +116,24 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, struct {
 		Artifacts []DashArtifact `json:"artifacts"`
-	}{Artifacts: BuildScan(current, locked, approvedSet(locked))})
+	}{Artifacts: BuildScan(current, locked, s.approvedSet(locked))})
+}
+
+// approvedSet returns the IDs of locked artifacts whose approval is trusted.
+// With a verifier, "trusted" means a valid signature from a trusted key; without
+// one, an approval merely bearing a signature is accepted (dev fallback).
+func (s *Server) approvedSet(locked lockfile.Lockfile) map[string]bool {
+	if s.deps.ApprovalVerifier == nil {
+		return approvedSet(locked)
+	}
+	out := make(map[string]bool)
+	for _, e := range locked.Artifacts {
+		if e.Approval != nil && e.Approval.Status == "approved" &&
+			s.deps.ApprovalVerifier.VerifyApproval(e) == nil {
+			out[e.ID] = true
+		}
+	}
+	return out
 }
 
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {

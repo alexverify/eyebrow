@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"sort"
 	"strconv"
 	"time"
 
@@ -25,13 +26,49 @@ type DashArtifact struct {
 	LockedHash  string        `json:"lockedHash"`
 	Drift       string        `json:"drift"` // verified | drifted | new | unsigned
 	Findings    []DashFinding `json:"findings"`
+
+	// Detail-view fields (the per-artifact security profile).
+	Scope          string           `json:"scope"`
+	SourceKind     string           `json:"sourceKind"`
+	DiscoveredFrom string           `json:"discoveredFrom"`
+	Command        string           `json:"command,omitempty"` // MCP launch command
+	Args           []string         `json:"args,omitempty"`
+	EnvKeys        []string         `json:"envKeys,omitempty"` // env var names only — values are never exposed
+	Integrity      string           `json:"integrity,omitempty"`
+	CertSPKI       string           `json:"certSpki,omitempty"`
+	Capabilities   DashCapabilities `json:"capabilities"`
+	Files          []DashFile       `json:"files"`
+	Approval       *DashApproval    `json:"approval,omitempty"`
+}
+
+// DashCapabilities mirrors the declared powers of an artifact.
+type DashCapabilities struct {
+	Exec       bool     `json:"exec"`
+	Network    []string `json:"network"`
+	Filesystem []string `json:"filesystem"`
+}
+
+// DashFile is one entry in the artifact's file manifest.
+type DashFile struct {
+	Path string `json:"path"`
+	Hash string `json:"hash"`
+}
+
+// DashApproval is the approval/sign-off state shown in the detail view.
+type DashApproval struct {
+	Status string `json:"status"`
+	By     string `json:"by,omitempty"`
+	At     string `json:"at,omitempty"`
+	Signed bool   `json:"signed"`
 }
 
 // DashFinding mirrors the TS Finding.
 type DashFinding struct {
 	ID       string `json:"id"`
+	RuleID   string `json:"ruleId"`
 	Pattern  string `json:"pattern"`
 	Severity string `json:"severity"`
+	OWASP    string `json:"owasp,omitempty"`
 	Title    string `json:"title"`
 	Detail   string `json:"detail"`
 	Evidence string `json:"evidence"`
@@ -60,28 +97,87 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []Da
 	diff := lockfile.Compare(locked, current)
 	drift := driftByID(diff)
 	lockedHash := map[string]string{}
+	lockedApproval := map[string]*lockfile.Approval{}
 	for _, e := range locked.Artifacts {
 		lockedHash[e.ID] = e.ContentHash
+		lockedApproval[e.ID] = e.Approval // approval state is recorded in the lockfile
 	}
 	scanStamp := relativeStamp(current.GeneratedAt)
 
 	out := make([]DashArtifact, 0, len(current.Artifacts))
 	for _, e := range current.Artifacts {
 		out = append(out, DashArtifact{
-			ID:          e.ID,
-			Name:        e.Name,
-			Kind:        kindOf(e.Type),
-			Agent:       agentName(e.Tool),
-			Version:     versionOf(e.Source),
-			Source:      e.Source.Ref,
-			InstalledAt: scanStamp, // fallback until per-artifact mtime is captured (Slice 4)
-			Hash:        e.ContentHash,
-			LockedHash:  lockedHash[e.ID],
-			Drift:       driftStatus(e.ID, drift, lockedHash, approved),
-			Findings:    mapFindings(e.Findings),
+			ID:             e.ID,
+			Name:           e.Name,
+			Kind:           kindOf(e.Type),
+			Agent:          agentName(e.Tool),
+			Version:        versionOf(e.Source),
+			Source:         e.Source.Ref,
+			InstalledAt:    installedAt(e.ModifiedAt, scanStamp),
+			Hash:           e.ContentHash,
+			LockedHash:     lockedHash[e.ID],
+			Drift:          driftStatus(e.ID, drift, lockedHash, approved),
+			Findings:       mapFindings(e.Findings),
+			Scope:          e.Scope,
+			SourceKind:     string(e.Source.Kind),
+			DiscoveredFrom: e.DiscoveredFrom,
+			Command:        e.Source.Command,
+			Args:           e.Source.Args,
+			EnvKeys:        envKeys(e.Source.Env),
+			Integrity:      e.Source.Integrity,
+			CertSPKI:       e.Source.CertSPKI,
+			Capabilities: DashCapabilities{
+				Exec:       e.Capabilities.Exec,
+				Network:    e.Capabilities.Network,
+				Filesystem: e.Capabilities.Filesystem,
+			},
+			Files:    mapFiles(e.Files),
+			Approval: mapApproval(lockedApproval[e.ID]),
 		})
 	}
 	return out
+}
+
+// installedAt prefers the captured file mtime, falling back to the scan
+// timestamp when no mtime is known (e.g. inline/remote artifacts).
+func installedAt(mod time.Time, scanStamp string) string {
+	if !mod.IsZero() {
+		return mod.UTC().Format("2006-01-02 15:04")
+	}
+	return scanStamp
+}
+
+// envKeys returns only the env var names, sorted — values may be secrets and
+// are never exposed to the dashboard.
+func envKeys(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func mapFiles(files []artifact.FileRef) []DashFile {
+	out := make([]DashFile, 0, len(files))
+	for _, f := range files {
+		out = append(out, DashFile{Path: f.Path, Hash: f.Hash})
+	}
+	return out
+}
+
+func mapApproval(a *lockfile.Approval) *DashApproval {
+	if a == nil {
+		return nil
+	}
+	d := &DashApproval{Status: a.Status, By: a.By, Signed: a.Sig != ""}
+	if !a.At.IsZero() {
+		d.At = a.At.UTC().Format("2006-01-02 15:04")
+	}
+	return d
 }
 
 // driftByID indexes the changes that signal drift (content/version/integrity/
@@ -180,8 +276,10 @@ func mapFindings(fs []finding.Finding) []DashFinding {
 	for _, f := range fs {
 		out = append(out, DashFinding{
 			ID:       f.RuleID + "|" + f.File + "|" + strconv.Itoa(f.Line),
+			RuleID:   f.RuleID,
 			Pattern:  patternOf(f.RuleID),
 			Severity: severityOf(f.Severity),
+			OWASP:    f.OWASP,
 			Title:    titleOf(f),
 			Detail:   f.Explanation,
 			Evidence: f.Snippet,

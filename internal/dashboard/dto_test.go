@@ -149,3 +149,56 @@ func TestBuildScanInstalledAtFallsBackToScanTime(t *testing.T) {
 		t.Error("installedAt should fall back to the scan timestamp when unknown")
 	}
 }
+
+func TestBuildScanInstalledAtUsesModTime(t *testing.T) {
+	a := art("a1", "claude-code", artifact.TypeSkill, "s", "x")
+	a.ModifiedAt = time.Date(2026, 3, 1, 9, 30, 0, 0, time.UTC)
+	scan := BuildScan(lf(a), lockfile.Lockfile{}, nil)
+	if got := find(t, scan, "s").InstalledAt; got != "2026-03-01 09:30" {
+		t.Errorf("installedAt should use the artifact mtime, got %q", got)
+	}
+}
+
+func TestBuildScanDetailFields(t *testing.T) {
+	a := art("a1", "claude-code", artifact.TypeMCPServer, "db", "sha256-x")
+	a.Scope = "project:."
+	a.DiscoveredFrom = ".mcp.json"
+	a.Source = artifact.Source{
+		Kind: artifact.SourceNPM, Ref: "1.2.3", Integrity: "sha512-abc",
+		Command: "npx", Args: []string{"-y", "db-mcp"},
+		Env: map[string]string{"DB_TOKEN": "secret-value", "DB_HOST": "h"},
+	}
+	a.Capabilities = artifact.Capabilities{Exec: true, Network: []string{"api.db.example"}}
+	a.Files = []artifact.FileRef{{Path: "server.js", Hash: "deadbeef"}}
+
+	d := find(t, BuildScan(lf(a), lockfile.Lockfile{}, nil), "db")
+
+	if d.Scope != "project:." || d.DiscoveredFrom != ".mcp.json" || d.SourceKind != "npm" {
+		t.Errorf("provenance fields: %+v", d)
+	}
+	if d.Command != "npx" || len(d.Args) != 2 || d.Integrity != "sha512-abc" {
+		t.Errorf("source fields: %+v", d)
+	}
+	// env exposes KEYS ONLY, never values, sorted.
+	if len(d.EnvKeys) != 2 || d.EnvKeys[0] != "DB_HOST" || d.EnvKeys[1] != "DB_TOKEN" {
+		t.Errorf("envKeys = %v (must be sorted names only)", d.EnvKeys)
+	}
+	if !d.Capabilities.Exec || len(d.Capabilities.Network) != 1 {
+		t.Errorf("capabilities: %+v", d.Capabilities)
+	}
+	if len(d.Files) != 1 || d.Files[0].Path != "server.js" {
+		t.Errorf("file manifest: %+v", d.Files)
+	}
+}
+
+func TestBuildScanApprovalDetail(t *testing.T) {
+	a := art("a1", "claude-code", artifact.TypeSkill, "s", "x")
+	locked := lf(a)
+	locked.Artifacts[0].Approval = &lockfile.Approval{
+		Status: "approved", By: "alice", At: time.Date(2026, 2, 2, 0, 0, 0, 0, time.UTC), Sig: "ed25519:x",
+	}
+	d := find(t, BuildScan(lf(a), locked, approvedSet(locked)), "s")
+	if d.Approval == nil || d.Approval.By != "alice" || !d.Approval.Signed {
+		t.Errorf("approval detail: %+v", d.Approval)
+	}
+}

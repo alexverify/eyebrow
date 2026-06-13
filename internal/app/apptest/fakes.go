@@ -48,16 +48,17 @@ func (r Resolver) Resolve(_ context.Context, src artifact.Source) (ports.Resolut
 type Hasher struct {
 	HashValue string
 	Files     []artifact.FileRef
+	ModTime   time.Time
 	Err       error
 }
 
 // Hash satisfies ports.Hasher.
-func (h Hasher) Hash(context.Context, string) (string, []artifact.FileRef, error) {
+func (h Hasher) Hash(context.Context, string) (string, []artifact.FileRef, time.Time, error) {
 	hv := h.HashValue
 	if hv == "" {
 		hv = "sha256-fake"
 	}
-	return hv, h.Files, h.Err
+	return hv, h.Files, h.ModTime, h.Err
 }
 
 // Analyzer returns fixed findings.

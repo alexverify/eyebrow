@@ -126,12 +126,13 @@ func (s *Service) enrich(ctx context.Context, a *artifact.Artifact) error {
 
 	switch {
 	case res.LocalPath != "":
-		hash, files, err := s.deps.Hasher.Hash(ctx, res.LocalPath)
+		hash, files, modTime, err := s.deps.Hasher.Hash(ctx, res.LocalPath)
 		if err != nil {
 			return fmt.Errorf("hash: %w", err)
 		}
 		a.ContentHash = hash
 		a.Files = files
+		a.ModifiedAt = modTime
 
 		fs, err := s.deps.Analyzer.Analyze(ctx, *a, res.LocalPath)
 		if err != nil {

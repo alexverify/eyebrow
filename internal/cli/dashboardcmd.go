@@ -30,6 +30,9 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	scopes := a.scopes(*c.path, *c.global)
 	builder := a.scanService(false, *c.rules)
 	store := lockstore.New()
+	// The keyring (committed trusted-keys + personal) verifies approval
+	// signatures so the dashboard's "verified" status is cryptographically real.
+	verifier, _ := a.lockfileVerifier("agentguard.trustedkeys")
 
 	srv := dashboard.New(dashboard.Deps{
 		Inventory: func(ctx context.Context) (lockfile.Lockfile, error) {
@@ -45,6 +48,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		Audit: func(f auditlog.Filter) ([]audit.Event, error) {
 			return auditlog.Read(*auditDir, f)
 		},
+		ApprovalVerifier: asApprovalVerifier(verifier),
 	})
 
 	ln, err := net.Listen("tcp", *addr)
@@ -64,4 +68,13 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	return ExitOK
+}
+
+// asApprovalVerifier adapts the lockfile verifier (the keyring, which also
+// verifies approvals) to the approval-verifier port, or nil if unavailable.
+func asApprovalVerifier(v ports.LockfileVerifier) ports.ApprovalVerifier {
+	if av, ok := v.(ports.ApprovalVerifier); ok {
+		return av
+	}
+	return nil
 }

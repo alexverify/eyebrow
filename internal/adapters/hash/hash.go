@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/alexverify/agentguard/internal/domain/artifact"
 	"github.com/alexverify/agentguard/internal/domain/digest"
@@ -28,17 +29,20 @@ func New() *Hasher {
 	return &Hasher{skipDirs: map[string]bool{".git": true}}
 }
 
-// Hash walks root and returns the canonical content digest plus per-file
-// hashes (sorted by POSIX path). root may be a directory or a single file.
-func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.FileRef, error) {
+// Hash walks root and returns the canonical content digest, per-file hashes
+// (sorted by POSIX path), and the newest file mtime seen. root may be a
+// directory or a single file. The mtime is for display only and is not part
+// of the digest.
+func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.FileRef, time.Time, error) {
 	info, err := os.Stat(root)
 	if err != nil {
-		return "", nil, err
+		return "", nil, time.Time{}, err
 	}
 
 	var (
 		leaves []digest.FileHash
 		files  []artifact.FileRef
+		newest time.Time
 	)
 
 	add := func(rel string, b []byte) {
@@ -46,14 +50,20 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 		leaves = append(leaves, leaf)
 		files = append(files, artifact.FileRef{Path: rel, Hash: leaf.Hash})
 	}
+	touch := func(t time.Time) {
+		if t.After(newest) {
+			newest = t
+		}
+	}
 
 	if !info.IsDir() {
 		b, err := os.ReadFile(root)
 		if err != nil {
-			return "", nil, err
+			return "", nil, time.Time{}, err
 		}
 		add(filepath.Base(root), b)
-		return digest.Root(leaves), files, nil
+		touch(info.ModTime())
+		return digest.Root(leaves), files, newest, nil
 	}
 
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -82,12 +92,15 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 			return err
 		}
 		add(filepath.ToSlash(rel), b)
+		if fi, ierr := d.Info(); ierr == nil {
+			touch(fi.ModTime())
+		}
 		return nil
 	})
 	if walkErr != nil {
-		return "", nil, walkErr
+		return "", nil, time.Time{}, walkErr
 	}
 
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-	return digest.Root(leaves), files, nil
+	return digest.Root(leaves), files, newest, nil
 }

@@ -10,6 +10,7 @@ package artifact
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"time"
 
 	"github.com/alexverify/agentguard/internal/domain/finding"
 )
@@ -82,6 +83,12 @@ type Artifact struct {
 	Findings       []finding.Finding `json:"findings,omitempty"`
 	ContentHash    string            `json:"contentHash,omitempty"`
 	DiscoveredFrom string            `json:"discoveredFrom,omitempty"` // the config file path
+
+	// ModifiedAt is the newest file mtime under the artifact, captured at scan
+	// time. Excluded from JSON on purpose: mtime is volatile, so persisting it
+	// would churn the lockfile and break signature stability. It lives only on
+	// the in-memory inventory, for display (e.g. the dashboard).
+	ModifiedAt time.Time `json:"-"`
 }
 
 // MakeID returns a stable identifier derived from the tuple that uniquely

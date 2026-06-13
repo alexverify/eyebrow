@@ -76,7 +76,7 @@ type Resolver interface {
 // Hasher computes the canonical content digest and per-file hashes for a
 // directory on disk, using the domain digest algorithm.
 type Hasher interface {
-	Hash(ctx context.Context, root string) (contentHash string, files []artifact.FileRef, err error)
+	Hash(ctx context.Context, root string) (contentHash string, files []artifact.FileRef, modTime time.Time, err error)
 }
 
 // Analyzer runs static analysis over an artifact's resolved code, returning
