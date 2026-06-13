@@ -1,5 +1,4 @@
 import {
-  artifacts,
   SEVERITY_ORDER,
   type Artifact,
   type Finding,
@@ -13,7 +12,7 @@ export interface FlatFinding extends Finding {
   agent: Artifact["agent"]
 }
 
-export function getAllFindings(): FlatFinding[] {
+export function getAllFindings(artifacts: Artifact[]): FlatFinding[] {
   return artifacts
     .flatMap((a) =>
       a.findings.map((f) => ({
@@ -26,18 +25,18 @@ export function getAllFindings(): FlatFinding[] {
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
 }
 
-export function severityCounts(): Record<Severity, number> {
+export function severityCounts(artifacts: Artifact[]): Record<Severity, number> {
   const counts: Record<Severity, number> = {
     critical: 0,
     high: 0,
     medium: 0,
     low: 0,
   }
-  for (const f of getAllFindings()) counts[f.severity] += 1
+  for (const f of getAllFindings(artifacts)) counts[f.severity] += 1
   return counts
 }
 
-export function driftCounts(): Record<DriftStatus, number> {
+export function driftCounts(artifacts: Artifact[]): Record<DriftStatus, number> {
   const counts: Record<DriftStatus, number> = {
     verified: 0,
     drifted: 0,

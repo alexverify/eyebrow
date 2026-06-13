@@ -13,10 +13,10 @@ import {
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import {
-  artifacts,
   KIND_LABELS,
   PATTERN_LABELS,
   type Agent,
+  type Artifact,
   type ArtifactKind,
 } from "@/lib/scan-data"
 import {
@@ -26,6 +26,7 @@ import {
   topSeverity,
   SEVERITY_STYLES,
 } from "@/lib/scan-utils"
+import { useScan } from "@/lib/use-scan"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { SeverityBadge, DriftBadge } from "@/components/dashboard/badges"
 
@@ -37,17 +38,23 @@ const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "drift", label: "Rug-pull / Drift", icon: GitCompareArrows },
 ]
 
-const AGENTS: Agent[] = ["Claude Code", "Cursor", "Codex", "OpenCode"]
-
 export function Dashboard() {
+  const { artifacts, loading, live } = useScan()
   const [tab, setTab] = useState<TabId>("inventory")
   const [query, setQuery] = useState("")
   const [agentFilter, setAgentFilter] = useState<Agent | "all">("all")
   const [kindFilter, setKindFilter] = useState<ArtifactKind | "all">("all")
 
-  const sev = useMemo(() => severityCounts(), [])
-  const drift = useMemo(() => driftCounts(), [])
-  const findings = useMemo(() => getAllFindings(), [])
+  const sev = useMemo(() => severityCounts(artifacts), [artifacts])
+  const drift = useMemo(() => driftCounts(artifacts), [artifacts])
+  const findings = useMemo(() => getAllFindings(artifacts), [artifacts])
+
+  // Agents present in the data drive the filter, so it tracks whatever tools
+  // were actually discovered rather than a fixed list.
+  const agents = useMemo(
+    () => Array.from(new Set(artifacts.map((a) => a.agent))).sort() as Agent[],
+    [artifacts],
+  )
 
   const filteredArtifacts = useMemo(() => {
     return artifacts.filter((a) => {
@@ -59,11 +66,11 @@ export function Dashboard() {
       const matchesKind = kindFilter === "all" || a.kind === kindFilter
       return matchesQuery && matchesAgent && matchesKind
     })
-  }, [query, agentFilter, kindFilter])
+  }, [artifacts, query, agentFilter, kindFilter])
 
   const driftedArtifacts = useMemo(
     () => artifacts.filter((a) => a.drift === "drifted" || a.drift === "unsigned"),
-    [],
+    [artifacts],
   )
 
   const totalFindings = findings.length
@@ -79,8 +86,11 @@ export function Dashboard() {
             Local Scan
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {artifacts.length} artifacts inventoried across {AGENTS.length} agents · last scan{" "}
-            <span className="font-mono text-foreground">2m ago</span>
+            {loading
+              ? "scanning…"
+              : `${artifacts.length} artifacts inventoried across ${agents.length} agents`}{" "}
+            ·{" "}
+            <span className="font-mono text-foreground">{live ? "live scan" : "demo data"}</span>
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 font-mono text-xs text-muted-foreground">
@@ -136,6 +146,7 @@ export function Dashboard() {
         {tab === "inventory" && (
           <InventoryPanel
             artifacts={filteredArtifacts}
+            agents={agents}
             query={query}
             setQuery={setQuery}
             agentFilter={agentFilter}
@@ -155,6 +166,7 @@ export function Dashboard() {
 
 function InventoryPanel({
   artifacts: rows,
+  agents,
   query,
   setQuery,
   agentFilter,
@@ -162,7 +174,8 @@ function InventoryPanel({
   kindFilter,
   setKindFilter,
 }: {
-  artifacts: typeof artifacts
+  artifacts: Artifact[]
+  agents: Agent[]
   query: string
   setQuery: (v: string) => void
   agentFilter: Agent | "all"
@@ -185,7 +198,7 @@ function InventoryPanel({
         <FilterSelect
           value={agentFilter}
           onChange={(v) => setAgentFilter(v as Agent | "all")}
-          options={[{ value: "all", label: "All agents" }, ...AGENTS.map((a) => ({ value: a, label: a }))]}
+          options={[{ value: "all", label: "All agents" }, ...agents.map((a) => ({ value: a, label: a }))]}
         />
         <FilterSelect
           value={kindFilter}
@@ -331,7 +344,7 @@ function FindingsPanel({ findings }: { findings: ReturnType<typeof getAllFinding
 
 /* ----------------------------- Drift ----------------------------- */
 
-function DriftPanel({ artifacts: rows }: { artifacts: typeof artifacts }) {
+function DriftPanel({ artifacts: rows }: { artifacts: Artifact[] }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-10 text-center">
