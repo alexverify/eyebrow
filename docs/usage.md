@@ -218,8 +218,9 @@ agentguard dashboard --addr 127.0.0.1:9000 --path . --audit-dir ~/.agentguard/au
 
 It binds loopback only and rejects any request whose `Host` header isn't a
 loopback name (defeating DNS-rebinding from a page in your browser); there is
-no auth because there is no remotely reachable surface. The UI ships embedded
-in the binary — nothing to install, works offline.
+no auth because there is no remotely reachable surface. The UI is a Next.js app
+(`controlplane/web`) static-exported and **embedded in the binary** — nothing
+to install, works offline. Rebuild it with `make dashboard-web && make build`.
 
 ## Exit codes (stable contract)
 
