@@ -66,7 +66,7 @@ func TestKeyTrustRejectsMalformed(t *testing.T) {
 // from a key in the committed registry passes verify --ci, one from an
 // untrusted key fails.
 func TestVerifyCITeamTrustFlow(t *testing.T) {
-	t.Setenv("HOME", t.TempDir()) // hermetic: no real ~/.agentguard key or registry
+	setHome(t, t.TempDir()) // hermetic: no real ~/.agentguard key or registry
 	ctx := context.Background()
 	dir, lock := fixtureProject(t)
 
@@ -123,7 +123,7 @@ func TestVerifyCITeamTrustFlow(t *testing.T) {
 // registry anywhere, a lockfile signed by the local key verifies.
 func TestVerifyCISelfTrustFallback(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	ctx := context.Background()
 	dir, lock := fixtureProject(t)
 

@@ -17,6 +17,19 @@ import (
 	"github.com/alexverify/agentguard/internal/sandbox"
 )
 
+// shell resolves a POSIX sh for the shim integration tests (which drive fake
+// MCP servers written as shell scripts), skipping when none is present — e.g.
+// a Windows host without Git Bash on PATH. The relay logic itself is OS-
+// agnostic and covered by the in-memory tests in internal/app/shim.
+func shell(t *testing.T) string {
+	t.Helper()
+	p, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no POSIX sh on PATH; shim integration test needs a shell")
+	}
+	return p
+}
+
 // fakeMCPServer writes a script that answers the first request line with a
 // canned JSON-RPC response and exits.
 func fakeMCPServer(t *testing.T) string {
@@ -40,7 +53,7 @@ func TestMcpShimRelaysAndAudits(t *testing.T) {
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ping","arguments":{}}}` + "\n")
 
 	code := app.Execute(context.Background(), []string{
-		"mcp-shim", "--server", "demo", "--audit-dir", auditDir, "--", "/bin/sh", server,
+		"mcp-shim", "--server", "demo", "--audit-dir", auditDir, "--", shell(t), server,
 	})
 	if code != 0 {
 		t.Fatalf("mcp-shim exit = %d, stderr=%s", code, errBuf.String())
@@ -89,7 +102,7 @@ func TestMcpShimEnforcesPolicy(t *testing.T) {
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"delete_repo","arguments":{"repo":"prod"}}}` + "\n")
 	code := app.Execute(context.Background(), []string{
 		"mcp-shim", "--server", "demo", "--audit-dir", auditDir, "--policy", policyPath,
-		"--", "/bin/sh", server,
+		"--", shell(t), server,
 	})
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
@@ -145,7 +158,7 @@ printf '{"jsonrpc":"2.0","id":1,"result":{"proxy":"%s %s"}}\n' "$HTTP_PROXY" "$H
 	app, out, errBuf := newApp()
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
 	code := app.Execute(context.Background(), []string{
-		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--", "/bin/sh", server,
+		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--", shell(t), server,
 	})
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
@@ -159,7 +172,7 @@ printf '{"jsonrpc":"2.0","id":1,"result":{"proxy":"%s %s"}}\n' "$HTTP_PROXY" "$H
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
 	app.Execute(context.Background(), []string{
 		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--no-egress-proxy",
-		"--", "/bin/sh", server,
+		"--", shell(t), server,
 	})
 	if strings.Contains(out.String(), "http://127.0.0.1:") {
 		t.Fatalf("--no-egress-proxy must not inject proxy env: %q", out.String())
@@ -197,7 +210,7 @@ func TestMcpShimSandboxConfinesWrites(t *testing.T) {
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"x","arguments":{}}}` + "\n")
 	code := app.Execute(context.Background(), []string{
 		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(),
-		"--workspace", work, "--no-egress-proxy", "--", "/bin/sh", server,
+		"--workspace", work, "--no-egress-proxy", "--", shell(t), server,
 	})
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
@@ -251,7 +264,7 @@ func TestMcpShimSandboxBlocksOffProxyEgress(t *testing.T) {
 		app, out, _ := newApp()
 		app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"x","arguments":{}}}` + "\n")
 		args := append([]string{"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--workspace", work}, extra...)
-		args = append(args, "--", "/bin/sh", server)
+		args = append(args, "--", shell(t), server)
 		app.Execute(context.Background(), args)
 		return out.String()
 	}
@@ -271,7 +284,7 @@ func TestMcpShimNoSandboxFlag(t *testing.T) {
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ping","arguments":{}}}` + "\n")
 	code := app.Execute(context.Background(), []string{
 		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(),
-		"--no-sandbox", "--no-egress-proxy", "--", "/bin/sh", server,
+		"--no-sandbox", "--no-egress-proxy", "--", shell(t), server,
 	})
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
@@ -292,7 +305,7 @@ func TestMcpShimPropagatesExitCode(t *testing.T) {
 	// a sandbox the script (in a temp dir outside the workspace) would be
 	// unreadable and the wrapper's own error code would mask the child's.
 	code := app.Execute(context.Background(), []string{
-		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--no-sandbox", "--", "/bin/sh", path,
+		"mcp-shim", "--server", "demo", "--audit-dir", t.TempDir(), "--no-sandbox", "--", shell(t), path,
 	})
 	if code != 7 {
 		t.Fatalf("exit = %d, want the child's 7", code)

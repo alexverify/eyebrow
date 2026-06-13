@@ -120,7 +120,7 @@ func TestWrapCausesNoDrift(t *testing.T) {
 
 func TestWrapGlobalScope(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	cfg := `{
   "mcpServers": {"global-tool": {"command": "node", "args": ["g.js"]}},
   "projects": {"/x": {"foo": 1}}

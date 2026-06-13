@@ -15,7 +15,7 @@ import (
 // TestSignedApprovalGate: requireSignedApproval passes only when approvals are
 // signed by a trusted key, and a hand-edited (unsigned) approval is rejected.
 func TestSignedApprovalGate(t *testing.T) {
-	t.Setenv("HOME", t.TempDir()) // hermetic key + trusted-keys location
+	setHome(t, t.TempDir()) // hermetic key + trusted-keys location
 	ctx := context.Background()
 	dir, lock := fixtureProject(t)
 

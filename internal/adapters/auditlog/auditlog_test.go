@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -63,6 +64,9 @@ func TestEmitSplitsFilesByDay(t *testing.T) {
 }
 
 func TestFilePermissionsArePrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file-permission bits do not apply on Windows (ACL-based)")
+	}
 	dir := filepath.Join(t.TempDir(), "audit")
 	sink := New(dir)
 	at := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)

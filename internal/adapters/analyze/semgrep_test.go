@@ -55,7 +55,9 @@ const semgrepJSON = `{
 
 func TestSemgrepMapsResultsToFindings(t *testing.T) {
 	s, _, root := fakeSemgrep(t, nil, nil)
-	out := strings.ReplaceAll(semgrepJSON, "%ROOT%", root)
+	// Real semgrep emits forward-slash paths in its JSON; a raw Windows path
+	// (C:\…) would also be invalid JSON (\U is not an escape). Use slashes.
+	out := strings.ReplaceAll(semgrepJSON, "%ROOT%", filepath.ToSlash(root))
 	s.runner.(*run.Fake).Responses[strings.Join(append([]string{"semgrep"}, semgrepArgs(s.RulesDir, root)...), " ")] = run.FakeResponse{Out: []byte(out)}
 
 	fs, err := s.Analyze(context.Background(), artifact.Artifact{}, root)

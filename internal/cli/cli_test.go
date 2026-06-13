@@ -13,6 +13,15 @@ import (
 	"github.com/alexverify/agentguard/internal/cli"
 )
 
+// setHome redirects the user home dir for a test across OSes. os.UserHomeDir
+// reads HOME on Unix but USERPROFILE on Windows, so a test that only sets HOME
+// silently uses the real profile on Windows.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
+
 // newApp returns a CLI App with a fixed clock and captured output.
 func newApp() (*cli.App, *bytes.Buffer, *bytes.Buffer) {
 	out, errBuf := &bytes.Buffer{}, &bytes.Buffer{}
