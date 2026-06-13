@@ -10,6 +10,7 @@ import (
 
 	"github.com/alexverify/agentguard/internal/domain/finding"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/agentguard/internal/domain/trust"
 )
 
 // JSON renders machine-readable output.
@@ -65,11 +66,23 @@ func (Text) Verify(w io.Writer, d lockfile.Diff) error {
 	return nil
 }
 
-// List prints a compact inventory.
+// List prints a compact inventory with a baseline trust verdict per artifact.
+// The verdict here assumes no drift (the lockfile is the reference); the
+// dashboard computes the drift-aware score.
 func (Text) List(w io.Writer, lf lockfile.Lockfile) error {
 	for _, e := range lf.Artifacts {
 		worst := finding.Max(e.Findings)
-		fmt.Fprintf(w, "%-24s %-12s %-12s %-8s %s\n", e.Name, e.Tool, e.Type, worst, e.Scope)
+		score := trust.Evaluate(trust.Input{
+			Findings:         e.Findings,
+			Drift:            lockfile.DriftClassNone,
+			Source:           e.Source,
+			Signed:           e.Approval != nil && e.Approval.Status == "approved" && e.Approval.Sig != "",
+			Exec:             e.Capabilities.Exec,
+			Network:          len(e.Capabilities.Network) > 0,
+			SecretFilesystem: len(trust.SensitivePaths(e.Capabilities.Filesystem)) > 0,
+		})
+		fmt.Fprintf(w, "%-24s %-12s %-12s %-8s %3d %-11s %s\n",
+			e.Name, e.Tool, e.Type, worst, score.Value, score.Verdict, e.Scope)
 	}
 	return nil
 }
