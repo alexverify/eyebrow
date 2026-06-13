@@ -21,14 +21,14 @@ import {
 } from "@/lib/scan-data"
 import {
   getAllFindings,
-  severityCounts,
   driftCounts,
   topSeverity,
+  verdictCounts,
   SEVERITY_STYLES,
 } from "@/lib/scan-utils"
 import { useScan } from "@/lib/use-scan"
 import { StatCard } from "@/components/dashboard/stat-card"
-import { SeverityBadge, DriftBadge } from "@/components/dashboard/badges"
+import { SeverityBadge, DriftBadge, VerdictBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
 
 type TabId = "inventory" | "findings" | "drift"
@@ -47,8 +47,8 @@ export function Dashboard() {
   const [kindFilter, setKindFilter] = useState<ArtifactKind | "all">("all")
   const [selected, setSelected] = useState<Artifact | null>(null)
 
-  const sev = useMemo(() => severityCounts(artifacts), [artifacts])
   const drift = useMemo(() => driftCounts(artifacts), [artifacts])
+  const verdicts = useMemo(() => verdictCounts(artifacts), [artifacts])
   const findings = useMemo(() => getAllFindings(artifacts), [artifacts])
 
   // Agents present in the data drive the filter, so it tracks whatever tools
@@ -75,8 +75,11 @@ export function Dashboard() {
     [artifacts],
   )
 
-  const totalFindings = findings.length
-  const criticalCount = sev.critical
+  const updatedArtifacts = useMemo(
+    () => artifacts.filter((a) => a.drift === "updated"),
+    [artifacts],
+  )
+
   const driftedCount = drift.drifted + drift.unsigned
 
   return (
@@ -104,24 +107,24 @@ export function Dashboard() {
       {/* Summary stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Critical findings"
-          value={criticalCount}
-          hint="require immediate review"
-          accent={criticalCount > 0 ? "critical" : "ok"}
+          label="Quarantine"
+          value={verdicts.quarantine}
+          hint="recommend disabling"
+          accent={verdicts.quarantine > 0 ? "critical" : "ok"}
         />
-        <StatCard label="Total findings" value={totalFindings} hint="across all artifacts" accent="high" />
         <StatCard
-          label="Drifted / unsigned"
+          label="Review"
+          value={verdicts.review}
+          hint="changed or unproven"
+          accent={verdicts.review > 0 ? "high" : "ok"}
+        />
+        <StatCard
+          label="Drifted"
           value={driftedCount}
           hint="changed since audit"
           accent={driftedCount > 0 ? "critical" : "ok"}
         />
-        <StatCard
-          label="Verified"
-          value={drift.verified}
-          hint="match locked hash"
-          accent="ok"
-        />
+        <StatCard label="Trusted" value={verdicts.trusted} hint="match audit, verifiable" accent="ok" />
       </div>
 
       {/* Tabs */}
@@ -159,7 +162,7 @@ export function Dashboard() {
           />
         )}
         {tab === "findings" && <FindingsPanel findings={findings} />}
-        {tab === "drift" && <DriftPanel artifacts={driftedArtifacts} />}
+        {tab === "drift" && <DriftPanel drifted={driftedArtifacts} updated={updatedArtifacts} />}
       </div>
 
       <ArtifactDrawer artifact={selected} onClose={() => setSelected(null)} />
@@ -220,10 +223,11 @@ function InventoryPanel({
       </div>
 
       <div className="mt-4 overflow-hidden rounded-lg border border-border">
-        <div className="hidden grid-cols-[1.6fr_0.7fr_0.8fr_1.4fr_0.9fr_0.7fr] gap-4 border-b border-border bg-muted/40 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wide text-muted-foreground md:grid">
+        <div className="hidden grid-cols-[1.5fr_0.6fr_0.7fr_1.1fr_0.9fr_0.9fr_0.6fr] gap-4 border-b border-border bg-muted/40 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wide text-muted-foreground md:grid">
           <span>Artifact</span>
           <span>Type</span>
           <span>Agent</span>
+          <span>Trust</span>
           <span>Content hash</span>
           <span>Status</span>
           <span className="text-right">Findings</span>
@@ -240,7 +244,7 @@ function InventoryPanel({
                 key={a.id}
                 type="button"
                 onClick={() => onSelect(a)}
-                className="grid w-full grid-cols-1 gap-2 border-b border-border px-4 py-3 text-left last:border-0 transition-colors hover:bg-muted/30 md:grid-cols-[1.6fr_0.7fr_0.8fr_1.4fr_0.9fr_0.7fr] md:items-center md:gap-4"
+                className="grid w-full grid-cols-1 gap-2 border-b border-border px-4 py-3 text-left last:border-0 transition-colors hover:bg-muted/30 md:grid-cols-[1.5fr_0.6fr_0.7fr_1.1fr_0.9fr_0.9fr_0.6fr] md:items-center md:gap-4"
               >
                 <div className="flex items-center gap-2.5">
                   <FileCode2 className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -253,6 +257,7 @@ function InventoryPanel({
                 </div>
                 <span className="font-mono text-xs text-muted-foreground">{KIND_LABELS[a.kind]}</span>
                 <span className="text-xs text-foreground">{a.agent}</span>
+                <span>{a.verdict ? <VerdictBadge verdict={a.verdict} score={a.trust} /> : null}</span>
                 <span className="truncate font-mono text-xs text-muted-foreground">{a.hash}</span>
                 <span>
                   <DriftBadge status={a.drift} />
@@ -353,8 +358,8 @@ function FindingsPanel({ findings }: { findings: ReturnType<typeof getAllFinding
 
 /* ----------------------------- Drift ----------------------------- */
 
-function DriftPanel({ artifacts: rows }: { artifacts: Artifact[] }) {
-  if (rows.length === 0) {
+function DriftPanel({ drifted: rows, updated }: { drifted: Artifact[]; updated: Artifact[] }) {
+  if (rows.length === 0 && updated.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-10 text-center">
         <p className="font-mono text-sm text-ok">No drift detected</p>
@@ -366,39 +371,73 @@ function DriftPanel({ artifacts: rows }: { artifacts: Artifact[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">
-        These artifacts changed on disk after they were audited, or were never signed. A drifted
-        hash is the rug-pull signal: what runs today is not what you approved.
-      </p>
-      {rows.map((a) => (
-        <div key={a.id} className="rounded-lg border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <FileCode2 className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-sm font-medium text-foreground">{a.name}</span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {a.agent} · v{a.version}
-              </span>
-            </div>
-            <DriftBadge status={a.drift} />
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <div className="rounded-md border border-border bg-background p-3">
-              <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-                Locked (audited)
-              </p>
-              <p className="mt-1 font-mono text-xs text-ok">{a.lockedHash ?? "— never signed —"}</p>
-            </div>
-            <div className="rounded-md border border-sev-critical/30 bg-sev-critical/5 p-3">
-              <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-                On disk now
-              </p>
-              <p className="mt-1 font-mono text-xs text-sev-critical">{a.hash}</p>
-            </div>
+    <div className="flex flex-col gap-6">
+      {updated.length > 0 && (
+        <div>
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            Updated (expected) — {updated.length}
+          </p>
+          <div className="flex flex-col gap-2">
+            {updated.map((a) => (
+              <div
+                key={a.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileCode2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-mono text-sm font-medium text-foreground">{a.name}</span>
+                  <span className="text-xs text-muted-foreground">{a.driftDetail}</span>
+                </div>
+                <DriftBadge status={a.drift} />
+              </div>
+            ))}
           </div>
         </div>
-      ))}
+      )}
+      {rows.length > 0 && (
+        <div>
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            Drifted (unexpected) — {rows.length}
+          </p>
+          <p className="mb-3 text-sm text-muted-foreground">
+            These artifacts changed on disk after they were audited, or were never signed. A drifted
+            hash is the rug-pull signal: what runs today is not what you approved.
+          </p>
+          <div className="flex flex-col gap-3">
+            {rows.map((a) => (
+              <div key={a.id} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <FileCode2 className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-mono text-sm font-medium text-foreground">{a.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {a.agent} · v{a.version}
+                    </span>
+                  </div>
+                  <DriftBadge status={a.drift} />
+                </div>
+                {a.driftDetail ? (
+                  <p className="mt-2 text-xs text-sev-critical">{a.driftDetail}</p>
+                ) : null}
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Locked (audited)
+                    </p>
+                    <p className="mt-1 font-mono text-xs text-ok">{a.lockedHash ?? "— never signed —"}</p>
+                  </div>
+                  <div className="rounded-md border border-sev-critical/30 bg-sev-critical/5 p-3">
+                    <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                      On disk now
+                    </p>
+                    <p className="mt-1 font-mono text-xs text-sev-critical">{a.hash}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
