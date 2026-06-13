@@ -259,3 +259,23 @@ func TestBuildScanCapabilityDiff(t *testing.T) {
 		t.Errorf("added secret path should be flagged: %+v", got.SensitiveAdded)
 	}
 }
+
+func TestBuildScanQuarantineAndProvenance(t *testing.T) {
+	a := art("q1", "claude-code", artifact.TypeSkill, "suspect", "sha256-x")
+	a.Source = artifact.Source{Kind: artifact.SourceNPM, Ref: "1.0.0", Integrity: "sha512-A"}
+	locked := lf(a)
+	locked.Artifacts[0].Quarantined = true
+
+	scan := BuildScan(lf(a), locked, nil)
+	got := find(t, scan, "suspect")
+	if !got.Quarantined {
+		t.Errorf("quarantined state should surface")
+	}
+	if got.Verdict != "quarantine" {
+		t.Errorf("quarantined artifact verdict should be 'quarantine', got %q", got.Verdict)
+	}
+	// pinned + integrity, unsigned → provenance level 2 of 4
+	if got.Provenance.Level != 2 || got.Provenance.Max != 4 {
+		t.Errorf("provenance ladder = %d/%d, want 2/4", got.Provenance.Level, got.Provenance.Max)
+	}
+}

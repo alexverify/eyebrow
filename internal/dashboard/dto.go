@@ -8,6 +8,7 @@ import (
 	"github.com/alexverify/agentguard/internal/domain/artifact"
 	"github.com/alexverify/agentguard/internal/domain/finding"
 	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/agentguard/internal/domain/provenance"
 	"github.com/alexverify/agentguard/internal/domain/trust"
 )
 
@@ -47,6 +48,11 @@ type DashArtifact struct {
 	TrustReasons []DashReason `json:"trustReasons"`
 	DriftClass   string       `json:"driftClass"`  // none|updated|mutated|broken|added|removed
 	DriftDetail  string       `json:"driftDetail"` // human one-liner for the change card
+
+	// Remediation state (C2) and provenance grade (B1).
+	Quarantined bool              `json:"quarantined,omitempty"`
+	Frozen      bool              `json:"frozen,omitempty"`
+	Provenance  provenance.Ladder `json:"provenance"`
 }
 
 // DashReason is one additive contribution to the trust score, for the breakdown.
@@ -141,6 +147,13 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []Da
 			SecretFilesystem: len(secretFS) > 0,
 		})
 
+		// A quarantined artifact is, by definition, not trusted — override the
+		// verdict regardless of its numeric score.
+		verdict := string(score.Verdict)
+		if prev.Quarantined {
+			verdict = string(trust.Quarantine)
+		}
+
 		out = append(out, DashArtifact{
 			ID:             e.ID,
 			Name:           e.Name,
@@ -175,10 +188,13 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []Da
 			Files:        mapFiles(e.Files),
 			Approval:     mapApproval(prev.Approval),
 			Trust:        score.Value,
-			Verdict:      string(score.Verdict),
+			Verdict:      verdict,
 			TrustReasons: mapReasons(score.Reasons),
 			DriftClass:   string(class),
 			DriftDetail:  driftDetail(class, prev, e),
+			Quarantined:  prev.Quarantined,
+			Frozen:       prev.Frozen,
+			Provenance:   provenance.Assess(e.Source, approved[e.ID]),
 		})
 	}
 	return out
