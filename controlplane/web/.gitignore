@@ -1,0 +1,7 @@
+# Next.js build artifacts and deps — the *built* static export is synced into
+# internal/dashboard/assets (committed there, since the Go binary embeds it).
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo

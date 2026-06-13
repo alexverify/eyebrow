@@ -20,6 +20,14 @@ build: ## Build the static binary into ./bin
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) $(CMD)
 
+.PHONY: dashboard-web
+dashboard-web: ## Build the Next.js dashboard and sync its static export into the embed dir
+	cd controlplane/web && npm ci && npm run build
+	rm -rf internal/dashboard/assets
+	mkdir -p internal/dashboard/assets
+	cp -R controlplane/web/out/. internal/dashboard/assets/
+	@echo "synced dashboard export → internal/dashboard/assets (rebuild the binary to embed)"
+
 .PHONY: run
 run: ## Run the CLI (pass args via ARGS="scan ...")
 	go run $(CMD) $(ARGS)

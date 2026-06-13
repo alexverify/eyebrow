@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --fg: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --card: #fafafa;
+  --crit: #dc2626;
+  --high: #ea580c;
+  --med: #ca8a04;
+  --ok: #16a34a;
+  --accent: #2563eb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --border: #21262d;
+    --card: #161b22;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1040px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+header.top { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.25rem; }
+header.top h1 { font-size: 1.4rem; margin: 0; }
+header.top .tag { color: var(--muted); font-size: 0.9rem; }
+.meta { color: var(--muted); font-size: 0.85rem; margin: 0 0 1.5rem; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 2rem; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1rem; }
+.card .n { font-size: 1.6rem; font-weight: 600; }
+.card .l { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.card.alert .n { color: var(--crit); }
+
+section { margin-top: 2rem; }
+section h2 { font-size: 1.05rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.4rem 0.7rem; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+td.mono, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.sev { font-weight: 600; }
+.sev-critical { color: var(--crit); }
+.sev-high { color: var(--high); }
+.sev-medium { color: var(--med); }
+.badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 1rem; font-size: 0.8rem; background: var(--border); }
+.badge.denied { background: color-mix(in srgb, var(--crit) 18%, transparent); color: var(--crit); }
+.badge.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.clean { color: var(--ok); }
+.error { color: var(--crit); }
+.empty { color: var(--muted); font-style: italic; }
