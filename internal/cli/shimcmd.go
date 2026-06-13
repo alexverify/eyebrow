@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/alexverify/agentguard/internal/adapters/auditlog"
@@ -73,9 +74,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 		} else {
 			defer egress.Close()
 			proxyAddr = addr
-			pu := "http://" + addr
-			childEnv = append(os.Environ(),
-				"HTTP_PROXY="+pu, "HTTPS_PROXY="+pu, "http_proxy="+pu, "https_proxy="+pu)
+			childEnv = withProxyEnv(os.Environ(), "http://"+addr)
 		}
 	}
 
@@ -163,6 +162,25 @@ func newSessionID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// withProxyEnv points the child's HTTP stack at the egress proxy. It drops any
+// pre-existing *_PROXY entry first: env lookup is case-insensitive on Windows,
+// so an empty HTTP_PROXY already in the environment would otherwise shadow the
+// value we set. Both upper- and lower-case forms are set for tools that read
+// either.
+func withProxyEnv(base []string, proxyURL string) []string {
+	out := make([]string, 0, len(base)+4)
+	for _, kv := range base {
+		lower := strings.ToLower(kv)
+		if strings.HasPrefix(lower, "http_proxy=") || strings.HasPrefix(lower, "https_proxy=") {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out,
+		"HTTP_PROXY="+proxyURL, "HTTPS_PROXY="+proxyURL,
+		"http_proxy="+proxyURL, "https_proxy="+proxyURL)
 }
 
 // resolvePath returns the symlink-resolved path so sandbox profiles match the
