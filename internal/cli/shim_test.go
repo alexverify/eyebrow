@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -167,8 +168,18 @@ printf '{"jsonrpc":"2.0","id":1,"result":{"proxy":"%s","ctrl":"%s"}}\n' "$HTTP_P
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
 	}
-	if !strings.Contains(out.String(), "http://127.0.0.1:") {
-		t.Fatalf("child must see HTTP_PROXY set.\n  stdout=%q\n  stderr=%q\n  (ctrl=present means our env reached the child)", out.String(), errBuf.String())
+	// The control var proves our custom environment reaches the child — the
+	// OS-agnostic part of proxy injection.
+	if !strings.Contains(out.String(), `"ctrl":"present"`) {
+		t.Fatalf("child did not receive the injected environment: %q", out.String())
+	}
+	// The HTTP_PROXY value check uses a bash fake server. On Windows, Git Bash's
+	// MSYS layer mangles env-var values that look like paths ("http://…:port"),
+	// so the script sees it empty even though child.Env carries it correctly —
+	// real Windows MCP servers are native exes and read it intact. The Go-level
+	// injection is identical across OSes, so asserting the value on Unix covers it.
+	if runtime.GOOS != "windows" && !strings.Contains(out.String(), "http://127.0.0.1:") {
+		t.Fatalf("child must see HTTP_PROXY set: %q", out.String())
 	}
 
 	// And --no-egress-proxy must leave the environment alone.

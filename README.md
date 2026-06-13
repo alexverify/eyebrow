@@ -22,8 +22,9 @@ changes.
 ## Install
 
 Grab a static binary from the
-[releases page](https://github.com/alexverify/agentguard/releases) (Linux and
-macOS, amd64/arm64) and check it against the published `checksums.txt`:
+[releases page](https://github.com/alexverify/agentguard/releases) (Linux,
+macOS, and Windows; amd64/arm64) and check it against the published
+`checksums.txt`:
 
 ```sh
 shasum -a 256 -c --ignore-missing checksums.txt

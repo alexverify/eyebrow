@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/alexverify/agentguard/internal/adapters/mcpconfig"
+	"github.com/alexverify/agentguard/internal/sandbox"
 )
 
 // runWrap installs (or reports) MCP interposition for a tool's stdio servers.
@@ -42,6 +43,11 @@ func (a *App) runWrap(ctx context.Context, args []string) int {
 		}
 	}
 	fmt.Fprintf(a.Stdout, "wrapped %d server(s); tool calls will be audited to %s\n", n, a.auditDir())
+	if n > 0 && sandbox.Select(sandbox.Profile{}).Name() == "none" {
+		fmt.Fprintf(a.Stdout, "warning: no OS sandbox on this platform — servers run unconfined and "+
+			"egress-proxy routing is cooperative (a server could bypass it). "+
+			"Tool-policy enforcement and auditing still apply.\n")
+	}
 	return ExitOK
 }
 

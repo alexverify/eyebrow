@@ -210,3 +210,19 @@ forensic detail.
 `0` clean · `1` drift or policy violation · `2` usage error · `3` internal
 error. Everything CI needs is in the exit code; `--json` gives machines the
 details.
+
+## Platforms
+
+`scan`/`verify`/`sign` and the rest of the inventory side run on Linux, macOS,
+and Windows. `wrap`'s OS sandbox exists on macOS (Seatbelt) and Linux
+(bubblewrap) only; on **Windows there is no sandbox**, so `wrap` runs servers
+unconfined and the egress proxy is cooperative (a server could bypass it) —
+tool-policy enforcement and auditing still apply, and `wrap` prints a warning
+to make the gap explicit.
+
+**Line endings (cross-OS lockfiles).** agentguard hashes file bytes exactly as
+they are on disk, so if Git rewrites text files to CRLF on Windows checkout, a
+text artifact hashes differently than on Linux/macOS and `verify` reports false
+drift. If you commit a lockfile that a mixed-OS team verifies, normalize line
+endings — commit a `.gitattributes` with `* text=auto eol=lf` (what this repo
+does), or set `core.autocrlf=false` for the scanned trees.
