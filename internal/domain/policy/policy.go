@@ -47,7 +47,7 @@ func (p Policy) Normalize() Policy {
 
 // Violation is a single reason the gate failed.
 type Violation struct {
-	Kind     string           `json:"kind"` // "finding" | "unapproved"
+	Kind     string           `json:"kind"` // "finding" | "unapproved" | "quarantined" | "frozen_drift"
 	ID       string           `json:"id,omitempty"`
 	Name     string           `json:"name,omitempty"`
 	RuleID   string           `json:"ruleId,omitempty"`
@@ -103,6 +103,29 @@ func Evaluate(p Policy, locked, current lockfile.Lockfile) Result {
 					Kind: "unapproved",
 					ID:   e.ID,
 					Name: e.Name,
+				})
+			}
+		}
+	}
+
+	// Remediation state (quarantine/freeze) is recorded in the lockfile and
+	// always enforced, regardless of policy flags.
+	present := make(map[string]bool, len(current.Artifacts))
+	for _, e := range current.Artifacts {
+		present[e.ID] = true
+	}
+	classes := lockfile.Classify(locked, current)
+	for _, e := range locked.Artifacts {
+		if e.Quarantined && present[e.ID] {
+			violations = append(violations, Violation{
+				Kind: "quarantined", ID: e.ID, Name: e.Name,
+			})
+		}
+		if e.Frozen {
+			switch classes[e.ID] {
+			case lockfile.DriftClassUpdated, lockfile.DriftClassMutated, lockfile.DriftClassBroken:
+				violations = append(violations, Violation{
+					Kind: "frozen_drift", ID: e.ID, Name: e.Name, Detail: string(classes[e.ID]),
 				})
 			}
 		}

@@ -103,6 +103,10 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 			fmt.Fprintf(a.Stdout, "policy: unapproved artifact %s (%s)\n", v.Name, v.ID)
 		case "unsigned_approval":
 			fmt.Fprintf(a.Stdout, "policy: approval not validly signed — %s %s\n", v.Name, v.Detail)
+		case "quarantined":
+			fmt.Fprintf(a.Stdout, "policy: quarantined artifact still installed — %s (%s)\n", v.Name, v.ID)
+		case "frozen_drift":
+			fmt.Fprintf(a.Stdout, "policy: frozen artifact changed (%s) — %s (%s)\n", v.Detail, v.Name, v.ID)
 		case "signature":
 			fmt.Fprintf(a.Stdout, "policy: signature — %s\n", v.Detail)
 		default:

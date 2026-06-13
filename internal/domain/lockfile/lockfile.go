@@ -46,11 +46,17 @@ type Approval struct {
 	Sig    string    `json:"sig,omitempty"` // ed25519:… over the artifact ContentHash
 }
 
-// Entry is one artifact as recorded in the lockfile, with its approval state.
-// The artifact fields are flattened into the JSON object.
+// Entry is one artifact as recorded in the lockfile, with its approval and
+// remediation state. The artifact fields are flattened into the JSON object.
 type Entry struct {
 	artifact.Artifact
 	Approval *Approval `json:"approval,omitempty"`
+	// Quarantined disables an artifact pending review: the policy gate always
+	// fails a quarantined artifact, so it cannot ship.
+	Quarantined bool `json:"quarantined,omitempty"`
+	// Frozen pins an artifact: any drift on it (update, mutation, or broken
+	// integrity) is a hard policy violation, not a reviewable change.
+	Frozen bool `json:"frozen,omitempty"`
 }
 
 // Lockfile is the committed, signable, human-diffable snapshot of an inventory.

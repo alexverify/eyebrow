@@ -89,3 +89,62 @@ func TestEvaluateRequireApproval(t *testing.T) {
 		t.Fatalf("want 1 unapproved violation, got %d: %+v", gotUnapproved, res.Violations)
 	}
 }
+
+func TestEvaluateFailsQuarantined(t *testing.T) {
+	locked := entry("bad-skill", true)
+	locked.Quarantined = true
+	current := entry("bad-skill", true) // still installed
+	res := Evaluate(Default(), lf(locked), lf(current))
+	var got int
+	for _, v := range res.Violations {
+		if v.Kind == "quarantined" {
+			got++
+		}
+	}
+	if got != 1 {
+		t.Fatalf("quarantined artifact must fail the gate, got %+v", res.Violations)
+	}
+}
+
+func TestEvaluateQuarantinedButRemovedIsClean(t *testing.T) {
+	locked := entry("bad-skill", true)
+	locked.Quarantined = true
+	res := Evaluate(Default(), lf(locked), lf()) // removed → nothing installed to gate
+	for _, v := range res.Violations {
+		if v.Kind == "quarantined" {
+			t.Fatalf("a removed quarantined artifact should not violate, got %+v", res.Violations)
+		}
+	}
+}
+
+func TestEvaluateFrozenDriftFails(t *testing.T) {
+	locked := entry("pinned", true)
+	locked.ContentHash = "sha256-old"
+	locked.Frozen = true
+	current := entry("pinned", true)
+	current.ContentHash = "sha256-new" // drifted
+	res := Evaluate(Default(), lf(locked), lf(current))
+	var got int
+	for _, v := range res.Violations {
+		if v.Kind == "frozen_drift" {
+			got++
+		}
+	}
+	if got != 1 {
+		t.Fatalf("frozen artifact that drifted must fail, got %+v", res.Violations)
+	}
+}
+
+func TestEvaluateFrozenNoDriftClean(t *testing.T) {
+	locked := entry("pinned", true)
+	locked.ContentHash = "sha256-same"
+	locked.Frozen = true
+	current := entry("pinned", true)
+	current.ContentHash = "sha256-same"
+	res := Evaluate(Default(), lf(locked), lf(current))
+	for _, v := range res.Violations {
+		if v.Kind == "frozen_drift" {
+			t.Fatalf("frozen artifact with no drift is clean, got %+v", res.Violations)
+		}
+	}
+}
