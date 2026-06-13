@@ -210,3 +210,43 @@ func TestClassifyGitUpdateIsVerifiable(t *testing.T) {
 		t.Fatalf("git content+commit moved → updated, got %q", got[locked.ID])
 	}
 }
+
+func TestDiffCapabilitiesExpansion(t *testing.T) {
+	prev := artifact.Capabilities{Exec: false, Network: []string{"api.openai.com"}, Filesystem: []string{"./workspace"}}
+	cur := artifact.Capabilities{
+		Exec:       true,
+		Network:    []string{"api.openai.com", "cdn.pdf-sum.dev"},
+		Filesystem: []string{"./workspace", "~/.aws"},
+	}
+	d := DiffCapabilities(prev, cur)
+
+	if !d.ExecAdded || d.ExecRemoved {
+		t.Errorf("exec newly added: %+v", d)
+	}
+	if len(d.NetworkAdded) != 1 || d.NetworkAdded[0] != "cdn.pdf-sum.dev" {
+		t.Errorf("network added wrong: %+v", d.NetworkAdded)
+	}
+	if len(d.FilesystemAdded) != 1 || d.FilesystemAdded[0] != "~/.aws" {
+		t.Errorf("filesystem added wrong: %+v", d.FilesystemAdded)
+	}
+	if !d.Expanded() {
+		t.Errorf("Expanded() should be true when capabilities grew")
+	}
+}
+
+func TestDiffCapabilitiesNoChange(t *testing.T) {
+	c := artifact.Capabilities{Network: []string{"a", "b"}, Filesystem: []string{"./x"}}
+	d := DiffCapabilities(c, c)
+	if d.Expanded() || len(d.NetworkAdded) != 0 || len(d.NetworkRemoved) != 0 {
+		t.Errorf("identical capabilities → empty diff, got %+v", d)
+	}
+}
+
+func TestDiffCapabilitiesRemovalSortedDeterministic(t *testing.T) {
+	prev := artifact.Capabilities{Network: []string{"z.com", "a.com", "m.com"}}
+	cur := artifact.Capabilities{Network: []string{"m.com"}}
+	d := DiffCapabilities(prev, cur)
+	if len(d.NetworkRemoved) != 2 || d.NetworkRemoved[0] != "a.com" || d.NetworkRemoved[1] != "z.com" {
+		t.Errorf("removed not sorted/deterministic: %+v", d.NetworkRemoved)
+	}
+}

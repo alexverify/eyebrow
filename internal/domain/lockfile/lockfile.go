@@ -267,6 +267,53 @@ func updateVerifiable(s artifact.Source) bool {
 	return true
 }
 
+// CapabilityDiff is the set difference between an artifact's locked and current
+// declared capabilities. Capability expansion after an update — "it can now read
+// your filesystem and make outbound calls" — is a primary, low-noise trust signal.
+type CapabilityDiff struct {
+	ExecAdded         bool     `json:"execAdded,omitempty"`
+	ExecRemoved       bool     `json:"execRemoved,omitempty"`
+	NetworkAdded      []string `json:"networkAdded,omitempty"`
+	NetworkRemoved    []string `json:"networkRemoved,omitempty"`
+	FilesystemAdded   []string `json:"filesystemAdded,omitempty"`
+	FilesystemRemoved []string `json:"filesystemRemoved,omitempty"`
+}
+
+// Expanded reports whether the artifact gained any capability — the case worth
+// surfacing loudly.
+func (d CapabilityDiff) Expanded() bool {
+	return d.ExecAdded || len(d.NetworkAdded) > 0 || len(d.FilesystemAdded) > 0
+}
+
+// DiffCapabilities returns the capabilities present in cur but not prev, and
+// vice versa. Output slices are sorted for deterministic display.
+func DiffCapabilities(prev, cur artifact.Capabilities) CapabilityDiff {
+	return CapabilityDiff{
+		ExecAdded:         cur.Exec && !prev.Exec,
+		ExecRemoved:       prev.Exec && !cur.Exec,
+		NetworkAdded:      stringsMinus(cur.Network, prev.Network),
+		NetworkRemoved:    stringsMinus(prev.Network, cur.Network),
+		FilesystemAdded:   stringsMinus(cur.Filesystem, prev.Filesystem),
+		FilesystemRemoved: stringsMinus(prev.Filesystem, cur.Filesystem),
+	}
+}
+
+// stringsMinus returns the sorted elements of a that are not in b.
+func stringsMinus(a, b []string) []string {
+	set := make(map[string]bool, len(b))
+	for _, s := range b {
+		set[s] = true
+	}
+	var out []string
+	for _, s := range a {
+		if !set[s] {
+			out = append(out, s)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // NewFindings returns findings present in current but not in locked, at or
 // above the given severity. verify --ci uses this to fail a build on newly
 // introduced critical/high issues without re-flagging accepted ones.
