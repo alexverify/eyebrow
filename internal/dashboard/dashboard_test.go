@@ -102,6 +102,33 @@ func TestAuditEndpointAndFilter(t *testing.T) {
 	}
 }
 
+func TestScanEndpointAssemblesDashboardShape(t *testing.T) {
+	rec := get(t, testServer(t).Handler(), "/api/scan")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var resp struct {
+		Artifacts []dashboard.DashArtifact `json:"artifacts"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if len(resp.Artifacts) != 1 {
+		t.Fatalf("got %d artifacts, want 1", len(resp.Artifacts))
+	}
+	a := resp.Artifacts[0]
+	if a.Name != "github" || a.Kind != "mcp" || a.Agent != "Claude Code" {
+		t.Errorf("artifact mapping: %+v", a)
+	}
+	// current (sha256-new) vs locked (sha256-old) → drifted
+	if a.Drift != "drifted" {
+		t.Errorf("drift = %q, want drifted", a.Drift)
+	}
+	if len(a.Findings) != 1 || a.Findings[0].Pattern != "remote-code-exec" {
+		t.Errorf("findings = %+v", a.Findings)
+	}
+}
+
 func TestServesStaticIndex(t *testing.T) {
 	rec := get(t, testServer(t).Handler(), "/")
 	if rec.Code != http.StatusOK {

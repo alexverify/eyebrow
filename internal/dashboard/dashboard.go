@@ -65,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/inventory", s.handleInventory)
 	mux.HandleFunc("/api/drift", s.handleDrift)
 	mux.HandleFunc("/api/audit", s.handleAudit)
+	mux.HandleFunc("/api/scan", s.handleScan)
 	if s.static != nil {
 		mux.Handle("/", http.FileServer(http.FS(s.static)))
 	}
@@ -92,6 +93,25 @@ func (s *Server) handleDrift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, lockfile.Compare(locked, current))
+}
+
+// handleScan assembles the dashboard-shaped view (the UI's primary data
+// source): the live inventory joined with the locked snapshot, with drift
+// status, kind/agent mapping, and findings categorized for display.
+func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
+	current, err := s.deps.Inventory(r.Context())
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	locked, err := s.deps.Locked(r.Context())
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	writeJSON(w, struct {
+		Artifacts []DashArtifact `json:"artifacts"`
+	}{Artifacts: BuildScan(current, locked, approvedSet(locked))})
 }
 
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
