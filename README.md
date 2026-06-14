@@ -72,6 +72,9 @@ finding. Example:
 {
   "failOnSeverity": "high",          // gate on new findings at/above this severity
   "ignoreRules": ["EXEC-PRIMITIVE"], // accepted false positives, suppressed
+  "blockPublishers": ["giftshop.club"], // fail any artifact from these sources
+  "blockArtifacts": ["sketchy-skill"],  // fail any artifact by name substring
+  "allowPublishers": ["github.com/acme/"], // if set, fail anything not from here
   "requireApproval": true,           // fail any artifact not `agentguard approve`d
   "requireSignedApproval": true,     // fail unless each approval is signed by a trusted key
   "requireSignature": true,          // fail unless the lockfile is validly signed

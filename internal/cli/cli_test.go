@@ -242,3 +242,28 @@ func TestQuarantineFailsVerifyCI(t *testing.T) {
 		t.Fatalf("verify --ci after lifting quarantine exit = %d, want OK", code)
 	}
 }
+
+func TestBlockPublisherPolicyFailsVerifyCI(t *testing.T) {
+	ctx := context.Background()
+	dir, lock := fixtureProject(t) // discovers "local-tool"
+	if err := os.WriteFile(filepath.Join(dir, "agentguard.policy.json"),
+		[]byte(`{"blockArtifacts":["local-tool"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app, _, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"scan", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
+		t.Fatalf("scan exit = %d, stderr=%s", code, errBuf.String())
+	}
+
+	app2, out2, _ := newApp()
+	code := app2.Execute(ctx, []string{"verify", "--ci",
+		"--path", dir, "--lockfile", lock,
+		"--policy", filepath.Join(dir, "agentguard.policy.json")})
+	if code != cli.ExitDrift {
+		t.Fatalf("verify --ci with a blocked artifact exit = %d, want %d", code, cli.ExitDrift)
+	}
+	if !strings.Contains(out2.String(), "blocked artifact") {
+		t.Fatalf("expected a blocked-artifact policy message, got:\n%s", out2.String())
+	}
+}

@@ -148,3 +148,56 @@ func TestEvaluateFrozenNoDriftClean(t *testing.T) {
 		}
 	}
 }
+
+func countKind(r Result, kind string) int {
+	n := 0
+	for _, v := range r.Violations {
+		if v.Kind == kind {
+			n++
+		}
+	}
+	return n
+}
+
+func TestEvaluateBlocksPublisher(t *testing.T) {
+	e := entry("x", true)
+	e.Source = artifact.Source{Kind: artifact.SourceURL, Ref: "https://GiftShop.club/x"}
+	p := Default()
+	p.BlockPublishers = []string{"giftshop.club"}
+	res := Evaluate(p, lf(), lf(e))
+	if countKind(res, "blocked_publisher") != 1 {
+		t.Fatalf("blocked publisher (case-insensitive) must fail, got %+v", res.Violations)
+	}
+}
+
+func TestEvaluateBlocksArtifactByName(t *testing.T) {
+	e := entry("evil-skill", true)
+	p := Default()
+	p.BlockArtifacts = []string{"evil-skill"}
+	res := Evaluate(p, lf(), lf(e))
+	if countKind(res, "blocked_artifact") != 1 {
+		t.Fatalf("blocked artifact must fail, got %+v", res.Violations)
+	}
+}
+
+func TestEvaluateAllowlistRejectsOutsider(t *testing.T) {
+	in := entry("trusted", true)
+	in.Source = artifact.Source{Ref: "github.com/acme/trusted"}
+	out := entry("rando", true)
+	out.Source = artifact.Source{Ref: "github.com/other/rando"}
+	p := Default()
+	p.AllowPublishers = []string{"github.com/acme/"}
+	res := Evaluate(p, lf(), lf(in, out))
+	if countKind(res, "not_allowlisted") != 1 {
+		t.Fatalf("allowlist should reject only the outsider, got %+v", res.Violations)
+	}
+}
+
+func TestEvaluateNoListsIsClean(t *testing.T) {
+	e := entry("anything", true)
+	e.Source = artifact.Source{Ref: "github.com/whoever/anything"}
+	res := Evaluate(Default(), lf(), lf(e))
+	if countKind(res, "blocked_publisher")+countKind(res, "blocked_artifact")+countKind(res, "not_allowlisted") != 0 {
+		t.Fatalf("no lists configured → no list violations, got %+v", res.Violations)
+	}
+}
