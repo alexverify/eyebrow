@@ -33,11 +33,12 @@ const (
 type SourceKind string
 
 const (
-	SourceNPM    SourceKind = "npm"    // anchor: pkg@version + npm integrity
-	SourceGit    SourceKind = "git"    // anchor: commit SHA
-	SourceURL    SourceKind = "url"    // anchor: URL + TLS cert SPKI pin
-	SourceLocal  SourceKind = "local"  // anchor: directory content hash
-	SourceInline SourceKind = "inline" // anchor: literal content hash
+	SourceNPM       SourceKind = "npm"       // anchor: pkg@version + npm integrity
+	SourceGit       SourceKind = "git"       // anchor: commit SHA
+	SourceURL       SourceKind = "url"       // anchor: URL + TLS cert SPKI pin
+	SourceLocal     SourceKind = "local"     // anchor: directory content hash
+	SourceInline    SourceKind = "inline"    // anchor: literal content hash
+	SourceContainer SourceKind = "container" // anchor: OCI image digest + cosign signature
 )
 
 // Source captures the declaration of where an artifact comes from, plus the

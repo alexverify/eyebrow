@@ -54,6 +54,8 @@ func anchored(s artifact.Source) bool {
 		return s.CertSPKI != ""
 	case artifact.SourceGit:
 		return s.Ref != ""
+	case artifact.SourceContainer:
+		return s.Ref != "" // the pinned OCI ref (ideally @sha256:…) is the anchor
 	case artifact.SourceLocal, artifact.SourceInline:
 		return true
 	default:

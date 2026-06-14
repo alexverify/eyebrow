@@ -10,11 +10,12 @@ import (
 func TestNewRouterWiresRealResolvers(t *testing.T) {
 	r := NewRouter()
 	want := map[artifact.SourceKind]any{
-		artifact.SourceNPM:    NPM{},
-		artifact.SourceGit:    Git{},
-		artifact.SourceURL:    URL{},
-		artifact.SourceLocal:  Local{},
-		artifact.SourceInline: Inline{},
+		artifact.SourceNPM:       NPM{},
+		artifact.SourceGit:       Git{},
+		artifact.SourceURL:       URL{},
+		artifact.SourceLocal:     Local{},
+		artifact.SourceInline:    Inline{},
+		artifact.SourceContainer: Container{},
 	}
 	for kind, wantVal := range want {
 		got, ok := r.resolvers[kind]

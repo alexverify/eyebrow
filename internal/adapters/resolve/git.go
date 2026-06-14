@@ -48,8 +48,23 @@ func (g Git) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 			Explanation: fmt.Sprintf("git ref %q is mutable; pin to a commit SHA so the code is locked", ref),
 		})
 	}
-	return ports.Resolution{PinnedRef: repoURL + "#" + sha, Warnings: warnings}, nil
+
+	res := ports.Resolution{PinnedRef: repoURL + "#" + sha, Warnings: warnings}
+	// Best-effort: a commit signed by a trusted key satisfies the top
+	// provenance rung. `git verify-commit` exits zero only on a valid
+	// signature, so the exit code alone is the signal. The object must be
+	// available to git locally; when it is not (the common remote-only case)
+	// or the commit is unsigned, the lookup degrades to no provenance — an
+	// absent rung is information, not a failure.
+	if _, verr := g.Runner.Run(ctx, "git", "verify-commit", sha); verr == nil {
+		res.Provenance = gitSignaturePredicate
+	}
+	return res, nil
 }
+
+// gitSignaturePredicate marks a source whose pinned commit carries a verified
+// signature, recorded on Source.Provenance so the ladder's top rung is met.
+const gitSignaturePredicate = "git-signed-commit"
 
 // parseGitRef splits a git source ref into a repository URL and a ref, dropping
 // any "git+" scheme prefix. Missing refs default to HEAD.

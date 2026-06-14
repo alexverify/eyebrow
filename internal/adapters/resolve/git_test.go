@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/alexverify/assay/internal/domain/artifact"
@@ -55,5 +56,37 @@ func TestGitResolveAcceptsExplicitSHA(t *testing.T) {
 	}
 	if res.PinnedRef != "https://github.com/a/b#"+sha {
 		t.Errorf("PinnedRef = %q", res.PinnedRef)
+	}
+}
+
+func TestGitResolveRecordsSignedCommitProvenance(t *testing.T) {
+	const sha = "9fceb02d0ae598e95dc970b74767f19372d61af8"
+	runner := &run.Fake{Responses: map[string]run.FakeResponse{
+		"git ls-remote https://github.com/a/b " + sha: {Out: []byte(sha + "\trefs/heads/main\n")},
+		"git verify-commit " + sha:                    {}, // exit zero => valid signature
+	}}
+	g := Git{Runner: runner}
+	res, err := g.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceGit, Ref: "https://github.com/a/b#" + sha})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if res.Provenance == "" {
+		t.Error("a verified commit signature should record provenance")
+	}
+}
+
+func TestGitResolveUnsignedCommitHasNoProvenance(t *testing.T) {
+	const sha = "9fceb02d0ae598e95dc970b74767f19372d61af8"
+	runner := &run.Fake{Responses: map[string]run.FakeResponse{
+		"git ls-remote https://github.com/a/b " + sha: {Out: []byte(sha + "\trefs/heads/main\n")},
+		"git verify-commit " + sha:                    {Err: errors.New("error: no signature found")},
+	}}
+	g := Git{Runner: runner}
+	res, err := g.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceGit, Ref: "https://github.com/a/b#" + sha})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if res.Provenance != "" {
+		t.Errorf("an unsigned commit must not record provenance, got %q", res.Provenance)
 	}
 }

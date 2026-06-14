@@ -25,11 +25,12 @@ type Router struct {
 func NewRouter() *Router {
 	runner := run.OS{}
 	return &Router{resolvers: map[artifact.SourceKind]ports.Resolver{
-		artifact.SourceLocal:  Local{},
-		artifact.SourceInline: Inline{},
-		artifact.SourceNPM:    NewNPM(runner),
-		artifact.SourceGit:    NewGit(runner),
-		artifact.SourceURL:    NewURL(TLSCertFetcher{}),
+		artifact.SourceLocal:     Local{},
+		artifact.SourceInline:    Inline{},
+		artifact.SourceNPM:       NewNPM(runner),
+		artifact.SourceGit:       NewGit(runner),
+		artifact.SourceURL:       NewURL(TLSCertFetcher{}),
+		artifact.SourceContainer: NewContainer(runner),
 	}}
 }
 
