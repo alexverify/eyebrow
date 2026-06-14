@@ -567,6 +567,50 @@ interface ActivitySummary {
   redactions: number
 }
 
+function EgressMap({ events }: { events: ActivityEvent[] }) {
+  const rows = useMemo(() => {
+    const byHost = new Map<
+      string,
+      { host: string; up: number; down: number; redactions: number; servers: Set<string>; count: number }
+    >()
+    for (const e of events) {
+      if (e.kind !== "egress" || !e.host) continue
+      const r =
+        byHost.get(e.host) ??
+        { host: e.host, up: 0, down: 0, redactions: 0, servers: new Set<string>(), count: 0 }
+      r.up += e.bytesUp ?? 0
+      r.down += e.bytesDown ?? 0
+      r.redactions += e.redactions ?? 0
+      r.count += 1
+      if (e.server) r.servers.add(e.server)
+      byHost.set(e.host, r)
+    }
+    return Array.from(byHost.values()).sort((a, b) => b.count - a.count)
+  }, [events])
+
+  if (rows.length === 0) return null
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <div className="border-b border-border bg-muted/40 px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+        Egress map — {rows.length} host{rows.length > 1 ? "s" : ""} contacted
+      </div>
+      {rows.map((r) => (
+        <div
+          key={r.host}
+          className="grid grid-cols-[1.4fr_1fr_auto] items-baseline gap-3 border-b border-border/60 px-4 py-1.5 font-mono text-[11px] last:border-0"
+        >
+          <span className="truncate text-foreground">{r.host}</span>
+          <span className="truncate text-muted-foreground">{Array.from(r.servers).join(", ")}</span>
+          <span className="text-muted-foreground">
+            ↑{r.up} ↓{r.down}
+            {r.redactions ? ` · ${r.redactions} redacted` : ""} · {r.count}×
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ActivityPanel() {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
   const [summary, setSummary] = useState<ActivitySummary | null>(null)
@@ -608,6 +652,7 @@ function ActivityPanel() {
           egress · {summary.redactions} redactions
         </p>
       ) : null}
+      <EgressMap events={events} />
       <div className="overflow-hidden rounded-lg border border-border">
         {events
           .slice(-200)
