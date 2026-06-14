@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -28,4 +29,32 @@ func Load(path string) (p policy.Policy, present bool, err error) {
 		return policy.Policy{}, false, fmt.Errorf("parse %s: %w", path, err)
 	}
 	return loaded.Normalize(), true, nil
+}
+
+// Save writes the policy to path as pretty JSON, atomically (temp file + rename
+// within the same directory), so the committed policy file stays a clean,
+// reviewable diff. It mirrors lockstore.Write.
+func Save(path string, p policy.Policy) error {
+	b, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".assaypolicy-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // no-op after a successful rename
+
+	if _, err := tmp.Write(b); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }

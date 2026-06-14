@@ -18,6 +18,10 @@ type Policy struct {
 	FailOnSeverity finding.Severity `json:"failOnSeverity,omitempty"`
 	// IgnoreRules suppresses specific rule IDs (accepted false positives).
 	IgnoreRules []string `json:"ignoreRules,omitempty"`
+	// Mutes suppresses rule IDs like IgnoreRules but records a rationale and the
+	// muter, so an accepted false positive is auditable in the committed policy
+	// rather than silently dropped.
+	Mutes []Mute `json:"mutes,omitempty"`
 	// RequireApproval fails any artifact not marked approved in the lockfile.
 	RequireApproval bool `json:"requireApproval,omitempty"`
 	// RequireSignedApproval additionally fails any approval lacking a valid
@@ -37,6 +41,15 @@ type Policy struct {
 	// MCP constrains tool calls at runtime, enforced by the mcp-shim
 	// (see DecideTool in mcp.go). Not used by verify.
 	MCP MCPPolicy `json:"mcp,omitempty"`
+}
+
+// Mute suppresses a finding rule with a recorded rationale. It suppresses the
+// rule exactly like an IgnoreRules entry; the Reason and By fields make the
+// suppression reviewable in the committed policy diff.
+type Mute struct {
+	Rule   string `json:"rule"`
+	Reason string `json:"reason,omitempty"`
+	By     string `json:"by,omitempty"`
 }
 
 // Default is the policy used when no policy file is present.
@@ -94,9 +107,12 @@ func containsAny(haystack string, needles []string) (string, bool) {
 func Evaluate(p Policy, locked, current lockfile.Lockfile) Result {
 	p = p.Normalize()
 
-	ignored := make(map[string]bool, len(p.IgnoreRules))
+	ignored := make(map[string]bool, len(p.IgnoreRules)+len(p.Mutes))
 	for _, r := range p.IgnoreRules {
 		ignored[r] = true
+	}
+	for _, m := range p.Mutes {
+		ignored[m.Rule] = true
 	}
 
 	var violations []Violation

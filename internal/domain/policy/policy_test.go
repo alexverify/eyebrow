@@ -52,6 +52,18 @@ func TestEvaluateIgnoresSuppressedRule(t *testing.T) {
 	}
 }
 
+func TestEvaluateMutedRuleWithRationaleIsSuppressed(t *testing.T) {
+	locked := lf(entry("a", false))
+	current := lf(entry("a", false, finding.Finding{RuleID: "EXEC-PRIMITIVE", Severity: finding.SeverityHigh}))
+
+	p := Policy{FailOnSeverity: finding.SeverityHigh, Mutes: []Mute{{
+		Rule: "EXEC-PRIMITIVE", Reason: "expected: build step shells out", By: "alice",
+	}}}
+	if !Evaluate(p, locked, current).OK() {
+		t.Fatal("a muted rule should not produce a violation")
+	}
+}
+
 func TestEvaluateRespectsThreshold(t *testing.T) {
 	locked := lf(entry("a", false))
 	current := lf(entry("a", false, finding.Finding{RuleID: "NOTE", Severity: finding.SeverityMedium}))
