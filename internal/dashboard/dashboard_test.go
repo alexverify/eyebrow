@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -148,5 +149,76 @@ func TestRejectsNonLoopbackHost(t *testing.T) {
 	testServer(t).Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("non-loopback Host must be rejected, got %d", rec.Code)
+	}
+}
+
+func TestWriteEndpointTokenGuard(t *testing.T) {
+	lf := lockfile.Build([]artifact.Artifact{
+		{ID: "a1", Tool: "claude-code", Type: artifact.TypeMCPServer, Name: "github"},
+	}, time.Unix(0, 0).UTC(), "t")
+	srv := dashboard.New(dashboard.Deps{
+		Inventory: func(context.Context) (lockfile.Lockfile, error) { return lf, nil },
+		Locked:    func(context.Context) (lockfile.Lockfile, error) { return lf, nil },
+		Mutate: func(ctx context.Context, fn func(*lockfile.Lockfile) error) error {
+			return fn(&lf)
+		},
+	})
+	h := srv.Handler()
+
+	post := func(token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113/api/quarantine",
+			strings.NewReader(`{"id":"a1","on":true}`))
+		if token != "" {
+			req.Header.Set("X-Agentguard-Token", token)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+
+	// Without the token, the write is forbidden.
+	if rec := post(""); rec.Code != http.StatusForbidden {
+		t.Fatalf("missing token → 403, got %d", rec.Code)
+	}
+	if lf.Artifacts[0].Quarantined {
+		t.Fatal("artifact must not be mutated by a tokenless request")
+	}
+
+	// With the token, the write succeeds and persists.
+	if rec := post(srv.Token()); rec.Code != http.StatusOK {
+		t.Fatalf("with token → 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if !lf.Artifacts[0].Quarantined {
+		t.Fatal("artifact should be quarantined after an authorized write")
+	}
+}
+
+func TestWriteEndpointReadOnlyWhenNoMutate(t *testing.T) {
+	srv := testServer(t) // no Mutate dep
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113/api/freeze",
+		strings.NewReader(`{"id":"a1","on":true}`))
+	req.Header.Set("X-Agentguard-Token", srv.Token())
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("read-only server should refuse writes with 403, got %d", rec.Code)
+	}
+}
+
+func TestTokenEndpoint(t *testing.T) {
+	srv := testServer(t)
+	rec := get(t, srv.Handler(), "/api/token")
+	var body struct {
+		Token    string `json:"token"`
+		Writable bool   `json:"writable"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Token != srv.Token() || body.Token == "" {
+		t.Fatalf("token endpoint = %q, want %q", body.Token, srv.Token())
+	}
+	if body.Writable {
+		t.Errorf("read-only server should report writable=false")
 	}
 }

@@ -49,6 +49,16 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 			return auditlog.Read(*auditDir, f)
 		},
 		ApprovalVerifier: asApprovalVerifier(verifier),
+		Mutate: func(ctx context.Context, fn func(lf *lockfile.Lockfile) error) error {
+			lf, err := store.Read(ctx, *c.lockfile)
+			if err != nil {
+				return err
+			}
+			if err := fn(&lf); err != nil {
+				return err
+			}
+			return store.Write(ctx, *c.lockfile, lf)
+		},
 	})
 
 	ln, err := net.Listen("tcp", *addr)
@@ -57,6 +67,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	fmt.Fprintf(a.Stdout, "agentguard dashboard on http://%s  (ctrl-c to stop)\n", ln.Addr())
+	fmt.Fprintf(a.Stdout, "write token: %s\n", srv.Token())
 
 	httpSrv := &http.Server{Handler: srv.Handler()}
 	go func() {

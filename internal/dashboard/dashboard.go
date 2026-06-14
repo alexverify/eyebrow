@@ -11,8 +11,11 @@ package dashboard
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -40,6 +43,10 @@ type Deps struct {
 	// keys, so the dashboard distinguishes "verified" from merely "approved".
 	// Optional: when nil, an approval bearing a signature is treated as trusted.
 	ApprovalVerifier ports.ApprovalVerifier
+	// Mutate applies a change to the committed lockfile under a read-modify-write,
+	// backing the approve/quarantine/freeze write endpoints. Optional: when nil,
+	// those endpoints are disabled and the dashboard is strictly read-only.
+	Mutate func(ctx context.Context, fn func(lf *lockfile.Lockfile) error) error
 	// Static overrides the embedded UI assets (used in tests); nil uses the
 	// embedded Next.js export.
 	Static fs.FS
@@ -49,9 +56,14 @@ type Deps struct {
 type Server struct {
 	deps   Deps
 	static fs.FS
+	token  string
 }
 
-// New constructs a Server.
+// New constructs a Server. It mints a single random token that gates the write
+// endpoints: a malicious page in the user's browser can issue a cross-origin
+// POST but cannot read GET /api/token (same-origin policy), so it cannot forge
+// the X-Agentguard-Token header. Combined with the loopback-Host guard, this
+// keeps the mutating surface same-origin only.
 func New(d Deps) *Server {
 	static := d.Static
 	if static == nil {
@@ -60,7 +72,18 @@ func New(d Deps) *Server {
 			static = sub
 		}
 	}
-	return &Server{deps: d, static: static}
+	return &Server{deps: d, static: static, token: randomToken()}
+}
+
+// Token returns the per-process write token (printed at launch).
+func (s *Server) Token() string { return s.token }
+
+func randomToken() string {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b)
 }
 
 // Handler returns the HTTP handler: JSON under /api, the embedded UI elsewhere,
@@ -71,6 +94,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/drift", s.handleDrift)
 	mux.HandleFunc("/api/audit", s.handleAudit)
 	mux.HandleFunc("/api/scan", s.handleScan)
+	mux.HandleFunc("/api/token", s.handleToken)
+	mux.HandleFunc("/api/approve", s.handleApprove)
+	mux.HandleFunc("/api/quarantine", s.handleQuarantine)
+	mux.HandleFunc("/api/freeze", s.handleFreeze)
 	if s.static != nil {
 		mux.Handle("/", http.FileServer(http.FS(s.static)))
 	}
@@ -134,6 +161,85 @@ func (s *Server) approvedSet(locked lockfile.Lockfile) map[string]bool {
 		}
 	}
 	return out
+}
+
+// handleToken returns the write token to the same-origin UI. A cross-origin
+// page can request this but cannot read the response (same-origin policy), so
+// it never learns the token.
+func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, struct {
+		Token    string `json:"token"`
+		Writable bool   `json:"writable"`
+	}{Token: s.token, Writable: s.deps.Mutate != nil})
+}
+
+// markRequest is the body of a write endpoint: which artifact, and whether to
+// set or clear the flag/approval.
+type markRequest struct {
+	ID string `json:"id"`
+	On bool   `json:"on"`
+}
+
+func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
+	s.mutate(w, r, func(e *lockfile.Entry, on bool) {
+		if on {
+			e.Approval = &lockfile.Approval{Status: "approved", By: "dashboard"}
+		} else {
+			e.Approval = nil
+		}
+	})
+}
+
+func (s *Server) handleQuarantine(w http.ResponseWriter, r *http.Request) {
+	s.mutate(w, r, func(e *lockfile.Entry, on bool) { e.Quarantined = on })
+}
+
+func (s *Server) handleFreeze(w http.ResponseWriter, r *http.Request) {
+	s.mutate(w, r, func(e *lockfile.Entry, on bool) { e.Frozen = on })
+}
+
+// mutate is the shared, token-guarded write path: it applies set to the entry
+// whose ID matches the request body, persisting via Deps.Mutate.
+func (s *Server) mutate(w http.ResponseWriter, r *http.Request, set func(*lockfile.Entry, bool)) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("X-Agentguard-Token") != s.token || s.token == "" {
+		http.Error(w, "missing or invalid write token", http.StatusForbidden)
+		return
+	}
+	if s.deps.Mutate == nil {
+		http.Error(w, "dashboard is read-only (no lockfile to write)", http.StatusForbidden)
+		return
+	}
+	var body markRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == "" {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	found := false
+	err := s.deps.Mutate(r.Context(), func(lf *lockfile.Lockfile) error {
+		for i := range lf.Artifacts {
+			if lf.Artifacts[i].ID == body.ID {
+				set(&lf.Artifacts[i], body.On)
+				found = true
+				return nil
+			}
+		}
+		return fmt.Errorf("artifact %q not in the lockfile", body.ID)
+	})
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	if !found {
+		http.Error(w, "artifact not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, struct {
+		Status string `json:"status"`
+	}{Status: "ok"})
 }
 
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
