@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 func art(id, tool string, typ artifact.Type, name, hash string) artifact.Artifact {
@@ -17,7 +17,7 @@ func art(id, tool string, typ artifact.Type, name, hash string) artifact.Artifac
 }
 
 func lf(arts ...artifact.Artifact) lockfile.Lockfile {
-	return lockfile.Build(arts, time.Unix(1000, 0).UTC(), "agentguard/test")
+	return lockfile.Build(arts, time.Unix(1000, 0).UTC(), "assay/test")
 }
 
 func find(t *testing.T, scan []DashArtifact, name string) DashArtifact {

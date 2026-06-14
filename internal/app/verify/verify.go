@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/app/scan"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
-	"github.com/alexverify/agentguard/internal/domain/policy"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/app/scan"
+	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // Deps are the collaborators verify needs.

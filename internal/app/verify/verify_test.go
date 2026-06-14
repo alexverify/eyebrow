@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/app/apptest"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/app/scan"
-	"github.com/alexverify/agentguard/internal/app/verify"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/app/apptest"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/app/scan"
+	"github.com/alexverify/assay/internal/app/verify"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
 func mcp(name string) artifact.Artifact {
@@ -38,7 +38,7 @@ func harness(t *testing.T, hash string, findings []finding.Finding) (*verify.Ser
 		Lock:       store,
 		Reporter:   apptest.Reporter{},
 		Clock:      apptest.FixedClock{T: time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC)},
-		Generator:  "agentguard/test",
+		Generator:  "assay/test",
 	})
 	svc := verify.New(verify.Deps{Builder: builder, Lock: store, Reporter: apptest.Reporter{}})
 	return svc, store
@@ -54,16 +54,16 @@ func seed(t *testing.T, store *apptest.LockStore, hash string, findings []findin
 		Lock:       store,
 		Reporter:   apptest.Reporter{},
 		Clock:      apptest.FixedClock{T: time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC)},
-		Generator:  "agentguard/test",
+		Generator:  "assay/test",
 	})
-	if _, err := builder.Run(context.Background(), scan.Options{LockfilePath: "agentlock.json"}, nil); err != nil {
+	if _, err := builder.Run(context.Background(), scan.Options{LockfilePath: "assaylock.json"}, nil); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 }
 
 func TestVerifyNoLockfile(t *testing.T) {
 	svc, _ := harness(t, "sha256-a", nil)
-	_, err := svc.Run(context.Background(), verify.Options{LockfilePath: "agentlock.json"}, nil)
+	_, err := svc.Run(context.Background(), verify.Options{LockfilePath: "assaylock.json"}, nil)
 	if !errors.Is(err, ports.ErrNoLockfile) {
 		t.Fatalf("want ErrNoLockfile, got %v", err)
 	}
@@ -73,7 +73,7 @@ func TestVerifyCleanWhenUnchanged(t *testing.T) {
 	svc, store := harness(t, "sha256-a", nil)
 	seed(t, store, "sha256-a", nil)
 
-	res, err := svc.Run(context.Background(), verify.Options{LockfilePath: "agentlock.json"}, nil)
+	res, err := svc.Run(context.Background(), verify.Options{LockfilePath: "assaylock.json"}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestVerifyDetectsContentDrift(t *testing.T) {
 	svc, store := harness(t, "sha256-b", nil)
 	seed(t, store, "sha256-a", nil)
 
-	res, err := svc.Run(context.Background(), verify.Options{LockfilePath: "agentlock.json"}, nil)
+	res, err := svc.Run(context.Background(), verify.Options{LockfilePath: "assaylock.json"}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestVerifyCIGatesOnNewCriticalFinding(t *testing.T) {
 	svc, store := harness(t, "sha256-a", crit)
 	seed(t, store, "sha256-a", nil)
 
-	res, err := svc.Run(context.Background(), verify.Options{LockfilePath: "agentlock.json", CI: true}, nil)
+	res, err := svc.Run(context.Background(), verify.Options{LockfilePath: "assaylock.json", CI: true}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

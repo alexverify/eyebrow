@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // Discoverer returns a fixed set of artifacts.

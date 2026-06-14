@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
 func TestLoadMissingReturnsDefault(t *testing.T) {
@@ -23,7 +23,7 @@ func TestLoadMissingReturnsDefault(t *testing.T) {
 
 func TestLoadParsesAndNormalizes(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "agentguard.policy.json")
+	path := filepath.Join(dir, "assay.policy.json")
 	if err := os.WriteFile(path, []byte(`{"ignoreRules":["EXEC-PRIMITIVE"],"requireApproval":true}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

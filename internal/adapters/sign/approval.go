@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // SignApproval signs an entry's approval-binding bytes (ID + content hash),

@@ -1,6 +1,6 @@
 // Package provenance grades how verifiable an artifact's origin is, the
 // agent-specific analog of a SLSA level. It is pure: it reads only the source
-// pins agentguard already records (ref, integrity, cert) plus whether a trusted
+// pins assay already records (ref, integrity, cert) plus whether a trusted
 // key signed the approval, and reports a ladder of rungs.
 //
 // The top rung — publisher verification — reflects an upstream build-provenance
@@ -8,7 +8,7 @@
 // Source.Provenance). A broken or absent rung is information, not a failure.
 package provenance
 
-import "github.com/alexverify/agentguard/internal/domain/artifact"
+import "github.com/alexverify/assay/internal/domain/artifact"
 
 // Rung is one step on the provenance ladder.
 type Rung struct {

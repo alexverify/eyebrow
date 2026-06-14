@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/platform/run"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/platform/run"
 )
 
 // npmFetcher downloads and extracts a package's code for hashing.
@@ -99,7 +99,7 @@ type packFetcher struct {
 
 // fetch creates a temp directory and delegates to fetchInto.
 func (p packFetcher) fetch(ctx context.Context, spec string) (string, error) {
-	tmp, err := os.MkdirTemp("", "agentguard-npm-*")
+	tmp, err := os.MkdirTemp("", "assay-npm-*")
 	if err != nil {
 		return "", err
 	}

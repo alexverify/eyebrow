@@ -1,6 +1,6 @@
-# agentguard dashboard (web)
+# assay dashboard (web)
 
-The Next.js + TypeScript + Tailwind frontend for `agentguard dashboard`. It is
+The Next.js + TypeScript + Tailwind frontend for `assay dashboard`. It is
 **static-exported** (`output: 'export'`) and the built site is embedded into the
 Go binary via `go:embed`, so users get a single binary with no Node runtime.
 
@@ -29,7 +29,7 @@ shipped artifact); `node_modules`, `.next`, and `out` are not.
 
 ## Layout
 
-- `app/page.tsx` — the dashboard (root route, what `agentguard dashboard` serves)
+- `app/page.tsx` — the dashboard (root route, what `assay dashboard` serves)
 - `components/dashboard/` — dashboard UI (header, stat cards, badges, tabs)
 - `components/ui/` — shadcn/base-ui primitives
 - `lib/scan-data.ts` — mock inventory/findings/drift data

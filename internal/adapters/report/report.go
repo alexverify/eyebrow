@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
-	"github.com/alexverify/agentguard/internal/domain/trust"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/trust"
 )
 
 // JSON renders machine-readable output.
@@ -36,7 +36,7 @@ type Text struct{}
 
 // Scan prints an inventory summary with per-severity finding counts.
 func (Text) Scan(w io.Writer, lf lockfile.Lockfile) error {
-	fmt.Fprintf(w, "agentguard scan — %d artifact(s), generated %s\n",
+	fmt.Fprintf(w, "assay scan — %d artifact(s), generated %s\n",
 		len(lf.Artifacts), lf.GeneratedAt.Format("2006-01-02 15:04:05 MST"))
 	for _, e := range lf.Artifacts {
 		fmt.Fprintf(w, "\n  %s  [%s/%s]  scope=%s\n", e.Name, e.Tool, e.Type, e.Scope)

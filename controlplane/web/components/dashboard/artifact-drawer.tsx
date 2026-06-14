@@ -431,7 +431,7 @@ function Activity({ name }: { name: string }) {
         <p className="text-xs text-muted-foreground">Loading…</p>
       ) : events.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No audit events. Wrap this server with <span className="font-mono">agentguard wrap</span> to record tool
+          No audit events. Wrap this server with <span className="font-mono">assay wrap</span> to record tool
           calls and egress.
         </p>
       ) : (

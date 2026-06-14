@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/cli"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/cli"
 )
 
 // setHome redirects the user home dir for a test across OSes. os.UserHomeDir
@@ -50,7 +50,7 @@ func fixtureProject(t *testing.T) (dir, lock string) {
 	if err := os.WriteFile(filepath.Join(dir, "server.sh"), []byte("#!/bin/sh\necho hi\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return dir, filepath.Join(dir, "agentlock.json")
+	return dir, filepath.Join(dir, "assaylock.json")
 }
 
 func TestScanThenVerifyDetectsRugPull(t *testing.T) {
@@ -89,7 +89,7 @@ func TestScanThenVerifyDetectsRugPull(t *testing.T) {
 func TestScanFlagsDangerousHookCommand(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
-	lock := filepath.Join(dir, "agentlock.json")
+	lock := filepath.Join(dir, "assaylock.json")
 	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestVersion(t *testing.T) {
 	if code := app.Execute(context.Background(), []string{"version"}); code != cli.ExitOK {
 		t.Fatalf("version exit = %d", code)
 	}
-	if !bytes.Contains(out.Bytes(), []byte("agentguard/")) {
+	if !bytes.Contains(out.Bytes(), []byte("assay/")) {
 		t.Fatalf("version output = %q", out.String())
 	}
 }
@@ -175,7 +175,7 @@ func TestDigestReportsChangesThenClean(t *testing.T) {
 	if code := app.Execute(ctx, []string{"digest", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
 		t.Fatalf("digest exit = %d, stderr=%s", code, errBuf.String())
 	}
-	if s := out.String(); !strings.Contains(s, "agentguard digest") || !strings.Contains(s, "new:       1") {
+	if s := out.String(); !strings.Contains(s, "assay digest") || !strings.Contains(s, "new:       1") {
 		t.Fatalf("digest should report 1 new artifact, got:\n%s", s)
 	}
 
@@ -248,7 +248,7 @@ func TestQuarantineFailsVerifyCI(t *testing.T) {
 func TestBlockPublisherPolicyFailsVerifyCI(t *testing.T) {
 	ctx := context.Background()
 	dir, lock := fixtureProject(t) // discovers "local-tool"
-	if err := os.WriteFile(filepath.Join(dir, "agentguard.policy.json"),
+	if err := os.WriteFile(filepath.Join(dir, "assay.policy.json"),
 		[]byte(`{"blockArtifacts":["local-tool"]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestBlockPublisherPolicyFailsVerifyCI(t *testing.T) {
 	app2, out2, _ := newApp()
 	code := app2.Execute(ctx, []string{"verify", "--ci",
 		"--path", dir, "--lockfile", lock,
-		"--policy", filepath.Join(dir, "agentguard.policy.json")})
+		"--policy", filepath.Join(dir, "assay.policy.json")})
 	if code != cli.ExitDrift {
 		t.Fatalf("verify --ci with a blocked artifact exit = %d, want %d", code, cli.ExitDrift)
 	}
@@ -286,7 +286,7 @@ func TestDigestNotifyPostsToWebhook(t *testing.T) {
 	if code != cli.ExitOK {
 		t.Fatalf("digest --notify exit = %d, stderr=%s", code, errBuf.String())
 	}
-	if !strings.Contains(got["text"], "agentguard digest") {
+	if !strings.Contains(got["text"], "assay digest") {
 		t.Fatalf("webhook payload missing digest text: %q", got["text"])
 	}
 	if !strings.Contains(out.String(), "sent digest to webhook") {

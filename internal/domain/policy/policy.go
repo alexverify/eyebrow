@@ -7,8 +7,8 @@ package policy
 import (
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // Policy is the team-configurable gate applied by `verify --ci`.

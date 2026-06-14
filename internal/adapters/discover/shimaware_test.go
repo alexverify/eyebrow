@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/artifact"
 )
 
 // TestDiscoverySeesThroughShimmedServers: a wrapped config entry must yield
-// the SAME artifact as its unwrapped form, otherwise `agentguard wrap` would
+// the SAME artifact as its unwrapped form, otherwise `assay wrap` would
 // make every server look rug-pulled on the next verify.
 func TestDiscoverySeesThroughShimmedServers(t *testing.T) {
 	plain := t.TempDir()
@@ -25,7 +25,7 @@ func TestDiscoverySeesThroughShimmedServers(t *testing.T) {
 	writeFile(t, filepath.Join(wrapped, ".mcp.json"), `{
   "mcpServers": {
     "local-tool": {
-      "command": "/usr/local/bin/agentguard",
+      "command": "/usr/local/bin/assay",
       "args": ["mcp-shim", "--server", "local-tool", "--", "./server.sh"]
     }
   }

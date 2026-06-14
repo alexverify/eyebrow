@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/digest"
+	"github.com/alexverify/assay/internal/domain/digest"
 )
 
 // Kind classifies a wire line.

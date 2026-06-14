@@ -13,17 +13,17 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/alexverify/agentguard/internal/adapters/auditlog"
-	"github.com/alexverify/agentguard/internal/adapters/policystore"
-	"github.com/alexverify/agentguard/internal/app/shim"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/proxy"
-	"github.com/alexverify/agentguard/internal/sandbox"
+	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/adapters/policystore"
+	"github.com/alexverify/assay/internal/app/shim"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/proxy"
+	"github.com/alexverify/assay/internal/sandbox"
 )
 
 // runMCPShim is the hidden command `wrap` installs into MCP configs:
 //
-//	agentguard mcp-shim --server <name> -- <original command and args>
+//	assay mcp-shim --server <name> -- <original command and args>
 //
 // It spawns the real server, relays JSON-RPC transparently, audits tool
 // calls, and exits with the child's exit code so the AI tool can't tell the
@@ -32,7 +32,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	fs := a.flagSet("mcp-shim")
 	server := fs.String("server", "", "name of the wrapped MCP server (for the audit log)")
 	auditDir := fs.String("audit-dir", a.auditDir(), "audit log directory")
-	policyPath := fs.String("policy", "agentguard.policy.json", "policy file with mcp tool rules (cwd is the project root)")
+	policyPath := fs.String("policy", "assay.policy.json", "policy file with mcp tool rules (cwd is the project root)")
 	noProxy := fs.Bool("no-egress-proxy", false, "do not route the server's HTTP(S) traffic through the auditing egress proxy")
 	noSandbox := fs.Bool("no-sandbox", false, "do not confine the server with the OS sandbox")
 	workspace := fs.String("workspace", "", "directory the sandboxed server may read/write (default: current dir)")
@@ -41,7 +41,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	}
 	argv := fs.Args()
 	if *server == "" || len(argv) == 0 {
-		fmt.Fprintln(a.Stderr, "mcp-shim: usage: agentguard mcp-shim --server <name> -- <command> [args...]")
+		fmt.Fprintln(a.Stderr, "mcp-shim: usage: assay mcp-shim --server <name> -- <command> [args...]")
 		return ExitUsage
 	}
 

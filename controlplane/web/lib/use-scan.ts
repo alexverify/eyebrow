@@ -11,8 +11,8 @@ export interface ScanState {
 }
 
 /**
- * useScan fetches the live inventory from the agentguard backend (/api/scan,
- * served by `agentguard dashboard`). When that endpoint is unreachable — e.g.
+ * useScan fetches the live inventory from the assay backend (/api/scan,
+ * served by `assay dashboard`). When that endpoint is unreachable — e.g.
  * during `next dev` with no backend running — it falls back to the bundled
  * mock data so the UI is still demoable. The returned `reload` re-fetches, e.g.
  * after a write action mutates the lockfile.

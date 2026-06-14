@@ -9,13 +9,13 @@ package sbom
 import (
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/digest"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/digest"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
-// BOM is the subset of the CycloneDX 1.6 schema agentguard emits.
+// BOM is the subset of the CycloneDX 1.6 schema assay emits.
 type BOM struct {
 	BOMFormat       string          `json:"bomFormat"`   // always "CycloneDX"
 	SpecVersion     string          `json:"specVersion"` // "1.6"
@@ -90,7 +90,7 @@ func Build(lf lockfile.Lockfile, ts string) BOM {
 		BOMFormat:       "CycloneDX",
 		SpecVersion:     "1.6",
 		Version:         1,
-		Metadata:        Metadata{Timestamp: ts, Tools: []Tool{{Vendor: "agentguard", Name: "agentguard"}}},
+		Metadata:        Metadata{Timestamp: ts, Tools: []Tool{{Vendor: "assay", Name: "assay"}}},
 		Components:      components,
 		Vulnerabilities: vulns,
 	}
@@ -119,20 +119,20 @@ func properties(e lockfile.Entry) []Property {
 		return append(props, Property{Name: name, Value: val})
 	}
 	var p []Property
-	p = add(p, "agentguard:tool", e.Tool)
-	p = add(p, "agentguard:type", string(e.Type))
-	p = add(p, "agentguard:scope", e.Scope)
-	p = add(p, "agentguard:sourceKind", string(e.Source.Kind))
-	p = add(p, "agentguard:integrity", e.Source.Integrity)
-	p = add(p, "agentguard:provenance", e.Source.Provenance)
+	p = add(p, "assay:tool", e.Tool)
+	p = add(p, "assay:type", string(e.Type))
+	p = add(p, "assay:scope", e.Scope)
+	p = add(p, "assay:sourceKind", string(e.Source.Kind))
+	p = add(p, "assay:integrity", e.Source.Integrity)
+	p = add(p, "assay:provenance", e.Source.Provenance)
 	if e.Quarantined {
-		p = add(p, "agentguard:quarantined", "true")
+		p = add(p, "assay:quarantined", "true")
 	}
 	if e.Frozen {
-		p = add(p, "agentguard:frozen", "true")
+		p = add(p, "assay:frozen", "true")
 	}
 	if e.Approval != nil && e.Approval.Status == "approved" {
-		p = add(p, "agentguard:approved", "true")
+		p = add(p, "assay:approved", "true")
 	}
 	return p
 }
@@ -140,7 +140,7 @@ func properties(e lockfile.Entry) []Property {
 func vulnerability(ref string, f finding.Finding) Vulnerability {
 	return Vulnerability{
 		ID:          f.RuleID,
-		Source:      Source{Name: "agentguard"},
+		Source:      Source{Name: "assay"},
 		Ratings:     []Rating{{Severity: string(f.Severity), Method: "other"}},
 		Description: f.Explanation,
 		Affects:     []Affect{{Ref: ref}},

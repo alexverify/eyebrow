@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/adapters/mcpconfig"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/adapters/mcpconfig"
+	"github.com/alexverify/assay/internal/domain/artifact"
 )
 
 // mcpDecl is one entry under an "mcpServers" config object.
@@ -156,7 +156,7 @@ func fileArtifact(tool, path, scope string, typ artifact.Type, name string) []ar
 	return []artifact.Artifact{a}
 }
 
-// unshim sees through `agentguard wrap`: a declaration routed via the
+// unshim sees through `assay wrap`: a declaration routed via the
 // mcp-shim is normalized back to the underlying server, so wrapping never
 // changes the discovered artifact (and never reads as drift on verify).
 func unshim(d mcpDecl) mcpDecl {

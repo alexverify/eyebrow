@@ -1,4 +1,4 @@
-# Trust & Verification Features for AgentGuard
+# Trust & Verification Features for Assay
 
 **A feature map for solo entrepreneurs and small teams who build with AI agents.**
 
@@ -10,7 +10,7 @@ evidence, dashboard mockups, and implementation seams. Nothing here is built yet
 
 ## 0. TL;DR
 
-AgentGuard already does the hard, defensible thing: it inventories every skill, MCP server,
+Assay already does the hard, defensible thing: it inventories every skill, MCP server,
 plugin, hook, and rule an AI coding tool installs, hashes them into a committable lockfile,
 statically scans them, and detects post-audit mutation ("rug pulls"). Components 1 (`scan`/
 `verify`) and 2 (`wrap`/sandbox/egress proxy) are implemented; Component 3 (the dashboard +
@@ -36,7 +36,7 @@ research is blunt about what they will and won't adopt:
 | Behavioral capability tags ("can now read FS + call network") | Telemetry / "upload your agent config to our cloud to scan" |
 
 The single biggest existential risk for every feature below: **drift-detection false positives.**
-If "it changed" fires every time a developer runs `npm update`, AgentGuard becomes `npm audit`
+If "it changed" fires every time a developer runs `npm update`, Assay becomes `npm audit`
 and gets `|| true`'d out of CI. Distinguishing *expected* change (a version bump you initiated)
 from *unexpected* drift (post-install mutation) is the hardest and most important UX problem in
 this whole document, and several features below exist mainly to defend that signal.
@@ -79,7 +79,7 @@ that justifies the whole category:
 
 **The taxonomy to map findings to** (already partly wired via the `OWASP` field on `finding`):
 
-- **OWASP Agentic Skills Top 10 (2026, `AST01–AST10`)** — maps almost 1:1 to AgentGuard:
+- **OWASP Agentic Skills Top 10 (2026, `AST01–AST10`)** — maps almost 1:1 to Assay:
   AST01 Malicious Skills, AST02 Supply Chain Compromise, AST03 Over-Privileged, AST04 Insecure
   Metadata, AST05 Unsafe Deserialization, AST06 Weak Isolation, AST07 Update Drift, AST08 Poor
   Scanning, AST09 No Governance, AST10 Cross-Platform Reuse. **AST02/AST07/AST09 are the literal
@@ -113,7 +113,7 @@ dashboard, see "nothing changed, you're good" most weeks, and only be pulled in 
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  AgentGuard · Local           ◐ last scan 2m ago   ⟳   ⌘K  no account  │
+│  Assay · Local           ◐ last scan 2m ago   ⟳   ⌘K  no account  │
 ├──────────────────────────────────────────────────────────────────────┤
 │  TRUST POSTURE                                                         │
 │  ●  18 trusted   ▲ 2 changed   ◆ 1 new   ⚑ 1 quarantined              │
@@ -178,7 +178,7 @@ New / Quarantined) instead of raw counts.
 **Implementation.** New pure package `internal/domain/trust` with `func Score(a artifact.Artifact,
 d lockfile.DriftKind, approved bool) Verdict`. Call it inside `dashboard.BuildScan` and add
 `Trust int` + `Verdict string` to `DashArtifact`; mirror in `scan-data.ts`. No new IO. Surface
-the same verdict in the CLI (`agentguard list` gets a trust column) so the terminal and dashboard
+the same verdict in the CLI (`assay list` gets a trust column) so the terminal and dashboard
 agree.
 
 ### A2. Capability manifest & capability *diff* ("it can now read your filesystem")
@@ -254,13 +254,13 @@ Registry verifies *who published* (namespace ownership via GitHub/DNS) but **not
 does**; registries do no behavioral vetting. Meanwhile the mature plumbing exists and is free:
 **Sigstore/cosign** (keyless signing + Rekor transparency log), **npm provenance** (package →
 source+build link via OIDC), **in-toto/SLSA** (build provenance attestations), **OpenSSF
-Scorecard** (repo hygiene 0–10). AgentGuard already has its own ed25519 signing + trusted-keys
+Scorecard** (repo hygiene 0–10). Assay already has its own ed25519 signing + trusted-keys
 registry for *approvals*; the new work is **verifying upstream provenance** and binding it to the
 artifact.
 
 **What to check per source kind:**
 
-| Source | Provenance signal AgentGuard can verify |
+| Source | Provenance signal Assay can verify |
 |---|---|
 | npm | npm provenance attestation (Sigstore) → source repo + build; package integrity already pinned |
 | git | commit is signed / tag is signed; repo's OpenSSF Scorecard |
@@ -314,7 +314,7 @@ with `Match(artifact) []Advisory`; wire into `scan` so matches become `critical`
 
 **Status: Later · Free.** **Problem & evidence.** OWASP **MCP09 Shadow MCP Servers** and **AST09
 No Governance**: the risk isn't only bad code, it's *unaccounted-for* extensions — an MCP server in
-a config nobody remembers adding. AgentGuard's cross-tool discovery already finds everything across
+a config nobody remembers adding. Assay's cross-tool discovery already finds everything across
 Claude Code, Cursor, Gemini, OpenCode, Codex, Windsurf, Copilot CLI; the new value is reconciling
 discovered artifacts against (a) the committed lockfile and (b) optionally the official registry, to
 surface "installed but never declared" and "not from any known registry."
@@ -347,8 +347,8 @@ change. "X skills unchanged, 1 changed, 0 new permissions."
 serialized: a Markdown/HTML summary the team can also receive in Slack or email.
 
 **Implementation.** A `lockfile.Compare(lastSeen, current)` against a tiny local
-`~/.agentguard/last-seen.json` (the snapshot at last dashboard open / last `digest` run) yields the
-delta. `agentguard digest --since last` renders it for cron/CI. The dashboard "since you last
+`~/.assay/last-seen.json` (the snapshot at last dashboard open / last `digest` run) yields the
+delta. `assay digest --since last` renders it for cron/CI. The dashboard "since you last
 looked" baseline is just this snapshot, updated on view.
 
 ### C2. One-click Approve / Quarantine / Freeze
@@ -356,7 +356,7 @@ looked" baseline is just this snapshot, updated on view.
 **Status: Now (approve exists in CLI) → Next (quarantine/freeze + dashboard actions) · Free.**
 **Problem & evidence.** Remediation must live inside the finding; quarantine = disable until
 reviewed; freeze = pin to an exact version + content hash, the *direct* defense against the
-"turns rogue after install via malicious update" attack (postmark, MCPoison). `agentguard approve`
+"turns rogue after install via malicious update" attack (postmark, MCPoison). `assay approve`
 already exists and writes a (signable) approval into the lockfile.
 
 **Dashboard.** Three buttons on every change/finding card:
@@ -387,7 +387,7 @@ Blocked publishers & artifacts — each editable inline, each entry showing how 
 artifacts it matches. Adding "block `*.giftshop.club`" instantly quarantines the postmark-style
 match.
 
-**Implementation.** Extend the existing `agentguard.policy.json` (already has `ignoreRules`,
+**Implementation.** Extend the existing `assay.policy.json` (already has `ignoreRules`,
 `requireApproval`, `failOnSeverity`, per-server MCP `denyTools`) with `allowPublishers` /
 `blockPublishers` / `blockArtifacts`. `policy.Evaluate` (pure domain) already gates `verify --ci`;
 add the list checks there so dashboard, CLI, and CI agree on one committed file. Shared = the file
@@ -412,7 +412,7 @@ the policy file via the policy store. Render muted findings collapsed.
 **Status: Now (trusted keys + signed approvals exist) → Next (Slack/CI) · Team.** **Problem &
 evidence.** Small teams won't stand up approval infrastructure; the winning model is **a committed
 lockfile reviewed in a PR diff**, with signed approvals. This already exists: `key show` / `key
-trust`, `agentguard.trustedkeys`, signed approvals, `requireSignedApproval`. The additions are
+trust`, `assay.trustedkeys`, signed approvals, `requireSignedApproval`. The additions are
 **notification delivery** (batched, opt-in) so changes reach people where they already are.
 
 **Dashboard.** A small "Notify" config (Slack webhook URL / generic webhook) and a "Send digest
@@ -420,7 +420,7 @@ now" button. Notifications are **batched by default** (Slack rejects large paylo
 kills adoption) — one digest message, not per-finding spam.
 
 **Implementation.** A `notify` adapter behind a `ports.Notifier` (Slack incoming-webhook + generic
-HTTP), driven by `agentguard digest --notify` in CI/cron. No new persistent service. The PR-review
+HTTP), driven by `assay digest --notify` in CI/cron. No new persistent service. The PR-review
 approval flow is already complete; document it as the team approval story.
 
 ---
@@ -428,7 +428,7 @@ approval flow is already complete; document it as the team approval story.
 ## 6. Theme D — Runtime & audit (surface what Component 2 already captures)
 
 Component 2 (`wrap`) already audits every MCP `tools/call` and every egress connection to JSONL
-under `~/.agentguard/audit/`, with secret redaction — and the dashboard already has an unused
+under `~/.assay/audit/`, with secret redaction — and the dashboard already has an unused
 `GET /api/audit` endpoint and `auditlog.Summarize`. This theme is mostly *surfacing* existing data.
 
 ### D1. Activity timeline (tool calls + egress)
@@ -472,11 +472,11 @@ the server's network to the proxy port.
 
 **Status: Later · Team.** **Problem & evidence.** Even tiny teams increasingly get asked "what's
 your supply chain" by their first enterprise customer. **CycloneDX** (OWASP, security-focused,
-embeds VEX) is the right format; **VEX** lets AgentGuard say "this skill bundles a vulnerable lib
+embeds VEX) is the right format; **VEX** lets Assay say "this skill bundles a vulnerable lib
 but the vulnerable path isn't reachable from agent context" — a strong, noise-cutting
-differentiator. AgentGuard already *has* the component inventory and per-file hashes the SBOM needs.
+differentiator. Assay already *has* the component inventory and per-file hashes the SBOM needs.
 
-**Dashboard.** An "Export" button → `agentguard.cdx.json` (CycloneDX) and a human PDF/HTML posture
+**Dashboard.** An "Export" button → `assay.cdx.json` (CycloneDX) and a human PDF/HTML posture
 report. Nothing to interpret live; it's an artifact to hand off.
 
 **Implementation.** A `report` adapter variant emitting CycloneDX from the existing lockfile model
@@ -494,7 +494,7 @@ Over time, a sparkline of "trusted %" gives a sense of direction without a porta
 sparkline fed by the periodic `digest` snapshots. The first-run experience surfaces the same verdict
 in the terminal so the dashboard is optional, not required.
 
-**Implementation.** Append each `digest`/scan summary to a local `~/.agentguard/history.jsonl`
+**Implementation.** Append each `digest`/scan summary to a local `~/.assay/history.jsonl`
 (counts only, no content); the trend reads it. The first-run verdict is a CLI reporter variant over
 the trust scores from A1.
 
@@ -536,7 +536,7 @@ warns against that).
   advisory matching (B2) all belong in `internal/domain` as IO-free, table-driven functions — same
   discipline as `digest`/`Compare`. The dashboard and CLI become thin renderers of one truth.
 - **One data shape, two front-ends.** Every verdict/badge added to `DashArtifact` should also
-  appear in `agentguard list` so the terminal-first solo user never *needs* the dashboard. Mirror
+  appear in `assay list` so the terminal-first solo user never *needs* the dashboard. Mirror
   each Go DTO field in `controlplane/web/lib/scan-data.ts`.
 - **Writes need a guard.** The dashboard is deliberately auth-free because it has no remotely
   reachable surface; the moment it can mutate the lockfile, add a launch-printed local token bound
@@ -559,7 +559,7 @@ warns against that).
 1. **Drift false-positive rate is the whole bet** (A3). Validate the version-bump-correlation
    heuristic against real update streams before shipping; if "updated" misclassifies tampering even
    occasionally, the feature is net-negative.
-2. **Where does AgentGuard run** — per-developer machine, CI, or both? It changes the
+2. **Where does Assay run** — per-developer machine, CI, or both? It changes the
    seat-vs-repo pricing axis and whether the digest is a cron job or a CI step.
 3. **Willingness to pay for this exact category is unproven** — the agent-skills/MCP security market
    is <1 year old. The pricing in §8 (free = one machine's protection; Team = shared

@@ -1,10 +1,10 @@
-# agentguard architecture
+# assay architecture
 
 How the codebase is organized, how a scan actually runs, and where to add code.
 Start here if you're contributing. For *why* things are built this way, see
 [decisions.md](decisions.md); for what the tool does, see the [README](../../README.md).
 
-## What agentguard is
+## What assay is
 
 A single static binary that brings supply-chain integrity to AI coding tools.
 It discovers every skill, MCP server, plugin, hook, and rule installed across
@@ -73,14 +73,14 @@ interface that can be faked, swapped, or degraded without touching the core.
 | `internal/adapters/resolve` | adapter | Source → concrete pinned code: local, inline, npm, git, url. |
 | `internal/adapters/hash` | adapter | Filesystem walk feeding the domain digest. |
 | `internal/adapters/analyze` | adapter | Native high-signal matchers + optional Semgrep accelerator. |
-| `internal/adapters/lockstore` | adapter | Atomic, deterministic `agentlock.json` read/write. |
-| `internal/adapters/policystore` | adapter | Loads `agentguard.policy.json` (optional; defaults if absent). |
+| `internal/adapters/lockstore` | adapter | Atomic, deterministic `assaylock.json` read/write. |
+| `internal/adapters/policystore` | adapter | Loads `assay.policy.json` (optional; defaults if absent). |
 | `internal/adapters/sign` | adapter | ed25519 detached signatures. |
 | `internal/adapters/report` | adapter | Text and JSON reporters. |
 | `internal/cli` | adapter (driving) | Argument parsing, composition root, exit-code mapping. |
 | `internal/platform/run` | shared | Command-runner abstraction for shelling out (npm/git), with a fake. |
 | `internal/buildinfo` | shared | Build-time version metadata. |
-| `cmd/agentguard` | entrypoint | Thin `main`: signal handling, hand off to the CLI. |
+| `cmd/assay` | entrypoint | Thin `main`: signal handling, hand off to the CLI. |
 
 ## Data flow
 
@@ -158,8 +158,8 @@ The seams are deliberate. Common extensions:
 
 ## Component 2 — the MCP shim (observe-only slice built)
 
-`agentguard wrap` routes a tool's stdio MCP servers through
-`agentguard mcp-shim`, which relays JSON-RPC byte-for-byte and audits every
+`assay wrap` routes a tool's stdio MCP servers through
+`assay mcp-shim`, which relays JSON-RPC byte-for-byte and audits every
 `tools/call`. The slice follows the same hexagon:
 
 - **`internal/domain/jsonrpc`** — pure message classification and the
@@ -170,7 +170,7 @@ The seams are deliberate. Common extensions:
   readers/writers, inspection on a parsed copy, forwarding untouched. Tested
   entirely with in-memory pipes.
 - **`internal/adapters/auditlog`** — JSONL sink, one file per UTC day under
-  `~/.agentguard/audit/`.
+  `~/.assay/audit/`.
 - **`internal/adapters/mcpconfig`** — the `.mcp.json` rewrite. The wrapped
   form embeds the original argv after a `--`, so unwrap and `wrap --status`
   are derived from the config itself, no side-channel state. Discovery reuses

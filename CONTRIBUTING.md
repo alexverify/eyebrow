@@ -1,6 +1,6 @@
-# Contributing to agentguard
+# Contributing to assay
 
-Thanks for considering a contribution. agentguard is a security tool, so we
+Thanks for considering a contribution. assay is a security tool, so we
 value clarity, determinism, and a small dependency surface over cleverness.
 
 ## Ground rules

@@ -1,5 +1,5 @@
 // Package artifact defines the normalized internal model for every "thing"
-// agentguard discovers across AI coding tools: skills, MCP servers, plugins,
+// assay discovers across AI coding tools: skills, MCP servers, plugins,
 // subagents, hooks, rules, and context files.
 //
 // Discovery adapters parse heterogeneous tool configs (JSON, JSONC, TOML) and
@@ -12,10 +12,10 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
-// Type enumerates the kinds of artifacts agentguard tracks.
+// Type enumerates the kinds of artifacts assay tracks.
 type Type string
 
 const (

@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
-	"github.com/alexverify/agentguard/internal/domain/provenance"
-	"github.com/alexverify/agentguard/internal/domain/trust"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/provenance"
+	"github.com/alexverify/assay/internal/domain/trust"
 )
 
 // DashArtifact is the artifact shape the dashboard UI consumes (mirrors the

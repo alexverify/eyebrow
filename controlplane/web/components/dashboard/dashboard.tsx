@@ -119,7 +119,7 @@ export function Dashboard() {
         </div>
         <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 font-mono text-xs text-muted-foreground">
           <Terminal className="h-3.5 w-3.5 text-primary" />
-          <span className="text-foreground">npx agentguard scan</span>
+          <span className="text-foreground">npx assay scan</span>
         </div>
       </div>
 
@@ -500,7 +500,7 @@ function ChangesPanel({
       <div className="rounded-lg border border-border bg-card p-10 text-center">
         <p className="font-mono text-sm text-ok">Nothing changed since you last looked</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          No new, updated, or drifted artifacts. Run <span className="font-mono">agentguard digest</span> for
+          No new, updated, or drifted artifacts. Run <span className="font-mono">assay digest</span> for
           the same summary in your terminal or CI.
         </p>
       </div>
@@ -638,7 +638,7 @@ function ActivityPanel() {
       <div className="rounded-lg border border-border bg-card p-10 text-center">
         <p className="font-mono text-sm text-muted-foreground">No runtime activity recorded</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Wrap a tool's MCP servers with <span className="font-mono">agentguard wrap</span> to audit every tool
+          Wrap a tool's MCP servers with <span className="font-mono">assay wrap</span> to audit every tool
           call and outbound connection here.
         </p>
       </div>

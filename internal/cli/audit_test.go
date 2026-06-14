@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/cli"
+	"github.com/alexverify/assay/internal/cli"
 )
 
 func seedAuditDir(t *testing.T) string {

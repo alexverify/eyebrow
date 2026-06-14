@@ -1,6 +1,10 @@
-# agentguard
+<p align="center">
+  <img src="docs/assets/logo.png" alt="assay" width="320">
+</p>
 
-[![ci](https://github.com/alexverify/agentguard/actions/workflows/ci.yml/badge.svg)](https://github.com/alexverify/agentguard/actions/workflows/ci.yml)
+# assay
+
+[![ci](https://github.com/alexverify/assay/actions/workflows/ci.yml/badge.svg)](https://github.com/alexverify/assay/actions/workflows/ci.yml)
 
 **Supply-chain integrity for AI coding tools.** A single static binary that
 discovers every skill, MCP server, plugin, hook, and rule installed across your
@@ -15,14 +19,14 @@ post-audit modification — "rug pulls" — before they bite.
 ## Why
 
 Skills, MCP servers, and hooks run with your privileges and can change after you
-audit them. agentguard gives you a committable lockfile (`agentlock.json`) of
+audit them. assay gives you a committable lockfile (`assaylock.json`) of
 exactly what's installed and what it does, and tells you the moment any of it
 changes.
 
 ## Install
 
 Grab a static binary from the
-[releases page](https://github.com/alexverify/agentguard/releases) (Linux,
+[releases page](https://github.com/alexverify/assay/releases) (Linux,
 macOS, and Windows; amd64/arm64) and check it against the published
 `checksums.txt`:
 
@@ -33,27 +37,27 @@ shasum -a 256 -c --ignore-missing checksums.txt
 Or build from source (requires Go 1.25+, nothing else):
 
 ```sh
-make build   # → ./bin/agentguard
+make build   # → ./bin/assay
 ```
 
 ## Quickstart
 
 ```sh
-make build            # builds ./bin/agentguard (zero external dependencies)
+make build            # builds ./bin/assay (zero external dependencies)
 
 # From a project that uses Claude Code (has .mcp.json and/or .claude/skills):
-./bin/agentguard scan          # discover, hash, analyze → writes agentlock.json
-./bin/agentguard list          # pretty inventory across tools
-./bin/agentguard verify        # recompute & diff vs the lockfile (rug-pull check)
-./bin/agentguard verify --ci   # strict: apply the policy gate (see Policy below)
-./bin/agentguard diff          # informational: what changed since the lockfile
-./bin/agentguard approve <id>  # mark an artifact approved in the lockfile
-./bin/agentguard sign          # sign the lockfile with your local ed25519 key
-./bin/agentguard key show      # print your public key (share it with your team)
-./bin/agentguard key trust <k> # trust a teammate's public key
-./bin/agentguard wrap          # audit every MCP tool call via the stdio shim
-./bin/agentguard wrap --status # what's wrapped + the real underlying commands
-./bin/agentguard unwrap        # restore the original MCP config
+./bin/assay scan          # discover, hash, analyze → writes assaylock.json
+./bin/assay list          # pretty inventory across tools
+./bin/assay verify        # recompute & diff vs the lockfile (rug-pull check)
+./bin/assay verify --ci   # strict: apply the policy gate (see Policy below)
+./bin/assay diff          # informational: what changed since the lockfile
+./bin/assay approve <id>  # mark an artifact approved in the lockfile
+./bin/assay sign          # sign the lockfile with your local ed25519 key
+./bin/assay key show      # print your public key (share it with your team)
+./bin/assay key trust <k> # trust a teammate's public key
+./bin/assay wrap          # audit every MCP tool call via the stdio shim
+./bin/assay wrap --status # what's wrapped + the real underlying commands
+./bin/assay unwrap        # restore the original MCP config
 ```
 
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
@@ -64,7 +68,7 @@ CI — are walked through in [docs/usage.md](docs/usage.md).
 
 ## Policy (CI gating)
 
-`verify --ci` applies an optional `agentguard.policy.json` (commit it next to the
+`verify --ci` applies an optional `assay.policy.json` (commit it next to the
 lockfile). Absent a file, the default gate fails on any **new** high/critical
 finding. Example:
 
@@ -75,7 +79,7 @@ finding. Example:
   "blockPublishers": ["giftshop.club"], // fail any artifact from these sources
   "blockArtifacts": ["sketchy-skill"],  // fail any artifact by name substring
   "allowPublishers": ["github.com/acme/"], // if set, fail anything not from here
-  "requireApproval": true,           // fail any artifact not `agentguard approve`d
+  "requireApproval": true,           // fail any artifact not `assay approve`d
   "requireSignedApproval": true,     // fail unless each approval is signed by a trusted key
   "requireSignature": true,          // fail unless the lockfile is validly signed
   "mcp": {                           // runtime tool rules, enforced live by `wrap`
@@ -85,11 +89,11 @@ finding. Example:
 ```
 
 With `requireSignature`, the lockfile signature is checked against a
-**trusted-keys registry**: `agentguard.trustedkeys` committed next to the
+**trusted-keys registry**: `assay.trustedkeys` committed next to the
 lockfile (one base64 ed25519 public key per line, optional label, `#` comments)
-merged with your personal `~/.agentguard/trusted_keys`. Each teammate shares
-their key with `agentguard key show` and registers others with
-`agentguard key trust <key> --name alice --file agentguard.trustedkeys`. When no
+merged with your personal `~/.assay/trusted_keys`. Each teammate shares
+their key with `assay key show` and registers others with
+`assay key trust <key> --name alice --file assay.trustedkeys`. When no
 registry declares any key, your own local key is trusted, so the single-user
 flow needs no setup; once a registry exists it is authoritative — local
 `verify --ci` behaves exactly like CI.
@@ -103,7 +107,7 @@ here" with no infrastructure.
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: alexverify/agentguard/action@v0.1.0
+  - uses: alexverify/assay/action@v0.1.0
 ```
 
 One tag pins the action and the checksum-verified binary it installs; see
@@ -112,7 +116,7 @@ One tag pins the action and the checksum-verified binary it installs; see
 ## Requirements
 
 The binary itself has no runtime dependencies. To **pin and hash remote sources**
-during a scan, agentguard shells out to the relevant tool:
+during a scan, assay shells out to the relevant tool:
 
 - `npm` — to resolve `npx`/npm MCP servers to an exact version + integrity and
   fetch the package code.
@@ -165,7 +169,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 |---|---|---|
 | 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex, Windsurf, Copilot CLI) |
 | 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **implemented** — shim with audit log, live tool policy, egress proxy + secret redaction, OS sandbox (Seatbelt/bwrap) |
-| 3 — control plane | Policy API, audit log, approval workflow, dashboard | **in progress** — local dashboard (Next.js UI embedded in the binary, `agentguard dashboard`) shipped; hosted team API designed |
+| 3 — control plane | Policy API, audit log, approval workflow, dashboard | **in progress** — local dashboard (Next.js UI embedded in the binary, `assay dashboard`) shipped; hosted team API designed |
 
 ## License
 

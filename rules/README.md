@@ -1,6 +1,6 @@
 # rules/ — Semgrep accelerator pack
 
-Curated [Semgrep](https://semgrep.dev) rules that deepen `agentguard scan`'s
+Curated [Semgrep](https://semgrep.dev) rules that deepen `assay scan`'s
 static analysis with language-aware checks the native regex matchers can't
 express (e.g. `shell=True` subprocess calls, env-serialization exfil shapes,
 interpolated `child_process` exec).
@@ -16,7 +16,7 @@ they carry the critical-severity rules and require nothing but the binary.
 
 ## Severity & taxonomy mapping
 
-| Semgrep | agentguard |
+| Semgrep | assay |
 |---|---|
 | `ERROR` | high |
 | `WARNING` | medium |
@@ -26,7 +26,7 @@ Critical is reserved for native rules — a semgrep rule that warrants critical
 impact should be promoted to a native matcher. Each rule's
 `metadata.owasp-agentic` (e.g. `ASK-01`) flows into the finding's OWASP field.
 Rule IDs surface namespaced as `SEMGREP-<ID>` (e.g. `SEMGREP-SUBPROCESS-SHELL-TRUE`)
-so they can be suppressed independently in `agentguard.policy.json` `ignoreRules`.
+so they can be suppressed independently in `assay.policy.json` `ignoreRules`.
 
 ## Validating changes
 

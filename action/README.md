@@ -1,6 +1,6 @@
-# agentguard verify — GitHub Action
+# assay verify — GitHub Action
 
-Runs `agentguard verify --ci` against your committed `agentlock.json`: fails
+Runs `assay verify --ci` against your committed `assaylock.json`: fails
 the build on drift (rug pulls), unapproved artifacts, new findings over the
 policy threshold, or a missing/untrusted lockfile signature. The verify output
 lands in the job's step summary.
@@ -9,11 +9,11 @@ lands in the job's step summary.
 
 ```yaml
 jobs:
-  agentguard:
+  assay:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: alexverify/agentguard/action@v0.1.0
+      - uses: alexverify/assay/action@v0.1.0
 ```
 
 One tag pins both the action and the binary it installs: the pinned release
@@ -27,9 +27,9 @@ SHA instead, set the `version` input explicitly.
 |---|---|---|
 | `version` | the action's own ref | Release tag of the binary to install (e.g. `v0.1.0`) |
 | `path` | `.` | Project root to scan |
-| `lockfile` | `agentlock.json` | Lockfile path |
-| `policy` | `agentguard.policy.json` | Policy file applied by the gate |
-| `trusted-keys` | `agentguard.trustedkeys` | Trusted-keys registry for `requireSignature` |
+| `lockfile` | `assaylock.json` | Lockfile path |
+| `policy` | `assay.policy.json` | Policy file applied by the gate |
+| `trusted-keys` | `assay.trustedkeys` | Trusted-keys registry for `requireSignature` |
 
 Exit codes are the binary's stable contract: `0` clean, `1` drift or policy
 violation, `2` usage error, `3` internal error. The same binary works in any

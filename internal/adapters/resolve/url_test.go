@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/artifact"
 )
 
 type fakeCertFetcher struct {

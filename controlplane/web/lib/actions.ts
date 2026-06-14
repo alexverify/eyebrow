@@ -1,7 +1,7 @@
 "use client"
 
 // Client helpers for the dashboard's write actions (approve / quarantine /
-// freeze). Each POST carries the X-Agentguard-Token header; the token is fetched
+// freeze). Each POST carries the X-Assay-Token header; the token is fetched
 // once from the same-origin /api/token endpoint, which a cross-origin page
 // cannot read. In demo mode (no backend) the fetch fails and actions are hidden.
 
@@ -35,7 +35,7 @@ export async function runAction(kind: ActionKind, id: string, on: boolean): Prom
   const token = await getToken()
   const r = await fetch(`/api/${kind}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Agentguard-Token": token },
+    headers: { "Content-Type": "application/json", "X-Assay-Token": token },
     body: JSON.stringify({ id, on }),
   })
   if (!r.ok) {

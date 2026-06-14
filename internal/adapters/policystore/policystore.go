@@ -1,4 +1,4 @@
-// Package policystore loads a policy file (agentguard.policy.json) from disk.
+// Package policystore loads a policy file (assay.policy.json) from disk.
 // Policy is optional: a missing file yields the default policy.
 package policystore
 
@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/alexverify/agentguard/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // Load reads and parses a policy file. If the path does not exist it returns

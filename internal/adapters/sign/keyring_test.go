@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 func testLockfile() lockfile.Lockfile {
 	return lockfile.Build([]artifact.Artifact{{
 		ID: "a1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "demo", ContentHash: "sha256-x",
-	}}, time.Unix(0, 0).UTC(), "agentguard/test")
+	}}, time.Unix(0, 0).UTC(), "assay/test")
 }
 
 func TestKeyringVerifiesAnyTrustedKey(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
+	"github.com/alexverify/assay/internal/app/ports"
 )
 
 func TestDefaultDiscoversAcrossTools(t *testing.T) {

@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/adapters/auditlog"
-	"github.com/alexverify/agentguard/internal/dashboard"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/dashboard"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 func testServer(t *testing.T) *dashboard.Server {
@@ -22,10 +22,10 @@ func testServer(t *testing.T) *dashboard.Server {
 	current := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeMCPServer, Name: "github", ContentHash: "sha256-new",
 			Findings: []finding.Finding{{RuleID: "RCE-PIPE-EXEC", Severity: finding.SeverityCritical}}},
-	}, time.Unix(0, 0).UTC(), "agentguard/test")
+	}, time.Unix(0, 0).UTC(), "assay/test")
 	locked := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeMCPServer, Name: "github", ContentHash: "sha256-old"},
-	}, time.Unix(0, 0).UTC(), "agentguard/test")
+	}, time.Unix(0, 0).UTC(), "assay/test")
 
 	return dashboard.New(dashboard.Deps{
 		Inventory: func(context.Context) (lockfile.Lockfile, error) { return current, nil },
@@ -169,7 +169,7 @@ func TestWriteEndpointTokenGuard(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113/api/quarantine",
 			strings.NewReader(`{"id":"a1","on":true}`))
 		if token != "" {
-			req.Header.Set("X-Agentguard-Token", token)
+			req.Header.Set("X-Assay-Token", token)
 		}
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -197,7 +197,7 @@ func TestWriteEndpointReadOnlyWhenNoMutate(t *testing.T) {
 	srv := testServer(t) // no Mutate dep
 	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113/api/freeze",
 		strings.NewReader(`{"id":"a1","on":true}`))
-	req.Header.Set("X-Agentguard-Token", srv.Token())
+	req.Header.Set("X-Assay-Token", srv.Token())
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {

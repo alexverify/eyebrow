@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/audit"
 )
 
 // Filter narrows which events Read returns. Zero-value fields don't filter.

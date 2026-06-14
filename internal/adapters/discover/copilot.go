@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/agentguard/internal/adapters/parse"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/adapters/parse"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/artifact"
 )
 
 // Copilot discovers GitHub Copilot CLI MCP servers. The standalone CLI stores

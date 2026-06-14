@@ -1,4 +1,4 @@
-# Using agentguard
+# Using assay
 
 Two workflows: solo (you, your machine) and team (committed lockfile, policy
 gate in CI). Both revolve around the same three files, all committed next to
@@ -6,16 +6,16 @@ each other:
 
 | File | What it is | Written by |
 |---|---|---|
-| `agentlock.json` | The locked inventory: every artifact, hashed and pinned | `agentguard scan` |
-| `agentguard.policy.json` | What `verify --ci` fails on | you, by hand |
-| `agentguard.trustedkeys` | Whose lockfile signatures count | `agentguard key trust` |
+| `assaylock.json` | The locked inventory: every artifact, hashed and pinned | `assay scan` |
+| `assay.policy.json` | What `verify --ci` fails on | you, by hand |
+| `assay.trustedkeys` | Whose lockfile signatures count | `assay key trust` |
 
 ## Solo: catch rug pulls
 
 ```sh
 cd your-project
-agentguard scan            # inventory + hash everything → agentlock.json
-agentguard verify          # later: did anything change since I looked?
+assay scan            # inventory + hash everything → assaylock.json
+assay verify          # later: did anything change since I looked?
 ```
 
 `scan` discovers skills, MCP servers, hooks, subagents, and rules across Claude
@@ -27,23 +27,23 @@ you. `diff` is the same comparison without the failing exit code; `list` is the
 inventory without writing anything.
 
 When a change is expected (you updated a skill on purpose), re-run
-`agentguard scan` to re-lock, review the diff in version control, and move on.
+`assay scan` to re-lock, review the diff in version control, and move on.
 
 ## Team: gate CI on "approved, unmodified, signed"
 
 One-time setup, committed to the repo:
 
 ```sh
-agentguard scan
-agentguard approve --all --sign           # review first, then bless the inventory (signed)
-echo '{ "requireApproval": true, "requireSignature": true }' > agentguard.policy.json
-agentguard key show                       # each teammate shares this output…
-agentguard key trust <key> --name alice --file agentguard.trustedkeys   # …and registers the others
-agentguard sign                           # sign the lockfile with your key
-git add agentlock.json agentguard.policy.json agentguard.trustedkeys
+assay scan
+assay approve --all --sign           # review first, then bless the inventory (signed)
+echo '{ "requireApproval": true, "requireSignature": true }' > assay.policy.json
+assay key show                       # each teammate shares this output…
+assay key trust <key> --name alice --file assay.trustedkeys   # …and registers the others
+assay sign                           # sign the lockfile with your key
+git add assaylock.json assay.policy.json assay.trustedkeys
 ```
 
-CI runs `agentguard verify --ci` (or the [GitHub Action](../action/README.md)).
+CI runs `assay verify --ci` (or the [GitHub Action](../action/README.md)).
 The build fails on:
 
 - **drift** — any artifact whose content hash, pinned version, npm integrity,
@@ -51,13 +51,13 @@ The build fails on:
 - **new findings** at/above `failOnSeverity` (default `high`) that weren't in
   the locked snapshot — pre-existing accepted findings don't re-fire;
 - **unapproved artifacts**, when `requireApproval` is set — anything added
-  without an `agentguard approve`;
+  without an `assay approve`;
 - **unsigned or forged approvals**, when `requireSignedApproval` is set — each
-  approval must carry a signature (`agentguard approve --sign`) from a trusted
+  approval must carry a signature (`assay approve --sign`) from a trusted
   key over the artifact's content, so an approval can't be hand-added to the
   lockfile or kept across a content change;
 - **a missing or untrusted signature**, when `requireSignature` is set — the
-  lockfile must be signed by a key in `agentguard.trustedkeys`.
+  lockfile must be signed by a key in `assay.trustedkeys`.
 
 The day-to-day loop: someone adds or updates an extension → `scan`, review,
 `approve <id>`, `sign`, commit. Until they do, every other machine's CI is red
@@ -72,9 +72,9 @@ threshold:
 
 ## Key handling
 
-`agentguard sign` and `key show` use (and create on first use) a persistent
-ed25519 key at `~/.agentguard/key` — per person, per machine; it never leaves
-your home directory. Only **public** keys go in `agentguard.trustedkeys` (one
+`assay sign` and `key show` use (and create on first use) a persistent
+ed25519 key at `~/.assay/key` — per person, per machine; it never leaves
+your home directory. Only **public** keys go in `assay.trustedkeys` (one
 base64 key per line, optional label, `#` comments). When no registry declares
 any key, your own key is implicitly trusted so the solo flow needs no setup;
 once a registry exists it is authoritative, locally and in CI alike.
@@ -93,16 +93,16 @@ Static analysis tells you what an MCP server *could* do; the shim records what
 it *actually does*:
 
 ```sh
-agentguard wrap              # route this project's stdio MCP servers through the shim
-agentguard wrap --global     # same for your user-level ~/.claude.json servers
-agentguard wrap --status     # what's wrapped, and what really runs underneath
-agentguard unwrap            # restore the original config (--global for the user-level one)
+assay wrap              # route this project's stdio MCP servers through the shim
+assay wrap --global     # same for your user-level ~/.claude.json servers
+assay wrap --status     # what's wrapped, and what really runs underneath
+assay unwrap            # restore the original config (--global for the user-level one)
 ```
 
 `wrap` rewrites `.mcp.json` so each stdio server launches via
-`agentguard mcp-shim`, which relays the protocol byte-for-byte (the tool can't
+`assay mcp-shim`, which relays the protocol byte-for-byte (the tool can't
 tell the difference) and appends one line per tool call to
-`~/.agentguard/audit/<date>.jsonl`:
+`~/.assay/audit/<date>.jsonl`:
 
 ```json
 {"ts":"…","session":"3f2a…","server":"github","kind":"tool_call","tool":"create_issue","argsDigest":"sha256-…","durationMs":412,"status":"ok"}
@@ -118,7 +118,7 @@ projects only for now.
 
 ### Blocking calls, not just watching them
 
-Add an `mcp` section to the same committed `agentguard.policy.json` and the
+Add an `mcp` section to the same committed `assay.policy.json` and the
 shim enforces it live:
 
 ```jsonc
@@ -191,14 +191,14 @@ to write.
 
 ### Reading the audit log
 
-`agentguard audit` queries what the shim recorded:
+`assay audit` queries what the shim recorded:
 
 ```sh
-agentguard audit                          # summary: counts by server, denials, redactions
-agentguard audit --list                   # every event, newest filters applied
-agentguard audit --status denied --list   # just what got blocked
-agentguard audit --server github --since 2026-06-01 --list
-agentguard audit --list --json            # machine-readable
+assay audit                          # summary: counts by server, denials, redactions
+assay audit --list                   # every event, newest filters applied
+assay audit --status denied --list   # just what got blocked
+assay audit --server github --since 2026-06-01 --list
+assay audit --list --json            # machine-readable
 ```
 
 Filters (`--server`, `--tool`, `--status`, `--kind`, `--since`) compose. The
@@ -207,13 +207,13 @@ forensic detail.
 
 ## Dashboard
 
-`agentguard dashboard` serves a local, read-only web view of what agentguard
+`assay dashboard` serves a local, read-only web view of what assay
 sees on this machine — the live inventory, drift against the committed
 lockfile, findings, and the MCP shim's audit timeline:
 
 ```sh
-agentguard dashboard                 # http://127.0.0.1:7113
-agentguard dashboard --addr 127.0.0.1:9000 --path . --audit-dir ~/.agentguard/audit
+assay dashboard                 # http://127.0.0.1:7113
+assay dashboard --addr 127.0.0.1:9000 --path . --audit-dir ~/.assay/audit
 ```
 
 It binds loopback only and rejects any request whose `Host` header isn't a
@@ -226,7 +226,7 @@ Click any artifact in the inventory to open its **security profile**:
 provenance (source, launch command, env *keys* only — values are never shown),
 integrity (on-disk vs locked hash, signature/approval state verified against
 your trusted keys), declared capabilities, security findings, the file
-manifest, and — for MCP servers wrapped with `agentguard wrap` — the live
+manifest, and — for MCP servers wrapped with `assay wrap` — the live
 runtime audit timeline.
 
 ## Exit codes (stable contract)
@@ -244,7 +244,7 @@ unconfined and the egress proxy is cooperative (a server could bypass it) —
 tool-policy enforcement and auditing still apply, and `wrap` prints a warning
 to make the gap explicit.
 
-**Line endings (cross-OS lockfiles).** agentguard hashes file bytes exactly as
+**Line endings (cross-OS lockfiles).** assay hashes file bytes exactly as
 they are on disk, so if Git rewrites text files to CRLF on Windows checkout, a
 text artifact hashes differently than on Linux/macOS and `verify` reports false
 drift. If you commit a lockfile that a mixed-OS team verifies, normalize line

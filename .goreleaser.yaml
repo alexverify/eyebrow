@@ -3,16 +3,16 @@
 # Validate with: goreleaser check && goreleaser release --snapshot --clean
 version: 2
 
-project_name: agentguard
+project_name: assay
 
 builds:
-  - main: ./cmd/agentguard
+  - main: ./cmd/assay
     env:
       - CGO_ENABLED=0
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X github.com/alexverify/agentguard/internal/buildinfo.Version={{.Version}}
+      - -s -w -X github.com/alexverify/assay/internal/buildinfo.Version={{.Version}}
     goos:
       - linux
       - darwin

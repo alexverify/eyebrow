@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/app/apptest"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/app/shim"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/domain/policy"
+	"github.com/alexverify/assay/internal/app/apptest"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/app/shim"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // runRelay drives one relay session: clientLines go in as the agent's stdin,
@@ -166,7 +166,7 @@ func TestRelayDeniesByPolicy(t *testing.T) {
 		t.Errorf("a denied call must never reach the server, got %q", serverGot)
 	}
 	if !strings.Contains(clientGot, `"id":1`) || !strings.Contains(clientGot, `"error"`) ||
-		!strings.Contains(clientGot, "agentguard policy") {
+		!strings.Contains(clientGot, "assay policy") {
 		t.Errorf("client must get a JSON-RPC error for its id: %q", clientGot)
 	}
 

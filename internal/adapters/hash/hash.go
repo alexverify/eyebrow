@@ -12,8 +12,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/digest"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/digest"
 )
 
 // Hasher computes content digests over directories or single files.

@@ -1,5 +1,5 @@
-// Package lockfile defines the agentlock.json model and the drift-detection
-// logic that powers `agentguard verify` — the rug-pull detector.
+// Package lockfile defines the assaylock.json model and the drift-detection
+// logic that powers `assay verify` — the rug-pull detector.
 //
 // Like the rest of the domain core, this package is pure: Build assembles a
 // deterministic snapshot from artifacts, and Compare diffs two snapshots with
@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
 // CanonicalBytes returns the deterministic serialization of the lockfile used
@@ -34,7 +34,7 @@ func ApprovalSigningBytes(e Entry) []byte {
 	return []byte(e.ID + "\n" + e.ContentHash)
 }
 
-// Version is the current agentlock.json schema version.
+// Version is the current assaylock.json schema version.
 const Version = 1
 
 // Approval records a human (optionally signed) sign-off on an artifact's

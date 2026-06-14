@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/platform/run"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/platform/run"
 )
 
 func TestParseGitRef(t *testing.T) {

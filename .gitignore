@@ -1,7 +1,7 @@
 # Build output
 /bin/
 /dist/
-/agentguard
+/assay
 
 # Go
 *.test
@@ -15,7 +15,7 @@ coverage.*
 *.swp
 
 # Local lockfiles produced during manual testing
-/agentlock.json
+/assaylock.json
 
 # Local-only working docs (specs/plans); never committed
 docs/superpowers/

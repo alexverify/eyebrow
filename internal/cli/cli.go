@@ -12,17 +12,17 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/adapters/analyze"
-	"github.com/alexverify/agentguard/internal/adapters/discover"
-	"github.com/alexverify/agentguard/internal/adapters/hash"
-	"github.com/alexverify/agentguard/internal/adapters/lockstore"
-	"github.com/alexverify/agentguard/internal/adapters/report"
-	"github.com/alexverify/agentguard/internal/adapters/resolve"
-	"github.com/alexverify/agentguard/internal/adapters/sign"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/app/scan"
-	"github.com/alexverify/agentguard/internal/app/verify"
-	"github.com/alexverify/agentguard/internal/buildinfo"
+	"github.com/alexverify/assay/internal/adapters/analyze"
+	"github.com/alexverify/assay/internal/adapters/discover"
+	"github.com/alexverify/assay/internal/adapters/hash"
+	"github.com/alexverify/assay/internal/adapters/lockstore"
+	"github.com/alexverify/assay/internal/adapters/report"
+	"github.com/alexverify/assay/internal/adapters/resolve"
+	"github.com/alexverify/assay/internal/adapters/sign"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/app/scan"
+	"github.com/alexverify/assay/internal/app/verify"
+	"github.com/alexverify/assay/internal/buildinfo"
 )
 
 // Exit codes form a stable contract for CI consumers.
@@ -103,7 +103,7 @@ func (a *App) usage() {
 	fmt.Fprintf(a.Stderr, `%s — supply-chain integrity for AI coding tools
 
 Usage:
-  agentguard <command> [flags]
+  assay <command> [flags]
 
 Commands:
   scan      Discover, resolve, hash, and analyze artifacts; write the lockfile
@@ -124,7 +124,7 @@ Commands:
   version   Print the version
   help      Show this help
 
-Run "agentguard <command> -h" for command-specific flags.
+Run "assay <command> -h" for command-specific flags.
 `, buildinfo.Name)
 }
 
@@ -180,19 +180,19 @@ func (a *App) verifyService(jsonOut bool, rulesDir string, verifier ports.Lockfi
 // auditDir is the default audit-log location.
 func (a *App) auditDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".agentguard", "audit")
+	return filepath.Join(home, ".assay", "audit")
 }
 
 // keyPath is the default local signing-key location.
 func (a *App) keyPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".agentguard", "key")
+	return filepath.Join(home, ".assay", "key")
 }
 
 // trustedKeysPath is the user-level trusted-keys registry.
 func (a *App) trustedKeysPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".agentguard", "trusted_keys")
+	return filepath.Join(home, ".assay", "trusted_keys")
 }
 
 // lockfileVerifier builds the trust set used to check lockfile signatures: the

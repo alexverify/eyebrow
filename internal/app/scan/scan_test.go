@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/app/apptest"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/app/scan"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/app/apptest"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/app/scan"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
 func mcp(name string) artifact.Artifact {
@@ -25,7 +25,7 @@ func mcp(name string) artifact.Artifact {
 
 func newService(d scan.Deps) *scan.Service {
 	d.Clock = apptest.FixedClock{T: time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC)}
-	d.Generator = "agentguard/test"
+	d.Generator = "assay/test"
 	return scan.New(d)
 }
 
@@ -44,7 +44,7 @@ func TestScanEnrichesAndPersists(t *testing.T) {
 
 	lf, err := svc.Run(context.Background(), scan.Options{
 		Scopes:       []ports.Scope{{Kind: "project", Path: "."}},
-		LockfilePath: "agentlock.json",
+		LockfilePath: "assaylock.json",
 	}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -60,10 +60,10 @@ func TestScanEnrichesAndPersists(t *testing.T) {
 	if len(got.Findings) != 1 || got.Findings[0].RuleID != "EXEC-CHILD-PROCESS" {
 		t.Errorf("findings not attached: %+v", got.Findings)
 	}
-	if !store.Exists("agentlock.json") {
+	if !store.Exists("assaylock.json") {
 		t.Error("lockfile was not persisted")
 	}
-	if lf.Generator != "agentguard/test" {
+	if lf.Generator != "assay/test" {
 		t.Errorf("Generator = %q", lf.Generator)
 	}
 }

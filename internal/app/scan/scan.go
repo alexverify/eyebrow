@@ -12,12 +12,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/buildinfo"
-	"github.com/alexverify/agentguard/internal/domain/advisory"
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/buildinfo"
+	"github.com/alexverify/assay/internal/domain/advisory"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // Deps are the collaborators the scan service needs. All are interfaces.

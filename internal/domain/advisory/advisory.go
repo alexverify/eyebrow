@@ -1,6 +1,6 @@
 // Package advisory matches discovered artifacts against a curated, offline feed
 // of known-malicious skills and MCP servers. A match is the highest-confidence
-// signal agentguard can make: not a heuristic, but a hit against ground truth
+// signal assay can make: not a heuristic, but a hit against ground truth
 // (e.g. the postmark-mcp BCC-exfiltration campaign).
 //
 // Like the rest of the domain core, it is pure: no IO, no third-party imports.
@@ -11,7 +11,7 @@ package advisory
 import (
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
 // Advisory is one known-malicious indicator. Each non-empty field is a

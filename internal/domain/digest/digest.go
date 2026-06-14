@@ -1,4 +1,4 @@
-// Package digest implements agentguard's canonical, content-addressable
+// Package digest implements assay's canonical, content-addressable
 // integrity primitive. It is pure (no filesystem or network access): callers
 // supply file paths and pre-computed per-file hashes, and the package folds
 // them into a single deterministic Merkle-style root.

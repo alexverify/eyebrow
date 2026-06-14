@@ -1,4 +1,4 @@
-// Package dashboard serves a local, read-only web view of what agentguard sees
+// Package dashboard serves a local, read-only web view of what assay sees
 // on this machine: the inventory, drift against the lockfile, findings, and the
 // MCP shim's audit timeline. It is the Go backend of the dashboard — the UI is
 // a Next.js app embedded as a static export (see assets/).
@@ -20,10 +20,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/adapters/auditlog"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 //go:embed all:assets
@@ -62,7 +62,7 @@ type Server struct {
 // New constructs a Server. It mints a single random token that gates the write
 // endpoints: a malicious page in the user's browser can issue a cross-origin
 // POST but cannot read GET /api/token (same-origin policy), so it cannot forge
-// the X-Agentguard-Token header. Combined with the loopback-Host guard, this
+// the X-Assay-Token header. Combined with the loopback-Host guard, this
 // keeps the mutating surface same-origin only.
 func New(d Deps) *Server {
 	static := d.Static
@@ -205,7 +205,7 @@ func (s *Server) mutate(w http.ResponseWriter, r *http.Request, set func(*lockfi
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if r.Header.Get("X-Agentguard-Token") != s.token || s.token == "" {
+	if r.Header.Get("X-Assay-Token") != s.token || s.token == "" {
 		http.Error(w, "missing or invalid write token", http.StatusForbidden)
 		return
 	}
@@ -273,7 +273,7 @@ func loopbackOnly(next http.Handler) http.Handler {
 		case "localhost", "127.0.0.1", "::1":
 			next.ServeHTTP(w, r)
 		default:
-			http.Error(w, "agentguard dashboard accepts loopback requests only", http.StatusForbidden)
+			http.Error(w, "assay dashboard accepts loopback requests only", http.StatusForbidden)
 		}
 	})
 }

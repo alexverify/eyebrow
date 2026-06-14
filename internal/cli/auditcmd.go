@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/adapters/auditlog"
-	"github.com/alexverify/agentguard/internal/domain/audit"
+	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/domain/audit"
 )
 
 // runAudit queries the shim's audit log: a summary by default, or a filtered

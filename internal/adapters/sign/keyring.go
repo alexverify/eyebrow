@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // Keyring verifies lockfile signatures against a set of trusted ed25519 public
@@ -21,7 +21,7 @@ import (
 //
 // Keys come from trusted-keys files: one base64 public key per line, with an
 // optional trailing label and '#' comments (a minimal authorized_keys). Teams
-// commit one next to the lockfile; personal additions live under ~/.agentguard.
+// commit one next to the lockfile; personal additions live under ~/.assay.
 type Keyring struct {
 	keys []ed25519.PublicKey
 }

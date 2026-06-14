@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 func TestSignVerifyRoundTrip(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSignVerifyLockfileRoundTrip(t *testing.T) {
 	s, _ := Generate()
 	lf := lockfile.Build([]artifact.Artifact{{
 		ID: "a1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "demo", ContentHash: "sha256-x",
-	}}, time.Unix(0, 0).UTC(), "agentguard/test")
+	}}, time.Unix(0, 0).UTC(), "assay/test")
 
 	signed, err := s.SignLockfile(lf)
 	if err != nil {

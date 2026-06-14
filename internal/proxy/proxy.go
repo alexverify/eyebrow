@@ -21,10 +21,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/domain/policy"
-	"github.com/alexverify/agentguard/internal/domain/secrets"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/secrets"
 )
 
 // Deps are the proxy's collaborators.
@@ -99,7 +99,7 @@ func (p *Proxy) deny(w http.ResponseWriter, e audit.Event, reason string) {
 	e.Status = audit.StatusDenied
 	e.Detail = reason
 	p.emit(e)
-	http.Error(w, "agentguard egress policy: "+reason, http.StatusForbidden)
+	http.Error(w, "assay egress policy: "+reason, http.StatusForbidden)
 }
 
 // servePlain forwards an absolute-URI HTTP request with its body redacted.

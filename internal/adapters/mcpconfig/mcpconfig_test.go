@@ -41,7 +41,7 @@ func TestWrapRewritesStdioServers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if n := cfg.Wrap("/usr/local/bin/agentguard"); n != 2 {
+	if n := cfg.Wrap("/usr/local/bin/assay"); n != 2 {
 		t.Fatalf("Wrap changed %d servers, want 2 (remote must be skipped)", n)
 	}
 	if err := cfg.Save(); err != nil {
@@ -73,7 +73,7 @@ func TestWrapRewritesStdioServers(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := raw["mcpServers"].(map[string]any)["github"].(map[string]any)
-	if entry["command"] != "/usr/local/bin/agentguard" {
+	if entry["command"] != "/usr/local/bin/assay" {
 		t.Errorf("command = %v", entry["command"])
 	}
 	wantArgs := []any{"mcp-shim", "--server", "github", "--", "npx", "-y", "@modelcontextprotocol/server-github"}
@@ -91,8 +91,8 @@ func TestWrapRewritesStdioServers(t *testing.T) {
 func TestWrapIsIdempotent(t *testing.T) {
 	path := writeFixture(t)
 	cfg, _ := Load(path)
-	cfg.Wrap("/bin/agentguard")
-	if n := cfg.Wrap("/bin/agentguard"); n != 0 {
+	cfg.Wrap("/bin/assay")
+	if n := cfg.Wrap("/bin/assay"); n != 0 {
 		t.Fatalf("second Wrap changed %d servers, want 0", n)
 	}
 	gh := serversByName(cfg)["github"]
@@ -108,7 +108,7 @@ func TestUnwrapRestoresOriginal(t *testing.T) {
 	_ = json.Unmarshal(b, &before)
 
 	cfg, _ := Load(path)
-	cfg.Wrap("/bin/agentguard")
+	cfg.Wrap("/bin/assay")
 	if err := cfg.Save(); err != nil {
 		t.Fatal(err)
 	}

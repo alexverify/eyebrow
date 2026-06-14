@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/agentguard/internal/cli"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/cli"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // TestSignedApprovalGate: requireSignedApproval passes only when approvals are
@@ -19,9 +19,9 @@ func TestSignedApprovalGate(t *testing.T) {
 	ctx := context.Background()
 	dir, lock := fixtureProject(t)
 
-	policyPath := filepath.Join(dir, "agentguard.policy.json")
+	policyPath := filepath.Join(dir, "assay.policy.json")
 	mustWriteJSON(t, policyPath, map[string]any{"requireSignedApproval": true})
-	registry := filepath.Join(dir, "agentguard.trustedkeys")
+	registry := filepath.Join(dir, "assay.trustedkeys")
 	ciArgs := []string{"verify", "--ci", "--path", dir, "--lockfile", lock,
 		"--policy", policyPath, "--trusted-keys", registry}
 

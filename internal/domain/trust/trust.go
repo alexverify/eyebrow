@@ -1,4 +1,4 @@
-// Package trust turns the facts agentguard already knows about an artifact —
+// Package trust turns the facts assay already knows about an artifact —
 // its findings, how it drifted, whether its source is pinned, what it can do,
 // and whether a trusted key approved it — into a single action-mapped Verdict
 // plus a transparent, hand-recomputable breakdown.
@@ -11,9 +11,9 @@ package trust
 import (
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/domain/artifact"
-	"github.com/alexverify/agentguard/internal/domain/finding"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // Verdict is the single conclusion shown to the user, each mapping to an action.

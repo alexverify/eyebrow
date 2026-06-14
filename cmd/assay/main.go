@@ -1,4 +1,4 @@
-// Command agentguard is the single static binary entrypoint. It keeps main
+// Command assay is the single static binary entrypoint. It keeps main
 // thin: build an App, wire signal-based cancellation, and hand control to the
 // CLI adapter. All behavior lives in internal packages so it can be tested
 // without spawning a process.
@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/alexverify/agentguard/internal/cli"
+	"github.com/alexverify/assay/internal/cli"
 )
 
 func main() {

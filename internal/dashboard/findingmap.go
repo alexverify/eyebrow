@@ -3,7 +3,7 @@ package dashboard
 import (
 	"strings"
 
-	"github.com/alexverify/agentguard/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/finding"
 )
 
 // ruleInfo gives a finding rule the two presentation fields the dashboard

@@ -1,4 +1,4 @@
-module github.com/alexverify/agentguard
+module github.com/alexverify/assay
 
 go 1.25
 

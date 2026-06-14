@@ -7,12 +7,12 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/alexverify/agentguard/internal/adapters/auditlog"
-	"github.com/alexverify/agentguard/internal/adapters/lockstore"
-	"github.com/alexverify/agentguard/internal/app/ports"
-	"github.com/alexverify/agentguard/internal/dashboard"
-	"github.com/alexverify/agentguard/internal/domain/audit"
-	"github.com/alexverify/agentguard/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/adapters/lockstore"
+	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/dashboard"
+	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/lockfile"
 )
 
 // runDashboard serves the local, read-only web dashboard on loopback. It reads
@@ -32,7 +32,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	store := lockstore.New()
 	// The keyring (committed trusted-keys + personal) verifies approval
 	// signatures so the dashboard's "verified" status is cryptographically real.
-	verifier, _ := a.lockfileVerifier("agentguard.trustedkeys")
+	verifier, _ := a.lockfileVerifier("assay.trustedkeys")
 
 	srv := dashboard.New(dashboard.Deps{
 		Inventory: func(ctx context.Context) (lockfile.Lockfile, error) {
@@ -66,7 +66,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		fmt.Fprintf(a.Stderr, "dashboard: %v\n", err)
 		return ExitError
 	}
-	fmt.Fprintf(a.Stdout, "agentguard dashboard on http://%s  (ctrl-c to stop)\n", ln.Addr())
+	fmt.Fprintf(a.Stdout, "assay dashboard on http://%s  (ctrl-c to stop)\n", ln.Addr())
 	fmt.Fprintf(a.Stdout, "write token: %s\n", srv.Token())
 
 	httpSrv := &http.Server{Handler: srv.Handler()}

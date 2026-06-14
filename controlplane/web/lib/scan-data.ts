@@ -1,6 +1,6 @@
-// Mock scan data for the AgentGuard local dashboard.
-// In the real product this is produced by the CLI (`agentguard scan`) and
-// written to a lockfile (agentguard.lock.json). Here we ship realistic
+// Mock scan data for the Assay local dashboard.
+// In the real product this is produced by the CLI (`assay scan`) and
+// written to a lockfile (assay.lock.json). Here we ship realistic
 // sample data so the dashboard is fully demoable offline.
 
 export type Agent = "Claude Code" | "Cursor" | "Codex" | "OpenCode"

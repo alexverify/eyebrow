@@ -10,7 +10,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'AgentGuard — Local Scan Dashboard',
+  title: 'Assay — Local Scan Dashboard',
   description:
     'Inventory, lock, and gate every skill, MCP server, and plugin your AI coding agent runs. Open-source CLI, audit in seconds, no account.',
   icons: {

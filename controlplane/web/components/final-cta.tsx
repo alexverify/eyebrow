@@ -11,7 +11,7 @@ export function FinalCta() {
         <div className="mt-8 flex flex-col items-center gap-4">
           <CopyCommand />
           <a
-            href="https://github.com/alexverify/agentguard"
+            href="https://github.com/alexverify/assay"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-2 rounded-md border border-border bg-transparent px-4 py-2.5 font-mono text-sm text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
