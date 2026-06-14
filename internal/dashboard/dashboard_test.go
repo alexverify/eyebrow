@@ -15,6 +15,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/finding"
 	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 func testServer(t *testing.T) *dashboard.Server {
@@ -202,6 +203,115 @@ func TestWriteEndpointReadOnlyWhenNoMutate(t *testing.T) {
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("read-only server should refuse writes with 403, got %d", rec.Code)
+	}
+}
+
+// policyServer wires a server backed by an in-memory policy with both reads and
+// writes enabled, returning the server and a pointer to the live policy.
+func policyServer(t *testing.T) (*dashboard.Server, *policy.Policy) {
+	t.Helper()
+	p := policy.Default()
+	lf := lockfile.Build(nil, time.Unix(0, 0).UTC(), "t")
+	srv := dashboard.New(dashboard.Deps{
+		Inventory: func(context.Context) (lockfile.Lockfile, error) { return lf, nil },
+		Locked:    func(context.Context) (lockfile.Lockfile, error) { return lf, nil },
+		Policy:    func(context.Context) (policy.Policy, error) { return p, nil },
+		MutatePolicy: func(ctx context.Context, fn func(*policy.Policy) error) error {
+			return fn(&p)
+		},
+	})
+	return srv, &p
+}
+
+func postJSON(t *testing.T, h http.Handler, path, token, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113"+path, strings.NewReader(body))
+	if token != "" {
+		req.Header.Set("X-Assay-Token", token)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestPolicyEditorReadAndWrite(t *testing.T) {
+	srv, p := policyServer(t)
+	h := srv.Handler()
+
+	// GET returns the current policy.
+	rec := get(t, h, "/api/policy")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/policy = %d", rec.Code)
+	}
+
+	// A tokenless POST is refused and does not mutate.
+	if rec := postJSON(t, h, "/api/policy", "", `{"blockPublishers":["giftshop.club"]}`); rec.Code != http.StatusForbidden {
+		t.Fatalf("tokenless policy write → 403, got %d", rec.Code)
+	}
+	if len(p.BlockPublishers) != 0 {
+		t.Fatal("policy must not change on a tokenless write")
+	}
+
+	// An authorized POST replaces the lists.
+	body := `{"allowPublishers":["github.com/myorg"],"blockPublishers":["giftshop.club"," "],"blockArtifacts":["evil"]}`
+	if rec := postJSON(t, h, "/api/policy", srv.Token(), body); rec.Code != http.StatusOK {
+		t.Fatalf("authorized policy write → 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(p.BlockPublishers) != 1 || p.BlockPublishers[0] != "giftshop.club" {
+		t.Errorf("blockPublishers not saved (blanks should drop): %+v", p.BlockPublishers)
+	}
+	if len(p.AllowPublishers) != 1 || len(p.BlockArtifacts) != 1 {
+		t.Errorf("allow/block lists not saved: %+v", *p)
+	}
+}
+
+func TestMuteEndpointAppendsRationale(t *testing.T) {
+	srv, p := policyServer(t)
+	h := srv.Handler()
+
+	if rec := postJSON(t, h, "/api/mute", srv.Token(), `{"rule":"EXEC-PRIMITIVE","reason":"build step","by":"alice"}`); rec.Code != http.StatusOK {
+		t.Fatalf("mute → 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(p.Mutes) != 1 || p.Mutes[0].Rule != "EXEC-PRIMITIVE" || p.Mutes[0].Reason != "build step" || p.Mutes[0].By != "alice" {
+		t.Fatalf("mute not recorded with rationale: %+v", p.Mutes)
+	}
+	// Muting the same rule again is idempotent.
+	postJSON(t, h, "/api/mute", srv.Token(), `{"rule":"EXEC-PRIMITIVE","reason":"again"}`)
+	if len(p.Mutes) != 1 {
+		t.Errorf("re-muting should be idempotent, got %+v", p.Mutes)
+	}
+	// A mute without a rule is a bad request.
+	if rec := postJSON(t, h, "/api/mute", srv.Token(), `{"reason":"x"}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("mute without a rule → 400, got %d", rec.Code)
+	}
+}
+
+func TestEgressAllowAddsHostRule(t *testing.T) {
+	srv, p := policyServer(t)
+	h := srv.Handler()
+
+	if rec := postJSON(t, h, "/api/egress-allow", srv.Token(), `{"server":"pdf","host":"cdn.pdf.dev"}`); rec.Code != http.StatusOK {
+		t.Fatalf("egress-allow → 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	rule, ok := p.MCP.Servers["pdf"]
+	if !ok || len(rule.AllowHosts) != 1 || rule.AllowHosts[0] != "cdn.pdf.dev" {
+		t.Fatalf("host rule not written: %+v", p.MCP.Servers)
+	}
+	// The proxy's host decision now allows it.
+	if !p.DecideHost("pdf", "cdn.pdf.dev").Allowed {
+		t.Error("the newly allowed host should pass DecideHost")
+	}
+	// Idempotent re-add.
+	postJSON(t, h, "/api/egress-allow", srv.Token(), `{"server":"pdf","host":"cdn.pdf.dev"}`)
+	if len(p.MCP.Servers["pdf"].AllowHosts) != 1 {
+		t.Errorf("re-allowing a host should be idempotent: %+v", p.MCP.Servers["pdf"].AllowHosts)
+	}
+}
+
+func TestPolicyWriteReadOnlyWhenNoMutatePolicy(t *testing.T) {
+	srv := testServer(t) // no MutatePolicy dep
+	if rec := postJSON(t, srv.Handler(), "/api/mute", srv.Token(), `{"rule":"X"}`); rec.Code != http.StatusForbidden {
+		t.Fatalf("read-only policy server should refuse writes with 403, got %d", rec.Code)
 	}
 }
 

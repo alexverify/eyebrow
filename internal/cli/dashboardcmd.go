@@ -9,10 +9,12 @@ import (
 
 	"github.com/alexverify/assay/internal/adapters/auditlog"
 	"github.com/alexverify/assay/internal/adapters/lockstore"
+	"github.com/alexverify/assay/internal/adapters/policystore"
 	"github.com/alexverify/assay/internal/app/ports"
 	"github.com/alexverify/assay/internal/dashboard"
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // runDashboard serves the local, read-only web dashboard on loopback. It reads
@@ -23,6 +25,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	c := bindCommon(fs)
 	addr := fs.String("addr", "127.0.0.1:7113", "loopback address to listen on")
 	auditDir := fs.String("audit-dir", a.auditDir(), "audit log directory")
+	policyPath := fs.String("policy", "assay.policy.json", "policy file the editor reads and writes")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -58,6 +61,20 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 				return err
 			}
 			return store.Write(ctx, *c.lockfile, lf)
+		},
+		Policy: func(context.Context) (policy.Policy, error) {
+			p, _, err := policystore.Load(*policyPath)
+			return p, err
+		},
+		MutatePolicy: func(_ context.Context, fn func(p *policy.Policy) error) error {
+			p, _, err := policystore.Load(*policyPath)
+			if err != nil {
+				return err
+			}
+			if err := fn(&p); err != nil {
+				return err
+			}
+			return policystore.Save(*policyPath, p)
 		},
 	})
 

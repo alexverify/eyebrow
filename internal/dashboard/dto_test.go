@@ -260,6 +260,28 @@ func TestBuildScanCapabilityDiff(t *testing.T) {
 	}
 }
 
+func TestBuildScanShadowDetection(t *testing.T) {
+	// A locally-defined hook, newly present and never locked → shadow.
+	shadow := art("h1", "claude-code", artifact.TypeHook, "mystery-hook", "sha256-x")
+	shadow.Source = artifact.Source{Kind: artifact.SourceInline, Ref: "echo hi"}
+	// A new npm artifact is declared/resolvable → never shadow.
+	declared := art("n1", "cursor", artifact.TypeMCPServer, "db", "sha256-y")
+
+	scan := BuildScan(lf(shadow, declared), lockfile.Lockfile{}, nil)
+	if !find(t, scan, "mystery-hook").Shadow {
+		t.Error("a new, locally-defined artifact should be flagged shadow")
+	}
+	if find(t, scan, "db").Shadow {
+		t.Error("a new npm artifact is declared and must not be flagged shadow")
+	}
+
+	// Once locked, the same local artifact is accounted for → not shadow.
+	locked := lf(shadow)
+	if find(t, BuildScan(lf(shadow), locked, nil), "mystery-hook").Shadow {
+		t.Error("a locked local artifact is accounted for and must not be shadow")
+	}
+}
+
 func TestBuildScanQuarantineAndProvenance(t *testing.T) {
 	a := art("q1", "claude-code", artifact.TypeSkill, "suspect", "sha256-x")
 	a.Source = artifact.Source{Kind: artifact.SourceNPM, Ref: "1.0.0", Integrity: "sha512-A"}

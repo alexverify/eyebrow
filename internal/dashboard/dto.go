@@ -53,6 +53,11 @@ type DashArtifact struct {
 	Quarantined bool              `json:"quarantined,omitempty"`
 	Frozen      bool              `json:"frozen,omitempty"`
 	Provenance  provenance.Ladder `json:"provenance"`
+
+	// Shadow flags an unaccounted artifact (B3): newly present but not in the
+	// lockfile and not pulled from a known registry/package source — an
+	// "installed but never declared" extension (OWASP MCP09 / AST09).
+	Shadow bool `json:"shadow,omitempty"`
 }
 
 // DashReason is one additive contribution to the trust score, for the breakdown.
@@ -195,6 +200,7 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []Da
 			Quarantined:  prev.Quarantined,
 			Frozen:       prev.Frozen,
 			Provenance:   provenance.Assess(e.Source, approved[e.ID]),
+			Shadow:       isShadow(class, hasLocked, e.Source.Kind),
 		})
 	}
 	return out
@@ -288,6 +294,22 @@ func driftStatus(class lockfile.DriftClass, hasLocked, approved bool) string {
 		return "unsigned"
 	}
 	return "verified"
+}
+
+// isShadow reports an unaccounted artifact (B3): newly present (absent from the
+// lockfile) and locally defined rather than pulled from a known registry or
+// package source. npm/git/url/container sources are declared and resolvable, so
+// they are never shadow; local and inline artifacts that no one locked are.
+func isShadow(class lockfile.DriftClass, hasLocked bool, kind artifact.SourceKind) bool {
+	if class != lockfile.DriftClassAdded && hasLocked {
+		return false
+	}
+	switch kind {
+	case artifact.SourceLocal, artifact.SourceInline:
+		return true
+	default:
+		return false
+	}
 }
 
 // kindOf maps the artifact type onto the dashboard's coarse kind.
