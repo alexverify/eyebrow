@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { artifacts as mockArtifacts, type Artifact } from "@/lib/scan-data"
 
 export interface ScanState {
@@ -14,9 +14,11 @@ export interface ScanState {
  * useScan fetches the live inventory from the agentguard backend (/api/scan,
  * served by `agentguard dashboard`). When that endpoint is unreachable — e.g.
  * during `next dev` with no backend running — it falls back to the bundled
- * mock data so the UI is still demoable.
+ * mock data so the UI is still demoable. The returned `reload` re-fetches, e.g.
+ * after a write action mutates the lockfile.
  */
-export function useScan(): ScanState {
+export function useScan(): ScanState & { reload: () => void } {
+  const [nonce, setNonce] = useState(0)
   const [state, setState] = useState<ScanState>({
     artifacts: [],
     loading: true,
@@ -53,7 +55,8 @@ export function useScan(): ScanState {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [nonce])
 
-  return state
+  const reload = useCallback(() => setNonce((n) => n + 1), [])
+  return { ...state, reload }
 }

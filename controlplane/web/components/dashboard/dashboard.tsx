@@ -45,7 +45,7 @@ const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
 ]
 
 export function Dashboard() {
-  const { artifacts, loading, live } = useScan()
+  const { artifacts, loading, live, reload } = useScan()
   const [tab, setTab] = useState<TabId>("changes")
   const [query, setQuery] = useState("")
   const [agentFilter, setAgentFilter] = useState<Agent | "all">("all")
@@ -201,7 +201,15 @@ export function Dashboard() {
         {tab === "drift" && <DriftPanel drifted={driftedArtifacts} updated={updatedArtifacts} />}
       </div>
 
-      <ArtifactDrawer artifact={selected} onClose={() => setSelected(null)} />
+      <ArtifactDrawer
+        artifact={selected}
+        live={live}
+        onClose={() => setSelected(null)}
+        onChanged={() => {
+          reload()
+          setSelected(null)
+        }}
+      />
     </div>
   )
 }

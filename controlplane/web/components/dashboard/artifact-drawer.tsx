@@ -5,6 +5,7 @@ import { X, FileCode2, ShieldCheck, ShieldAlert, Network, FolderTree, Terminal }
 import { cn } from "@/lib/utils"
 import { KIND_LABELS, PATTERN_LABELS, type Artifact } from "@/lib/scan-data"
 import { SeverityBadge, DriftBadge, VerdictBadge } from "@/components/dashboard/badges"
+import { runAction, type ActionKind } from "@/lib/actions"
 
 interface AuditEvent {
   ts: string
@@ -21,7 +22,17 @@ interface AuditEvent {
  * showing provenance, integrity, capabilities, findings, the file manifest,
  * and — for wrapped MCP servers — the live audit activity.
  */
-export function ArtifactDrawer({ artifact, onClose }: { artifact: Artifact | null; onClose: () => void }) {
+export function ArtifactDrawer({
+  artifact,
+  onClose,
+  live = false,
+  onChanged,
+}: {
+  artifact: Artifact | null
+  onClose: () => void
+  live?: boolean
+  onChanged?: () => void
+}) {
   const open = artifact !== null
 
   // Close on Escape.
@@ -49,13 +60,23 @@ export function ArtifactDrawer({ artifact, onClose }: { artifact: Artifact | nul
         )}
         aria-hidden={!open}
       >
-        {artifact && <DrawerBody artifact={artifact} onClose={onClose} />}
+        {artifact && <DrawerBody artifact={artifact} onClose={onClose} live={live} onChanged={onChanged} />}
       </aside>
     </>
   )
 }
 
-function DrawerBody({ artifact: a, onClose }: { artifact: Artifact; onClose: () => void }) {
+function DrawerBody({
+  artifact: a,
+  onClose,
+  live,
+  onChanged,
+}: {
+  artifact: Artifact
+  onClose: () => void
+  live: boolean
+  onChanged?: () => void
+}) {
   return (
     <>
       <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
@@ -82,6 +103,7 @@ function DrawerBody({ artifact: a, onClose }: { artifact: Artifact; onClose: () 
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
+        {live ? <Actions a={a} onChanged={onChanged} /> : null}
         <Trust a={a} />
         <ProvenanceLadder a={a} />
         <Provenance a={a} />
@@ -116,6 +138,55 @@ function Row({ label, value, mono }: { label: string; value?: string | null; mon
       <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
       <span className={cn("truncate text-right text-xs text-foreground", mono && "font-mono")}>{value}</span>
     </div>
+  )
+}
+
+function Actions({ a, onChanged }: { a: Artifact; onChanged?: () => void }) {
+  const [busy, setBusy] = useState<ActionKind | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const run = (kind: ActionKind, on: boolean) => {
+    setBusy(kind)
+    setError(null)
+    runAction(kind, a.id, on)
+      .then(() => onChanged?.())
+      .catch((e) => setError(String(e instanceof Error ? e.message : e)))
+      .finally(() => setBusy(null))
+  }
+
+  const btn =
+    "inline-flex items-center justify-center rounded-md border px-3 py-1.5 font-mono text-xs transition-colors disabled:opacity-50"
+
+  return (
+    <section className="mb-6">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() => run("approve", true)}
+          className={cn(btn, "border-ok/40 text-ok hover:bg-ok/10")}
+        >
+          {busy === "approve" ? "…" : "Approve"}
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() => run("quarantine", !a.quarantined)}
+          className={cn(btn, "border-sev-critical/40 text-sev-critical hover:bg-sev-critical/10")}
+        >
+          {busy === "quarantine" ? "…" : a.quarantined ? "Lift quarantine" : "Quarantine"}
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() => run("freeze", !a.frozen)}
+          className={cn(btn, "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground")}
+        >
+          {busy === "freeze" ? "…" : a.frozen ? "Unfreeze" : "Freeze"}
+        </button>
+      </div>
+      {error ? <p className="mt-2 font-mono text-[11px] text-sev-critical">{error}</p> : null}
+    </section>
   )
 }
 
