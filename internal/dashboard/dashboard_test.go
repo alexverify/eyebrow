@@ -14,6 +14,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/artifact"
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/policy"
 	"github.com/alexverify/assay/internal/domain/posture"
@@ -47,6 +48,46 @@ func get(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestFleetEndpoint(t *testing.T) {
+	srv := dashboard.New(dashboard.Deps{
+		Fleet: func(context.Context) (fleet.Report, error) {
+			return fleet.Aggregate([]fleet.Snapshot{
+				{Owner: "alice", Artifacts: []fleet.Artifact{{ID: "x", Name: "feed", Kind: "skill", Hash: "h1", Drift: "drifted", Verdict: "quarantine"}}},
+				{Owner: "bob", Artifacts: []fleet.Artifact{{ID: "x", Name: "feed", Kind: "skill", Hash: "h2", Drift: "verified", Verdict: "trusted"}}},
+			}), nil
+		},
+	})
+	rec := get(t, srv.Handler(), "/api/fleet")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var rep fleet.Report
+	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if rep.Owners != 2 || len(rep.Exposures) != 1 {
+		t.Fatalf("report = %+v", rep)
+	}
+	if e := rep.Exposures[0]; e.Installs != 2 || e.Drifted != 1 || e.Variants != 2 {
+		t.Errorf("blast radius = %+v", e)
+	}
+}
+
+func TestFleetEndpointEmptyWhenUnset(t *testing.T) {
+	// No Fleet dep → an empty report, never an error.
+	rec := get(t, testServer(t).Handler(), "/api/fleet")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var rep fleet.Report
+	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if rep.Owners != 0 || len(rep.Exposures) != 0 {
+		t.Errorf("unset fleet should be empty, got %+v", rep)
+	}
 }
 
 func TestInventoryEndpoint(t *testing.T) {

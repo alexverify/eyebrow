@@ -84,6 +84,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runAudit(ctx, rest)
 	case "dashboard":
 		return a.runDashboard(ctx, rest)
+	case "fleet":
+		return a.runFleet(ctx, rest)
 	case "mcp-shim":
 		return a.runMCPShim(ctx, rest)
 	case "version", "-v", "--version":
@@ -121,6 +123,7 @@ Commands:
   unwrap    Restore the original MCP config
   audit     Summarize or list the MCP shim's audit log
   dashboard Serve a local read-only web dashboard (loopback)
+  fleet     Export this machine's snapshot, or print the team blast-radius
   version   Print the version
   help      Show this help
 
@@ -181,6 +184,13 @@ func (a *App) verifyService(jsonOut bool, rulesDir string, verifier ports.Lockfi
 func (a *App) auditDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".assay", "audit")
+}
+
+// fleetDir is the default fleet-snapshot directory: a project-local, shared
+// path meant to be committed ("git is the backend"), so the whole team's
+// snapshots aggregate without any server.
+func (a *App) fleetDir() string {
+	return filepath.Join(".assay", "fleet")
 }
 
 // historyPath is the default posture-trend history file.

@@ -23,6 +23,7 @@ import (
 	"github.com/alexverify/assay/internal/adapters/auditlog"
 	"github.com/alexverify/assay/internal/app/ports"
 	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/policy"
 	"github.com/alexverify/assay/internal/domain/posture"
@@ -60,6 +61,9 @@ type Deps struct {
 	// History returns the counts-only posture trend (E2). Optional: when nil,
 	// GET /api/history returns an empty trend.
 	History func(context.Context) ([]posture.Posture, error)
+	// Fleet returns the aggregated team blast-radius (G1) from committed
+	// snapshots. Optional: when nil, GET /api/fleet returns an empty report.
+	Fleet func(context.Context) (fleet.Report, error)
 	// Static overrides the embedded UI assets (used in tests); nil uses the
 	// embedded Next.js export.
 	Static fs.FS
@@ -115,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/mute", s.handleMute)
 	mux.HandleFunc("/api/egress-allow", s.handleEgressAllow)
 	mux.HandleFunc("/api/history", s.handleHistory)
+	mux.HandleFunc("/api/fleet", s.handleFleet)
 	if s.static != nil {
 		mux.Handle("/", http.FileServer(http.FS(s.static)))
 	}
@@ -288,6 +293,23 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, struct {
 		History []posture.Posture `json:"history"`
 	}{History: hist})
+}
+
+// handleFleet serves the aggregated team blast-radius (G1): which artifacts are
+// installed across how many machines, and where they have drifted. Built from
+// committed snapshots — no live telemetry upload, same offline-first contract
+// as the rest of the dashboard.
+func (s *Server) handleFleet(w http.ResponseWriter, r *http.Request) {
+	var rep fleet.Report
+	if s.deps.Fleet != nil {
+		got, err := s.deps.Fleet(r.Context())
+		if err != nil {
+			httpError(w, err)
+			return
+		}
+		rep = got
+	}
+	writeJSON(w, rep)
 }
 
 // handlePolicy serves the committed policy (GET) and edits its allow/block

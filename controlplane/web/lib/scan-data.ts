@@ -172,6 +172,75 @@ export interface TimelineEvent {
   severity: "ok" | "info" | "high" | "critical"
 }
 
+// FleetExposure is one artifact's blast radius across the team (G1): who has it,
+// and where it has drifted or been quarantined.
+export interface FleetExposure {
+  id: string
+  name: string
+  kind: string
+  owners: string[]
+  installs: number
+  drifted: number
+  quarantine: number
+  variants: number
+}
+
+// FleetReport is the aggregated team picture, assembled from committed,
+// content-free snapshots — no live telemetry upload.
+export interface FleetReport {
+  owners: number
+  artifacts: number
+  exposures: FleetExposure[]
+}
+
+// Demo fleet, shown when no committed snapshots are present (offline/demo).
+export const demoFleet: FleetReport = {
+  owners: 8,
+  artifacts: 5,
+  exposures: [
+    {
+      id: "skl_005",
+      name: "crypto-price-feed",
+      kind: "skill",
+      owners: ["dana", "erin", "frank"],
+      installs: 3,
+      drifted: 2,
+      quarantine: 1,
+      variants: 2,
+    },
+    {
+      id: "mcp_002",
+      name: "filesystem-mcp",
+      kind: "mcp",
+      owners: ["carol", "erin"],
+      installs: 2,
+      drifted: 1,
+      quarantine: 0,
+      variants: 2,
+    },
+    {
+      id: "mcp_001",
+      name: "postgres-mcp",
+      kind: "mcp",
+      owners: ["alice", "bob", "carol", "dana", "erin", "frank", "grace", "heidi"],
+      installs: 8,
+      drifted: 0,
+      quarantine: 0,
+      variants: 1,
+    },
+    {
+      id: "skl_004",
+      name: "markdown-linter",
+      kind: "skill",
+      owners: ["alice", "bob", "grace"],
+      installs: 3,
+      drifted: 0,
+      quarantine: 0,
+      variants: 1,
+    },
+  ],
+}
+
 export const SEVERITY_ORDER: Record<Severity, number> = {
   critical: 0,
   high: 1,

@@ -15,15 +15,18 @@ import {
   SlidersHorizontal,
   EyeOff,
   AlarmClock,
+  Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import {
   KIND_LABELS,
   PATTERN_LABELS,
+  demoFleet,
   type Agent,
   type Artifact,
   type ArtifactKind,
+  type FleetReport,
 } from "@/lib/scan-data"
 import {
   getAllFindings,
@@ -44,7 +47,7 @@ import { StatCard } from "@/components/dashboard/stat-card"
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
 
-type TabId = "changes" | "inventory" | "findings" | "drift" | "activity" | "policy"
+type TabId = "changes" | "inventory" | "findings" | "drift" | "activity" | "fleet" | "policy"
 
 const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "changes", label: "Changes", icon: Inbox },
@@ -52,6 +55,7 @@ const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "findings", label: "Security Findings", icon: ShieldAlert },
   { id: "drift", label: "Rug-pull / Drift", icon: GitCompareArrows },
   { id: "activity", label: "Activity", icon: ActivityIcon },
+  { id: "fleet", label: "Fleet Blast Radius", icon: Users },
   { id: "policy", label: "Policy", icon: SlidersHorizontal },
 ]
 
@@ -256,6 +260,7 @@ export function Dashboard() {
         )}
         {tab === "findings" && <FindingsPanel findings={findings} />}
         {tab === "drift" && <DriftPanel drifted={driftedArtifacts} updated={updatedArtifacts} />}
+        {tab === "fleet" && <FleetPanel live={live} />}
         {tab === "policy" && <PolicyPanel live={live} />}
       </div>
 
@@ -878,6 +883,114 @@ function EgressMap({ events }: { events: ActivityEvent[] }) {
           </span>
         </div>
       ))}
+    </div>
+  )
+}
+
+function FleetPanel({ live }: { live: boolean }) {
+  const [report, setReport] = useState<FleetReport | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/fleet")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: FleetReport | null) => {
+        if (cancelled) return
+        // Live but no snapshots committed yet → still show the demo so the view
+        // is explorable; a real deployment fills it via `assay fleet export`.
+        setReport(d && d.owners > 0 ? d : demoFleet)
+      })
+      .catch(() => !cancelled && setReport(demoFleet))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (report === null) {
+    return <p className="text-sm text-muted-foreground">Loading fleet…</p>
+  }
+
+  const exposed = report.exposures.filter((e) => e.drifted > 0 || e.quarantine > 0)
+  const usingDemo = !live || report === demoFleet
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="font-mono text-xs text-muted-foreground">
+          {report.owners} machines · {report.artifacts} distinct artifacts ·{" "}
+          <span className={exposed.length > 0 ? "text-sev-critical" : "text-ok"}>
+            {exposed.length} at risk
+          </span>
+        </p>
+        <p className="font-mono text-[11px] text-muted-foreground">
+          {usingDemo ? "demo fleet" : "aggregated from committed snapshots"} · `assay fleet export`
+        </p>
+      </div>
+
+      {report.exposures.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <p className="font-mono text-sm text-muted-foreground">No fleet snapshots yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Run <span className="font-mono">assay fleet export</span> on each machine and commit the{" "}
+            <span className="font-mono">.assay/fleet</span> directory to see who is exposed.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {report.exposures.map((e) => (
+            <FleetRow key={e.id} e={e} fleetSize={report.owners} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FleetRow({ e, fleetSize }: { e: FleetReport["exposures"][number]; fleetSize: number }) {
+  const atRisk = e.drifted > 0 || e.quarantine > 0
+  const pct = fleetSize > 0 ? Math.round((e.installs / fleetSize) * 100) : 0
+  return (
+    <div
+      className={cn(
+        "rounded-lg border bg-card px-4 py-3",
+        atRisk ? "border-sev-critical/40" : "border-border",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <FileCode2 className={cn("h-4 w-4", atRisk ? "text-sev-critical" : "text-muted-foreground")} />
+          <span className="font-mono text-sm font-medium text-foreground">{e.name}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">{KIND_LABELS[e.kind as ArtifactKind] ?? e.kind}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+          {e.drifted > 0 ? (
+            <span className="rounded-md border border-sev-critical/40 bg-sev-critical/10 px-2 py-0.5 text-sev-critical">
+              drifted on {e.drifted}/{e.installs}
+            </span>
+          ) : null}
+          {e.quarantine > 0 ? (
+            <span className="rounded-md border border-sev-high/40 bg-sev-high/10 px-2 py-0.5 text-sev-high">
+              quarantined on {e.quarantine}/{e.installs}
+            </span>
+          ) : null}
+          {e.variants > 1 ? (
+            <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
+              {e.variants} variants
+            </span>
+          ) : null}
+          <span className="text-foreground">
+            {e.installs} of {fleetSize} machines
+          </span>
+        </div>
+      </div>
+      {/* Reach bar — installs as a share of the fleet. */}
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/40">
+        <div
+          className={cn("h-full rounded-full", atRisk ? "bg-sev-critical" : "bg-primary/60")}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="mt-1.5 truncate font-mono text-[11px] text-muted-foreground">{e.owners.join(", ")}</p>
     </div>
   )
 }

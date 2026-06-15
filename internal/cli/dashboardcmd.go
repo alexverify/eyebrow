@@ -8,12 +8,14 @@ import (
 	"net/http"
 
 	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/adapters/fleetstore"
 	"github.com/alexverify/assay/internal/adapters/historystore"
 	"github.com/alexverify/assay/internal/adapters/lockstore"
 	"github.com/alexverify/assay/internal/adapters/policystore"
 	"github.com/alexverify/assay/internal/app/ports"
 	"github.com/alexverify/assay/internal/dashboard"
 	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/policy"
 	"github.com/alexverify/assay/internal/domain/posture"
@@ -29,6 +31,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	auditDir := fs.String("audit-dir", a.auditDir(), "audit log directory")
 	policyPath := fs.String("policy", "assay.policy.json", "policy file the editor reads and writes")
 	historyPath := fs.String("history", a.historyPath(), "posture-trend history file")
+	fleetDir := fs.String("fleet-dir", a.fleetDir(), "shared fleet-snapshot directory (blast radius)")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -81,6 +84,13 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		},
 		History: func(context.Context) ([]posture.Posture, error) {
 			return historystore.Read(*historyPath)
+		},
+		Fleet: func(context.Context) (fleet.Report, error) {
+			snaps, err := fleetstore.Read(*fleetDir)
+			if err != nil {
+				return fleet.Report{}, err
+			}
+			return fleet.Aggregate(snaps), nil
 		},
 	})
 
