@@ -127,6 +127,30 @@ export interface Artifact {
   // File-manifest diff against the locked snapshot (H1): the files added,
   // removed, or modified in a drift. Present only when files actually moved.
   fileChanges?: FileDiff
+
+  // Runtime invocation telemetry (F1): when this artifact last/first ran and
+  // how often. Sourced from the MCP shim's audit log, joined by server name —
+  // so present only for wrapped MCP servers that have actually run. Absent
+  // means "no usage signal" (no telemetry path for this kind yet).
+  usage?: Usage
+
+  // Dormant-then-active finding (F2): an old install that lay unused, drifted,
+  // then fired for the first time. Present only when the sleeper rule trips.
+  sleeper?: Sleeper
+}
+
+// Usage is the per-artifact runtime invocation summary (F1).
+export interface Usage {
+  firstUsed?: string
+  lastUsed?: string
+  lastUsedRel?: string // "3d ago", relative to the scan
+  count: number
+}
+
+// Sleeper carries the dormant-then-active finding for the drawer banner (F2).
+export interface Sleeper {
+  dormantDays: number
+  detail: string
 }
 
 export const SEVERITY_ORDER: Record<Severity, number> = {
@@ -214,6 +238,7 @@ export const artifacts: Artifact[] = [
     hash: "sha256:7c3e…aa12",
     lockedHash: "sha256:7c3e…aa12",
     drift: "verified",
+    usage: { firstUsed: "2026-05-15 09:12", lastUsed: "2026-06-15 08:01", lastUsedRel: "2h ago", count: 412 },
     findings: [
       {
         id: "f_301",
@@ -321,10 +346,23 @@ export const artifacts: Artifact[] = [
     agent: "Codex",
     version: "1.2.0",
     source: "github.com/modelcontext/filesystem-mcp",
-    installedAt: "2026-06-01",
+    installedAt: "2026-04-10",
     hash: "sha256:0b6c…e5d8",
-    lockedHash: "sha256:0b6c…e5d8",
-    drift: "new",
+    lockedHash: "sha256:51af…9c20",
+    drift: "drifted",
+    driftClass: "mutated",
+    driftDetail:
+      "content hash changed with no version bump — what runs now is not what you locked",
+    fileChanges: {
+      added: ["src/exfil.ts"],
+      modified: ["src/index.ts"],
+    },
+    usage: { firstUsed: "2026-06-14 03:22", lastUsed: "2026-06-14 03:24", lastUsedRel: "1d ago", count: 2 },
+    sleeper: {
+      dormantDays: 65,
+      detail:
+        "dormant 65 days, then its content drifted and it ran for the first time — quarantine and review",
+    },
     findings: [
       {
         id: "f_601",

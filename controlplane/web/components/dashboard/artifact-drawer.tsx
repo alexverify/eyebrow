@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, FileCode2, ShieldCheck, ShieldAlert, Network, FolderTree, Terminal, EyeOff, GitCompareArrows } from "lucide-react"
+import { X, FileCode2, ShieldCheck, ShieldAlert, Network, FolderTree, Terminal, EyeOff, GitCompareArrows, Clock, AlarmClock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { KIND_LABELS, PATTERN_LABELS, type Artifact } from "@/lib/scan-data"
 import { SeverityBadge, DriftBadge, VerdictBadge } from "@/components/dashboard/badges"
@@ -108,11 +108,13 @@ function DrawerBody({
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
+        <SleeperBanner a={a} />
         {live ? <Actions a={a} onChanged={onChanged} /> : null}
         <Trust a={a} />
         <ProvenanceLadder a={a} />
         <Provenance a={a} />
         <Integrity a={a} />
+        <Usage a={a} />
         <ChangedFiles a={a} />
         <Capabilities a={a} />
         <Findings a={a} live={live} onChanged={onChanged} />
@@ -319,6 +321,55 @@ function Integrity({ a }: { a: Artifact }) {
           {a.approval.signed ? <span className="text-ok">signed</span> : <span className="text-sev-high">unsigned</span>}
         </p>
       ) : null}
+    </Section>
+  )
+}
+
+// SleeperBanner surfaces the dormant-then-active finding (F2) at the very top of
+// the profile, because it is the single highest-signal supply-chain event assay
+// can catch: an artifact that sat unused for weeks, drifted, then ran for the
+// first time. The triple (old install × content drift × first-ever invocation)
+// is invisible to a pure static scanner.
+function SleeperBanner({ a }: { a: Artifact }) {
+  if (!a.sleeper) return null
+  return (
+    <div className="mb-5 rounded-md border border-sev-critical/50 bg-sev-critical/10 p-3">
+      <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wide text-sev-critical">
+        <AlarmClock className="h-3.5 w-3.5" /> Sleeper — dormant then active
+      </p>
+      <p className="mt-1.5 text-xs leading-relaxed text-foreground">{a.sleeper.detail}</p>
+    </div>
+  )
+}
+
+// Usage renders runtime invocation telemetry (F1): when this artifact last and
+// first ran, and how often. Today the only telemetry source is the MCP shim's
+// audit log, so usage appears for wrapped MCP servers that have actually run;
+// for everything else there is no usage signal yet, and we say so plainly rather
+// than implying "never used."
+function Usage({ a }: { a: Artifact }) {
+  const u = a.usage
+  if (a.kind !== "mcp") return null
+  return (
+    <Section icon={Clock} title="Usage">
+      {u ? (
+        <>
+          <div className="mb-2 flex items-baseline gap-2">
+            <span className="font-mono text-lg tabular-nums text-foreground">{u.count.toLocaleString()}</span>
+            <span className="text-xs text-muted-foreground">
+              invocation{u.count === 1 ? "" : "s"} recorded
+              {u.lastUsedRel ? ` · last ${u.lastUsedRel}` : ""}
+            </span>
+          </div>
+          <Row label="First used" value={u.firstUsed} mono />
+          <Row label="Last used" value={u.lastUsed} mono />
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No invocations recorded. Wrap this server with <span className="font-mono">assay wrap</span> to
+          capture when it runs.
+        </p>
+      )}
     </Section>
   )
 }

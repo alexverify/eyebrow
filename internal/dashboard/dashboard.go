@@ -26,6 +26,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/policy"
 	"github.com/alexverify/assay/internal/domain/posture"
+	"github.com/alexverify/assay/internal/domain/usage"
 )
 
 //go:embed all:assets
@@ -159,7 +160,21 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, struct {
 		Artifacts []DashArtifact `json:"artifacts"`
-	}{Artifacts: BuildScan(current, locked, s.approvedSet(locked))})
+	}{Artifacts: BuildScan(current, locked, s.approvedSet(locked), s.usageSummary())})
+}
+
+// usageSummary reads the runtime audit log and folds it into per-artifact
+// invocation stats (F1). A nil Audit dep or a read error yields no telemetry —
+// usage is supplementary, so it must never fail the scan view.
+func (s *Server) usageSummary() map[string]usage.Stat {
+	if s.deps.Audit == nil {
+		return nil
+	}
+	events, err := s.deps.Audit(auditlog.Filter{Kind: audit.KindToolCall})
+	if err != nil {
+		return nil
+	}
+	return usage.Summarize(events)
 }
 
 // approvedSet returns the IDs of locked artifacts whose approval is trusted.

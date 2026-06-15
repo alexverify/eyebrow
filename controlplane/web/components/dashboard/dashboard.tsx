@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   SlidersHorizontal,
   EyeOff,
+  AlarmClock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -113,6 +114,10 @@ export function Dashboard() {
   // lockfile or any known registry.
   const shadows = useMemo(() => artifacts.filter((a) => a.shadow), [artifacts])
 
+  // Dormant-then-active sleepers (F2): the highest-signal supply-chain event —
+  // an old install that lay unused, drifted, then ran for the first time.
+  const sleepers = useMemo(() => artifacts.filter((a) => a.sleeper), [artifacts])
+
   const driftedCount = drift.drifted + drift.unsigned
 
   return (
@@ -163,6 +168,25 @@ export function Dashboard() {
             <p className="mt-0.5 font-mono text-xs text-muted-foreground">
               {shadows.map((a) => a.name).join(", ")} — installed but not in your lockfile or any known
               registry. Approve to account for them, or quarantine.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Dormant-then-active sleeper banner (F2) */}
+      {sleepers.length > 0 && (
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-sev-critical/40 bg-sev-critical/10 px-4 py-3">
+          <AlarmClock className="mt-0.5 h-5 w-5 shrink-0 text-sev-critical" />
+          <div className="text-sm">
+            <p className="font-medium text-sev-critical">
+              {sleepers.length} sleeper{sleepers.length > 1 ? "s" : ""} — dormant, then drifted, then ran
+            </p>
+            <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+              {sleepers
+                .map((a) => `${a.name} (dormant ${a.sleeper?.dormantDays}d)`)
+                .join(", ")}{" "}
+              — installed long ago, never used, then its content changed and it fired for the first time.
+              Quarantine and review.
             </p>
           </div>
         </div>

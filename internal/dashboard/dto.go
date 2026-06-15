@@ -10,6 +10,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/provenance"
 	"github.com/alexverify/assay/internal/domain/trust"
+	"github.com/alexverify/assay/internal/domain/usage"
 )
 
 // DashArtifact is the artifact shape the dashboard UI consumes (mirrors the
@@ -64,6 +65,30 @@ type DashArtifact struct {
 	// when a locked prior exists and its manifest differs — the content-free,
 	// offline core of the rug-pull diff view. nil when there is nothing to diff.
 	FileChanges *lockfile.FileDiff `json:"fileChanges,omitempty"`
+
+	// Usage is the runtime invocation summary (F1): when this artifact last ran,
+	// when it first ran, and how many times. Sourced from the MCP shim's audit
+	// log, joined by server name; nil for artifacts with no telemetry path yet
+	// (skills/plugins/hooks have no runtime hook surface — an honest gap).
+	Usage *DashUsage `json:"usage,omitempty"`
+
+	// Sleeper flags the dormant-then-active triple (F2): an old install that lay
+	// unused, drifted, then fired for the first time. nil unless the rule trips.
+	Sleeper *DashSleeper `json:"sleeper,omitempty"`
+}
+
+// DashUsage is the per-artifact runtime invocation summary (F1).
+type DashUsage struct {
+	FirstUsed   string `json:"firstUsed,omitempty"`
+	LastUsed    string `json:"lastUsed,omitempty"`
+	LastUsedRel string `json:"lastUsedRel,omitempty"` // "3d ago" — relative to the scan
+	Count       int    `json:"count"`
+}
+
+// DashSleeper carries the dormant-then-active finding for the drawer banner (F2).
+type DashSleeper struct {
+	DormantDays int    `json:"dormantDays"`
+	Detail      string `json:"detail"`
 }
 
 // DashReason is one additive contribution to the trust score, for the breakdown.
@@ -132,7 +157,7 @@ func approvedSet(locked lockfile.Lockfile) map[string]bool {
 // locked snapshot, and the set of approved-and-signed artifact IDs. It is
 // pure: all IO (building inventory, reading the lockfile, verifying
 // signatures) happens in the caller.
-func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []DashArtifact {
+func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool, used map[string]usage.Stat) []DashArtifact {
 	classes := lockfile.Classify(locked, current)
 	lockedByID := map[string]lockfile.Entry{}
 	for _, e := range locked.Artifacts {
@@ -147,6 +172,7 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []Da
 
 		capDiff := lockfile.DiffCapabilities(prev.Capabilities, e.Capabilities)
 		secretFS := trust.SensitivePaths(e.Capabilities.Filesystem)
+		dashUsage, sleeper := usageOf(e, class, used, current.GeneratedAt)
 
 		score := trust.Evaluate(trust.Input{
 			Findings:         e.Findings,
@@ -208,6 +234,8 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool) []Da
 			Provenance:   provenance.Assess(e.Source, approved[e.ID]),
 			Shadow:       isShadow(class, hasLocked, e.Source.Kind),
 			FileChanges:  fileChanges(hasLocked, prev.Files, e.Files),
+			Usage:        dashUsage,
+			Sleeper:      sleeper,
 		})
 	}
 	return out
@@ -226,6 +254,57 @@ func fileChanges(hasLocked bool, prev, cur []artifact.FileRef) *lockfile.FileDif
 		return nil
 	}
 	return &d
+}
+
+// usageOf joins runtime invocation telemetry to an artifact (F1) and runs the
+// dormant-then-active rule (F2). Telemetry is keyed by MCP server name — the
+// only join key the audit log carries today — so only MCP servers can match;
+// every other kind returns nil usage (no telemetry path yet, surfaced honestly
+// in the UI rather than faked). The sleeper signal needs the install time
+// (mtime) and the drift class, both already on the entry.
+func usageOf(e lockfile.Entry, class lockfile.DriftClass, used map[string]usage.Stat, now time.Time) (*DashUsage, *DashSleeper) {
+	if e.Type != artifact.TypeMCPServer {
+		return nil, nil
+	}
+	stat, ok := used[e.Name]
+	if !ok {
+		return nil, nil
+	}
+	du := &DashUsage{
+		FirstUsed:   relativeStamp(stat.FirstUsed),
+		LastUsed:    relativeStamp(stat.LastUsed),
+		LastUsedRel: relativeAgo(stat.LastUsed, now),
+		Count:       stat.Count,
+	}
+	sig := usage.Assess(usage.Input{
+		InstalledAt: e.ModifiedAt,
+		FirstUsed:   stat.FirstUsed,
+		Drifted:     class == lockfile.DriftClassMutated || class == lockfile.DriftClassBroken,
+		Now:         now,
+	})
+	if !sig.Sleeper {
+		return du, nil
+	}
+	return du, &DashSleeper{DormantDays: sig.DormantDays, Detail: sig.Detail}
+}
+
+// relativeAgo renders a coarse "3d ago" / "5h ago" / "just now" relative to the
+// scan clock, for the at-a-glance usage line. Empty when either time is unknown.
+func relativeAgo(t, now time.Time) string {
+	if t.IsZero() || now.IsZero() {
+		return ""
+	}
+	d := now.Sub(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return strconv.Itoa(int(d/time.Minute)) + "m ago"
+	case d < 24*time.Hour:
+		return strconv.Itoa(int(d/time.Hour)) + "h ago"
+	default:
+		return strconv.Itoa(int(d/(24*time.Hour))) + "d ago"
+	}
 }
 
 // mapReasons converts the domain reasons into the DTO shape.
