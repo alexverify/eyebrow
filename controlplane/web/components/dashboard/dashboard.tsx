@@ -48,7 +48,7 @@ import {
   type PolicyMute,
 } from "@/lib/actions"
 import { StatCard } from "@/components/dashboard/stat-card"
-import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge } from "@/components/dashboard/badges"
+import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
 
 type TabId = "changes" | "inventory" | "findings" | "drift" | "activity" | "fleet" | "policy"
@@ -419,13 +419,28 @@ function FilterSelect({
 
 function FindingsPanel({ findings }: { findings: ReturnType<typeof getAllFindings> }) {
   const [open, setOpen] = useState<string | null>(findings[0]?.id ?? null)
+  const inert = findings.filter((f) => f.reach === "inert").length
 
   return (
     <div className="flex flex-col gap-2">
+      {inert > 0 ? (
+        <p className="font-mono text-[11px] text-muted-foreground">
+          {findings.length - inert} in runtime paths ·{" "}
+          <span className="text-foreground">{inert}</span> in non-runtime paths
+          (tests / examples / vendored) — demoted as likely noise
+        </p>
+      ) : null}
       {findings.map((f) => {
         const isOpen = open === f.id
+        const inertRow = f.reach === "inert"
         return (
-          <div key={f.id} className="overflow-hidden rounded-lg border border-border bg-card">
+          <div
+            key={f.id}
+            className={cn(
+              "overflow-hidden rounded-lg border bg-card",
+              inertRow ? "border-border/60 opacity-60" : "border-border",
+            )}
+          >
             <button
               onClick={() => setOpen(isOpen ? null : f.id)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30"
@@ -438,6 +453,7 @@ function FindingsPanel({ findings }: { findings: ReturnType<typeof getAllFinding
               />
               <SeverityBadge severity={f.severity} />
               <LivenessBadge liveness={f.liveness} />
+              <ReachBadge reach={f.reach} />
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{f.title}</span>
               <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
                 {f.artifactName}

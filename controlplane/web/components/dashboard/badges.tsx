@@ -59,6 +59,21 @@ export function LivenessBadge({ liveness }: { liveness?: Finding["liveness"] }) 
   )
 }
 
+// ReachBadge marks a finding in a non-runtime path (H2). It renders only for
+// inert findings — reachable is the silent default — so the badge calls out
+// likely noise without cluttering real findings.
+export function ReachBadge({ reach }: { reach?: Finding["reach"] }) {
+  if (reach !== "inert") return null
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+      title="This finding sits in a test / example / vendored path that does not run in production — likely noise. Demoted, not hidden."
+    >
+      inert path
+    </span>
+  )
+}
+
 export function VerdictBadge({ verdict, score }: { verdict: Verdict; score?: number }) {
   const v = VERDICT_STYLES[verdict]
   return (

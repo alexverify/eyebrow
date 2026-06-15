@@ -9,6 +9,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/finding"
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/provenance"
+	"github.com/alexverify/assay/internal/domain/reach"
 	"github.com/alexverify/assay/internal/domain/risk"
 	"github.com/alexverify/assay/internal/domain/timeline"
 	"github.com/alexverify/assay/internal/domain/trust"
@@ -149,6 +150,11 @@ type DashFinding struct {
 	// finding on code that actually runs above the same finding on dormant code.
 	Liveness string `json:"liveness,omitempty"`
 	RiskRank int    `json:"riskRank,omitempty"`
+
+	// Reachability (H2): "reachable" for a runtime file, "inert" for a finding in
+	// a test/example/vendored path that is almost certainly noise. A location
+	// heuristic, not a call graph — it demotes, never deletes.
+	Reach string `json:"reach,omitempty"`
 }
 
 // approvedSet returns the IDs of locked artifacts with a signed-and-approved
@@ -540,6 +546,7 @@ func mapFindings(fs []finding.Finding, live risk.Liveness) []DashFinding {
 			Location: location(f),
 			Liveness: string(live),
 			RiskRank: risk.Rank(f.Severity, live),
+			Reach:    string(reach.Classify(f.File)),
 		})
 	}
 	return out

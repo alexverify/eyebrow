@@ -26,6 +26,12 @@ function livenessWeight(f: Finding): number {
   return f.liveness ? LIVENESS_RANK[f.liveness] : 0
 }
 
+// reachWeight pushes inert findings (test/example/vendored paths — likely noise)
+// below every reachable one, so the top of the list is all high-signal (H2).
+function reachWeight(f: Finding): number {
+  return f.reach === "inert" ? 1 : 0
+}
+
 export function getAllFindings(artifacts: Artifact[]): FlatFinding[] {
   return artifacts
     .flatMap((a) =>
@@ -38,8 +44,9 @@ export function getAllFindings(artifacts: Artifact[]): FlatFinding[] {
     )
     .sort(
       (a, b) =>
-        // Severity first (the dashboard's primary axis), then exercised risk so
+        // Reachable first (noise sinks), then severity, then exercised risk so
         // live findings lead within a severity band.
+        reachWeight(a) - reachWeight(b) ||
         SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] ||
         livenessWeight(b) - livenessWeight(a),
     )

@@ -394,6 +394,25 @@ func TestBuildScanFindingLivenessUnknownForSkill(t *testing.T) {
 	}
 }
 
+func TestBuildScanFindingReachability(t *testing.T) {
+	a := art("r1", "claude-code", artifact.TypeSkill, "mixed", "sha256-x")
+	a.Findings = []finding.Finding{
+		{RuleID: "R1", Severity: finding.SeverityHigh, File: "src/collect.js", Line: 10},
+		{RuleID: "R2", Severity: finding.SeverityHigh, File: "test/collect.test.js", Line: 5},
+	}
+	got := find(t, BuildScan(lf(a), lockfile.Lockfile{}, nil, nil), "mixed").Findings
+	by := map[string]string{}
+	for _, f := range got {
+		by[f.RuleID] = f.Reach
+	}
+	if by["R1"] != "reachable" {
+		t.Errorf("a src/ finding should be reachable, got %q", by["R1"])
+	}
+	if by["R2"] != "inert" {
+		t.Errorf("a finding in a test path should be inert, got %q", by["R2"])
+	}
+}
+
 func TestBuildScanCapabilityDiff(t *testing.T) {
 	locked := art("c1", "claude-code", artifact.TypeSkill, "grower", "sha256-old")
 	locked.Capabilities = artifact.Capabilities{Network: []string{"api.openai.com"}}

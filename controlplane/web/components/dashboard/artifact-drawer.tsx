@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { X, FileCode2, ShieldCheck, ShieldAlert, Network, FolderTree, Terminal, EyeOff, GitCompareArrows, Clock, AlarmClock, History } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { KIND_LABELS, PATTERN_LABELS, type Artifact } from "@/lib/scan-data"
-import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge } from "@/components/dashboard/badges"
+import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge } from "@/components/dashboard/badges"
 import { runAction, muteFinding, allowEgress, type ActionKind } from "@/lib/actions"
 
 interface AuditEvent {
@@ -525,6 +525,7 @@ function Findings({ a, live, onChanged }: { a: Artifact; live: boolean; onChange
             <div className="flex items-center gap-2">
               <SeverityBadge severity={f.severity} />
               <LivenessBadge liveness={f.liveness} />
+              <ReachBadge reach={f.reach} />
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{f.title}</span>
             </div>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{f.detail}</p>

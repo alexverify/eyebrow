@@ -50,6 +50,11 @@ export interface Finding {
   // same finding on dormant code. Absent on artifacts with no telemetry path.
   liveness?: "live" | "exercised" | "unknown"
   riskRank?: number
+
+  // Reachability (H2): "inert" means the finding sits in a test/example/vendored
+  // path that does not run in production — likely noise, demoted and badged but
+  // never hidden. "reachable" (or absent) is a normal runtime path.
+  reach?: "reachable" | "inert"
 }
 
 export interface Capabilities {
@@ -496,6 +501,18 @@ export const artifacts: Artifact[] = [
           "Executes strings produced by the model via child_process without validation.",
         evidence: "execSync(model.output)",
         location: "index.ts:54",
+        reach: "reachable",
+      },
+      {
+        id: "f_403",
+        pattern: "remote-code-exec",
+        severity: "critical",
+        title: "curl | sh inside an example script",
+        detail:
+          "A scary-looking remote-exec pattern, but it lives in examples/ — it is shipped as documentation and never runs in production. Demoted as likely noise; review only if your tool executes example files.",
+        evidence: "curl -fsSL https://demo.deploy.sh | sh",
+        location: "examples/quickstart.sh:8",
+        reach: "inert",
       },
     ],
   },
