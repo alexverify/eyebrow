@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import {
   Search,
   Boxes,
@@ -27,6 +27,8 @@ import {
   type Artifact,
   type ArtifactKind,
   type FleetReport,
+  type FleetGrid,
+  type FleetCell,
 } from "@/lib/scan-data"
 import {
   getAllFindings,
@@ -936,13 +938,110 @@ function FleetPanel({ live }: { live: boolean }) {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {report.exposures.map((e) => (
-            <FleetRow key={e.id} e={e} fleetSize={report.owners} />
-          ))}
-        </div>
+        <>
+          {report.grid && report.grid.rows.length > 0 ? <FleetHeatmap grid={report.grid} /> : null}
+          <div className="flex flex-col gap-2">
+            {report.exposures.map((e) => (
+              <FleetRow key={e.id} e={e} fleetSize={report.owners} />
+            ))}
+          </div>
+        </>
       )}
     </div>
+  )
+}
+
+// cellClass colors a heatmap square by an owner's drift/verdict for an artifact.
+// Absent (no install) is a faint slot; quarantine and drift are the loud ones.
+function cellClass(c: FleetCell): string {
+  if (!c.drift) return "bg-muted/30"
+  if (c.verdict === "quarantine") return "bg-sev-critical"
+  switch (c.drift) {
+    case "drifted":
+      return "bg-sev-critical/70"
+    case "unsigned":
+      return "bg-sev-high"
+    case "updated":
+    case "new":
+      return "bg-sev-medium"
+    case "verified":
+      return "bg-ok/70"
+    default:
+      return "bg-muted-foreground/40"
+  }
+}
+
+// FleetHeatmap is the artifacts × developers matrix (G2): a full row is a
+// monoculture (everyone runs it), a near-empty row an outlier (one machine has
+// what nobody else does), and a hot cell a drifted/quarantined install.
+function FleetHeatmap({ grid }: { grid: FleetGrid }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="mb-3 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+        Inventory heatmap — artifacts × machines
+      </p>
+      <div className="overflow-x-auto">
+        <div
+          className="grid items-center gap-1"
+          style={{ gridTemplateColumns: `minmax(150px, 200px) repeat(${grid.owners.length}, 20px)` }}
+        >
+          {/* header row: corner + owner initials */}
+          <div />
+          {grid.owners.map((o) => (
+            <div
+              key={o}
+              title={o}
+              className="text-center font-mono text-[10px] uppercase text-muted-foreground"
+            >
+              {o.slice(0, 2)}
+            </div>
+          ))}
+          {/* one row per artifact */}
+          {grid.rows.map((r) => (
+            <Fragment key={r.id}>
+              <div className="flex items-center gap-1.5 overflow-hidden pr-2">
+                <span className="truncate font-mono text-xs text-foreground">{r.name}</span>
+                {r.monoculture ? (
+                  <span className="shrink-0 rounded border border-sev-medium/40 bg-sev-medium/10 px-1 font-mono text-[9px] uppercase text-sev-medium">
+                    mono
+                  </span>
+                ) : null}
+                {r.outlier ? (
+                  <span className="shrink-0 rounded border border-sev-high/40 bg-sev-high/10 px-1 font-mono text-[9px] uppercase text-sev-high">
+                    outlier
+                  </span>
+                ) : null}
+              </div>
+              {r.cells.map((c, i) => (
+                <div
+                  key={i}
+                  title={`${grid.owners[i]} · ${c.drift ? (c.verdict === "quarantine" ? "quarantine" : c.drift) : "not installed"}`}
+                  className={cn("h-5 w-5 rounded-sm", cellClass(c))}
+                />
+              ))}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+      {/* legend */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted-foreground">
+        <LegendSwatch className="bg-ok/70" label="verified" />
+        <LegendSwatch className="bg-sev-medium" label="updated/new" />
+        <LegendSwatch className="bg-sev-high" label="unsigned" />
+        <LegendSwatch className="bg-sev-critical/70" label="drifted" />
+        <LegendSwatch className="bg-sev-critical" label="quarantine" />
+        <LegendSwatch className="bg-muted/30" label="not installed" />
+      </div>
+    </div>
+  )
+}
+
+function LegendSwatch({ className, label }: { className: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={cn("h-2.5 w-2.5 rounded-sm", className)} />
+      {label}
+    </span>
   )
 }
 

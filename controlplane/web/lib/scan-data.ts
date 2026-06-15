@@ -185,15 +185,43 @@ export interface FleetExposure {
   variants: number
 }
 
+// FleetCell is one square of the heatmap (G2): an owner's state for an artifact.
+// An empty drift means that owner does not have the artifact installed.
+export interface FleetCell {
+  drift?: string
+  verdict?: string
+}
+
+// FleetGridRow is one artifact across every owner, cells aligned to grid.owners.
+export interface FleetGridRow {
+  id: string
+  name: string
+  kind: string
+  cells: FleetCell[]
+  installs: number
+  monoculture: boolean
+  outlier: boolean
+}
+
+// FleetGrid is the artifacts × developers matrix (G2).
+export interface FleetGrid {
+  owners: string[]
+  rows: FleetGridRow[]
+}
+
 // FleetReport is the aggregated team picture, assembled from committed,
 // content-free snapshots — no live telemetry upload.
 export interface FleetReport {
   owners: number
   artifacts: number
   exposures: FleetExposure[]
+  grid?: FleetGrid
 }
 
 // Demo fleet, shown when no committed snapshots are present (offline/demo).
+// Owner columns are sorted: alice bob carol dana erin frank grace heidi.
+const V: FleetCell = { drift: "verified", verdict: "trusted" }
+const _: FleetCell = {} // absent
 export const demoFleet: FleetReport = {
   owners: 8,
   artifacts: 5,
@@ -219,6 +247,16 @@ export const demoFleet: FleetReport = {
       variants: 2,
     },
     {
+      id: "hook_x",
+      name: "shadow-deploy",
+      kind: "hook",
+      owners: ["heidi"],
+      installs: 1,
+      drifted: 0,
+      quarantine: 0,
+      variants: 1,
+    },
+    {
       id: "mcp_001",
       name: "postgres-mcp",
       kind: "mcp",
@@ -239,6 +277,40 @@ export const demoFleet: FleetReport = {
       variants: 1,
     },
   ],
+  grid: {
+    owners: ["alice", "bob", "carol", "dana", "erin", "frank", "grace", "heidi"],
+    rows: [
+      { id: "mcp_001", name: "postgres-mcp", kind: "mcp", installs: 8, monoculture: true, outlier: false, cells: [V, V, V, V, V, V, V, V] },
+      { id: "skl_004", name: "markdown-linter", kind: "skill", installs: 3, monoculture: false, outlier: false, cells: [V, V, _, _, _, _, V, _] },
+      {
+        id: "skl_005",
+        name: "crypto-price-feed",
+        kind: "skill",
+        installs: 3,
+        monoculture: false,
+        outlier: false,
+        cells: [_, _, _, { drift: "drifted", verdict: "quarantine" }, { drift: "drifted", verdict: "review" }, V, _, _],
+      },
+      {
+        id: "mcp_002",
+        name: "filesystem-mcp",
+        kind: "mcp",
+        installs: 2,
+        monoculture: false,
+        outlier: false,
+        cells: [_, _, { drift: "drifted", verdict: "review" }, _, V, _, _, _],
+      },
+      {
+        id: "hook_x",
+        name: "shadow-deploy",
+        kind: "hook",
+        installs: 1,
+        monoculture: false,
+        outlier: true,
+        cells: [_, _, _, _, _, _, _, { drift: "new", verdict: "review" }],
+      },
+    ],
+  },
 }
 
 export const SEVERITY_ORDER: Record<Severity, number> = {

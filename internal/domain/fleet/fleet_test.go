@@ -113,6 +113,88 @@ func TestAggregateEmpty(t *testing.T) {
 	}
 }
 
+func gridRow(t *testing.T, g Grid, id string) GridRow {
+	t.Helper()
+	for _, r := range g.Rows {
+		if r.ID == id {
+			return r
+		}
+	}
+	t.Fatalf("no grid row for %q", id)
+	return GridRow{}
+}
+
+func TestGridCellsAlignToOwners(t *testing.T) {
+	snaps := []Snapshot{
+		{Owner: "bob", Artifacts: []Artifact{
+			{ID: "x", Name: "feed", Kind: "skill", Hash: "h", Drift: "drifted", Verdict: "quarantine"},
+		}},
+		{Owner: "alice", Artifacts: []Artifact{
+			{ID: "x", Name: "feed", Kind: "skill", Hash: "h", Drift: "verified", Verdict: "trusted"},
+			{ID: "y", Name: "linter", Kind: "skill", Hash: "h", Drift: "verified", Verdict: "trusted"},
+		}},
+	}
+	g := Aggregate(snaps).Grid
+
+	if len(g.Owners) != 2 || g.Owners[0] != "alice" || g.Owners[1] != "bob" {
+		t.Fatalf("owners columns = %v, want sorted [alice bob]", g.Owners)
+	}
+	x := gridRow(t, g, "x")
+	// Column 0 = alice (verified), column 1 = bob (drifted).
+	if x.Cells[0].Drift != "verified" || x.Cells[1].Drift != "drifted" {
+		t.Errorf("x cells misaligned with owners: %+v", x.Cells)
+	}
+	// y exists only for alice → bob's cell is absent (empty drift).
+	y := gridRow(t, g, "y")
+	if y.Cells[0].Drift != "verified" || y.Cells[1].Drift != "" {
+		t.Errorf("y should be present for alice, absent for bob: %+v", y.Cells)
+	}
+}
+
+func TestGridMonocultureAndOutlier(t *testing.T) {
+	snaps := []Snapshot{
+		{Owner: "a", Artifacts: []Artifact{
+			{ID: "everywhere", Name: "common", Kind: "skill", Hash: "h", Drift: "verified", Verdict: "trusted"},
+			{ID: "lonely", Name: "weird", Kind: "hook", Hash: "h", Drift: "new", Verdict: "review"},
+		}},
+		{Owner: "b", Artifacts: []Artifact{
+			{ID: "everywhere", Name: "common", Kind: "skill", Hash: "h", Drift: "verified", Verdict: "trusted"},
+		}},
+		{Owner: "c", Artifacts: []Artifact{
+			{ID: "everywhere", Name: "common", Kind: "skill", Hash: "h", Drift: "verified", Verdict: "trusted"},
+		}},
+	}
+	g := Aggregate(snaps).Grid
+
+	if !gridRow(t, g, "everywhere").Monoculture {
+		t.Errorf("an artifact on every machine should be flagged monoculture")
+	}
+	if !gridRow(t, g, "lonely").Outlier {
+		t.Errorf("an artifact on exactly one machine should be flagged outlier")
+	}
+	// Rows sort by reach: the monoculture leads.
+	if g.Rows[0].ID != "everywhere" {
+		t.Errorf("rows should sort by reach; got %v", func() []string {
+			out := make([]string, len(g.Rows))
+			for i, r := range g.Rows {
+				out[i] = r.ID
+			}
+			return out
+		}())
+	}
+}
+
+func TestGridSingleOwnerHasNoMonoculture(t *testing.T) {
+	// With one machine, "everyone has it" is meaningless — never flag it.
+	g := Aggregate([]Snapshot{
+		{Owner: "solo", Artifacts: []Artifact{{ID: "x", Name: "feed", Kind: "skill", Hash: "h", Drift: "verified", Verdict: "trusted"}}},
+	}).Grid
+	r := gridRow(t, g, "x")
+	if r.Monoculture || r.Outlier {
+		t.Errorf("single-owner fleet should flag neither: %+v", r)
+	}
+}
+
 func ids(es []Exposure) []string {
 	out := make([]string, len(es))
 	for i, e := range es {
