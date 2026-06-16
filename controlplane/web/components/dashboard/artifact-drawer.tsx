@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { X, FileCode2, ShieldCheck, ShieldAlert, Network, FolderTree, Terminal, EyeOff, GitCompareArrows, Clock, AlarmClock, History } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { KIND_LABELS, PATTERN_LABELS, type Artifact } from "@/lib/scan-data"
+import { KIND_LABELS, PATTERN_LABELS, type Artifact, type LineDiff } from "@/lib/scan-data"
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge, ReputationBadge } from "@/components/dashboard/badges"
 import { runAction, muteFinding, allowEgress, type ActionKind } from "@/lib/actions"
 
@@ -440,10 +440,11 @@ function Usage({ a }: { a: Artifact }) {
 }
 
 // ChangedFiles renders the file-manifest diff (H1): exactly which files were
-// added / removed / modified since the locked, audited snapshot. This is the
-// content-free rug-pull view — it names the changed files (e.g. a new
-// hooks/postinstall.sh) without needing to store their bytes. Shown only when a
-// drift actually moved files.
+// added / removed / modified since the locked, audited snapshot. When the local
+// blob store holds the approved and current bytes, each file expands to its
+// literal line-level diff (H1b) — the actual `+ exfiltrate(wallet)` line, not
+// just the file name. Degrades to the content-free name list when no baseline
+// is stored. Shown only when a drift actually moved files.
 function ChangedFiles({ a }: { a: Artifact }) {
   const d = a.fileChanges
   if (!d) return null
@@ -453,32 +454,93 @@ function ChangedFiles({ a }: { a: Artifact }) {
   const total = added.length + removed.length + modified.length
   if (total === 0) return null
 
+  const byPath = new Map((a.lineDiffs ?? []).map((ld) => [ld.path, ld]))
+  const haveLines = byPath.size > 0
+
   return (
     <Section icon={GitCompareArrows} title={`Changed files (${total})`}>
       <p className="mb-2 text-xs text-muted-foreground">
-        What moved on disk since the locked snapshot. Per-file hashes are recorded, so the exact files
-        that changed are named here — the rug-pull surface.
+        {haveLines
+          ? "What changed on disk since the locked snapshot — expanded to the exact lines added and removed."
+          : "What moved on disk since the locked snapshot. The exact files that changed are named here — the rug-pull surface."}
       </p>
       <div className="overflow-hidden rounded-md border border-border bg-background font-mono text-[11px]">
         {modified.map((p) => (
-          <FileChangeRow key={`m-${p}`} sigil="~" path={p} className="text-sev-high" />
+          <FileChangeBlock key={`m-${p}`} sigil="~" path={p} className="text-sev-high" diff={byPath.get(p)} />
         ))}
         {added.map((p) => (
-          <FileChangeRow key={`a-${p}`} sigil="+" path={p} className="text-sev-critical" />
+          <FileChangeBlock key={`a-${p}`} sigil="+" path={p} className="text-sev-critical" diff={byPath.get(p)} />
         ))}
         {removed.map((p) => (
-          <FileChangeRow key={`r-${p}`} sigil="−" path={p} className="text-muted-foreground line-through" />
+          <FileChangeBlock
+            key={`r-${p}`}
+            sigil="−"
+            path={p}
+            className="text-muted-foreground line-through"
+            diff={byPath.get(p)}
+          />
         ))}
       </div>
     </Section>
   )
 }
 
-function FileChangeRow({ sigil, path, className }: { sigil: string; path: string; className: string }) {
+function FileChangeBlock({
+  sigil,
+  path,
+  className,
+  diff,
+}: {
+  sigil: string
+  path: string
+  className: string
+  diff?: LineDiff
+}) {
   return (
-    <div className="flex items-baseline gap-2 border-b border-border/60 px-3 py-1.5 last:border-0">
-      <span className={cn("w-3 shrink-0 text-center", className)}>{sigil}</span>
-      <span className={cn("truncate", className)}>{path}</span>
+    <div className="border-b border-border/60 last:border-0">
+      <div className="flex items-baseline gap-2 px-3 py-1.5">
+        <span className={cn("w-3 shrink-0 text-center", className)}>{sigil}</span>
+        <span className={cn("truncate", className)}>{path}</span>
+        {diff ? (
+          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+            <span className="text-sev-critical">+{diff.added}</span>{" "}
+            <span>−{diff.removed}</span>
+          </span>
+        ) : null}
+      </div>
+      {diff ? <DiffHunks diff={diff} /> : null}
+    </div>
+  )
+}
+
+// DiffHunks renders the unified line-level diff for one file (H1b): context
+// lines plain, additions green, removals struck through, each hunk headed by its
+// `@@` range so a reviewer can place the change in the file.
+function DiffHunks({ diff }: { diff: LineDiff }) {
+  return (
+    <div className="border-t border-border/60 bg-muted/20">
+      {diff.hunks.map((h, hi) => (
+        <div key={hi} className="border-b border-border/40 last:border-0">
+          <div className="bg-muted/40 px-3 py-0.5 text-[10px] text-muted-foreground">
+            @@ -{h.oldStart},{h.oldCount} +{h.newStart},{h.newCount} @@
+          </div>
+          {h.lines.map((l, li) => (
+            <div
+              key={li}
+              className={cn(
+                "flex gap-2 whitespace-pre-wrap break-all px-3",
+                l.op === "+" && "bg-sev-critical/10 text-sev-critical",
+                l.op === "-" && "bg-muted/50 text-muted-foreground",
+              )}
+            >
+              <span className="w-3 shrink-0 select-none text-center text-muted-foreground">
+                {l.op === " " ? "" : l.op}
+              </span>
+              <span>{l.text === "" ? " " : l.text}</span>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }
