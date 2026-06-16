@@ -176,7 +176,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 |---|---|---|
 | 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex, Windsurf, Copilot CLI) |
 | 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **implemented** — shim with audit log, live tool policy, egress proxy + secret redaction, OS sandbox (Seatbelt/bwrap) |
-| 3 — control plane | Policy API, audit log, approval workflow, dashboard | **in progress** — local dashboard (embedded Next.js UI, `assay dashboard`) shipped: trust verdicts, capability & file-manifest drift diff, usage telemetry (MCP tool calls + skill/subagent activation hooks) + dormant-then-active detection, per-artifact timeline, reachability-aware findings, fleet blast-radius / inventory heatmap / policy conformance with an enforced CI gate (`assay fleet` / `fleet verify`), and an opt-in hash-only reputation signal; hosted team API designed |
+| 3 — control plane | Policy API, audit log, approval workflow, dashboard | **in progress** — local dashboard (embedded Next.js UI, `assay dashboard`) shipped: trust verdicts, capability & file-manifest drift diff (with line-level diffs when a baseline is captured), usage telemetry (MCP tool calls + skill/subagent activation hooks) + dormant-then-active detection, per-artifact timeline, reachability-aware findings, fleet blast-radius / inventory heatmap / policy conformance with an enforced CI gate (`assay fleet` / `fleet verify`), and an opt-in hash-only reputation signal; hosted team API designed |
 
 ## License
 

@@ -261,8 +261,12 @@ Click any artifact in the inventory to open its **security profile**:
 - **Provenance** — source, launch command, env *keys* only (values are never
   shown), and a provenance ladder.
 - **Integrity** — on-disk vs locked hash, signature/approval state verified
-  against your trusted keys, and — on a drift — a **changed-files** list naming
-  exactly which files moved (content-free; the rug-pull surface).
+  against your trusted keys, and — on a drift — a **changed-files** view naming
+  exactly which files moved. When `assay scan` has captured the approved bytes
+  (a local, gitignored `.assay/snapshots` cache), each changed file expands to
+  its literal **line-level diff** — the actual `+`/`-` lines, the rug-pull made
+  visible. Without a captured baseline it degrades to the content-free file-name
+  list. Binary and oversized files always stay at the name level.
 - **Timeline** — the per-artifact event ribbon: installed → approved → invoked
   → drifted, in time order.
 - **Usage** — when it last/first ran and how many times: from the shim's audit

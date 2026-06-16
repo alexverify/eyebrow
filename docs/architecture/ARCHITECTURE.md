@@ -221,13 +221,18 @@ joins in — same discipline as `Compare` and trust scoring:
   `policy.ListViolations`).
 - **`internal/domain/reputation`** — the opt-in, hash-keyed community trust
   signal; a lookup is a local map lookup, so nothing leaves the machine.
+- **`internal/domain/textdiff`** — a dependency-free LCS line differ (with
+  hunking) that turns approved vs. current bytes into the literal `+`/`-` lines
+  of the rug-pull diff (H1b).
 
 Driven adapters for the above: **`internal/adapters/auditlog`** (read the JSONL
 audit log), **`historystore`** (posture trend), **`policystore`** (policy read/
 write), **`fleetstore`** (one JSON snapshot per owner under `.assay/fleet/`),
-**`repstore`** (the opt-in reputation corpus), and **`hookconfig`** (install/
+**`repstore`** (the opt-in reputation corpus), **`hookconfig`** (install/
 remove the host-tool usage hooks in Claude Code's `settings.json`, idempotently,
-the same rewrite discipline as `mcpconfig`). The **`assay fleet`** command
+the same rewrite discipline as `mcpconfig`), and **`snapshotstore`** (the
+content-addressed cache of approved file bytes that feeds the H1b line diff,
+captured at scan via the optional `ports.SnapshotSink`). The **`assay fleet`** command
 (`internal/cli/fleetcmd.go`) writes this machine's snapshot and prints the
 aggregated report; the dashboard reads the same directory.
 

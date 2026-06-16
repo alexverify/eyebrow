@@ -92,6 +92,32 @@ the same principle as the lockfile and the trusted-keys registry. A hosted API
 could replace the directory later without changing the aggregation, which is
 pure (`fleet.Aggregate` / `fleet.CheckConformance`).
 
+## Line-level drift diffs live outside the signed lockfile
+
+The file-manifest diff (H1) names *which* files changed using only per-file
+hashes — content-free, and part of the signed lockfile. Showing the *literal*
+changed lines (H1b, the `+ fetch("https://collect…")` an auditor wants) needs
+the bytes, and bytes must not go in the lockfile: they would bloat the
+committed file and, worse, churn the canonical signing bytes on every edit.
+
+So the approved bytes live in a separate, content-addressed blob store
+(`internal/adapters/snapshotstore`, default `<project>/.assay/snapshots`,
+gitignored) — a *local cache of baselines*, explicitly not part of the integrity
+anchor. `assay scan` (and the dashboard's live build) capture each artifact's
+files keyed by content hash; because it is content-addressed, the same hash is
+captured once. The dashboard then diffs the locked hash's bytes against the
+current hash's bytes with the pure `internal/domain/textdiff` LCS differ.
+
+Three deliberate limits keep it honest and bounded: binary and oversized
+(>256 KB) files are skipped at capture, so the diff degrades to the file-name
+list for them; a hash never re-captured (e.g. a baseline predating the feature)
+also degrades to the name list — the diff is an *enhancement, never a
+requirement*; and the store is project-local and gitignored, never shared, so it
+is a cache a teammate or CI rebuilds, not a committed artifact. `textdiff` is a
+hand-rolled LCS for the same reason the rest of the core is dependency-free —
+but a *bounded* line differ, not a parser, so the correctness bar that justified
+the TOML dependency does not apply here.
+
 ## The fleet CI gate reuses the dashboard's pure rollups
 
 `assay fleet verify` enforces what the dashboard's Fleet tab shows. Rather than
