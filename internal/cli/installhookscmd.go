@@ -1,0 +1,98 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/alexverify/assay/internal/adapters/hookconfig"
+)
+
+// runInstallHooks installs (or reports/removes) the host-tool hooks that feed
+// usage telemetry: a PreToolUse hook on Skill and Task routes activations
+// through `assay record-use`, so skills and subagents gain the same
+// first/last-used, sleeper, and live-finding signals as wrapped MCP servers.
+// It rewrites the tool's settings idempotently, mirroring wrap/unwrap.
+func (a *App) runInstallHooks(_ context.Context, args []string) int {
+	fs := a.flagSet("install-hooks")
+	tool := fs.String("tool", "claude-code", "tool whose settings to edit (claude-code only for now)")
+	settings := fs.String("settings", "", "settings file to edit (default: ~/.claude/settings.json)")
+	status := fs.Bool("status", false, "show install state instead of changing anything")
+	uninstall := fs.Bool("uninstall", false, "remove the hooks assay installed")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if *tool != "claude-code" {
+		fmt.Fprintf(a.Stderr, "install-hooks: tool %q not supported yet (only claude-code)\n", *tool)
+		return ExitUsage
+	}
+
+	path := *settings
+	if path == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+			return ExitError
+		}
+		path = filepath.Join(home, ".claude", "settings.json")
+	}
+
+	cfg, err := hookconfig.Load(path)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+		return ExitError
+	}
+
+	if *status {
+		cmds, err := cfg.Status()
+		if err != nil {
+			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+			return ExitError
+		}
+		if len(cmds) == 0 {
+			fmt.Fprintf(a.Stdout, "no assay hooks installed in %s\n", path)
+			return ExitOK
+		}
+		fmt.Fprintf(a.Stdout, "%d assay hook(s) in %s:\n", len(cmds), path)
+		for _, c := range cmds {
+			fmt.Fprintf(a.Stdout, "  %s\n", c)
+		}
+		return ExitOK
+	}
+
+	if *uninstall {
+		n, err := cfg.Uninstall()
+		if err != nil {
+			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+			return ExitError
+		}
+		if n > 0 {
+			if err := cfg.Save(); err != nil {
+				fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+				return ExitError
+			}
+		}
+		fmt.Fprintf(a.Stdout, "removed %d assay hook(s) from %s\n", n, path)
+		return ExitOK
+	}
+
+	bin, err := os.Executable()
+	if err != nil || bin == "" {
+		bin = "assay" // fall back to PATH resolution
+	}
+	added, err := cfg.Install(bin)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+		return ExitError
+	}
+	if added > 0 {
+		if err := cfg.Save(); err != nil {
+			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
+			return ExitError
+		}
+	}
+	fmt.Fprintf(a.Stdout, "installed assay usage hooks in %s (%d new); "+
+		"skill and subagent activations will be recorded to %s\n", path, added, a.auditDir())
+	return ExitOK
+}

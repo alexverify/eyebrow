@@ -205,6 +205,35 @@ Filters (`--server`, `--tool`, `--status`, `--kind`, `--since`) compose. The
 summary is the fast "what have my MCP servers been doing" view; `--list` is the
 forensic detail.
 
+### Usage telemetry for skills and subagents (`install-hooks`)
+
+The shim gives MCP servers a usage signal for free. Skills, subagents, and the
+other artifact kinds have no shim, so they get one from a host-tool hook:
+
+```sh
+assay install-hooks                  # add the hooks to ~/.claude/settings.json
+assay install-hooks --status         # show what's installed
+assay install-hooks --uninstall      # remove them
+```
+
+This writes a `PreToolUse` hook on Claude Code's **Skill** and **Task** tools
+that calls `assay record-use` on every activation, appending an `activation`
+event to the same audit log the shim writes. With it in place, the dashboard's
+last/first-used, dormant-then-active sleeper, live-finding ranking, and timeline
+light up for skills and subagents too — not just wrapped MCP servers.
+
+It is strictly opt-in and additive: install nothing and those artifacts simply
+show "no usage signal" (never a false "unused"). The hook never breaks your
+tool — a missing field or any error degrades to a no-op. And like the shim, an
+activation records only *that* an artifact ran and when, never its arguments.
+
+`assay record-use` is the command the hook invokes; you rarely run it by hand:
+
+```sh
+assay record-use --kind skill --name pdf-skill    # record one activation
+echo "$HOOK_JSON" | assay record-use --kind skill --stdin   # extract name from a hook payload
+```
+
 ## Dashboard
 
 `assay dashboard` serves a local, read-only web view of what assay
@@ -236,9 +265,10 @@ Click any artifact in the inventory to open its **security profile**:
   exactly which files moved (content-free; the rug-pull surface).
 - **Timeline** — the per-artifact event ribbon: installed → approved → invoked
   → drifted, in time order.
-- **Usage** — for wrapped MCP servers, when it last/first ran and how many
-  times, sourced from the shim's audit log. A **dormant-then-active** banner
-  fires when an old, unused artifact drifts and then runs for the first time.
+- **Usage** — when it last/first ran and how many times: from the shim's audit
+  log for wrapped MCP servers, and from activation hooks for skills and
+  subagents (see `install-hooks` above). A **dormant-then-active** banner fires
+  when an old, unused artifact drifts and then runs for the first time.
 - **Capabilities** — declared exec/network/filesystem, with the diff against the
   locked version (capability expansion is flagged).
 - **Findings** — security findings, each badged by **liveness** (a finding on

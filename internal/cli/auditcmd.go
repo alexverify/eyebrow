@@ -19,7 +19,7 @@ func (a *App) runAudit(_ context.Context, args []string) int {
 	server := fs.String("server", "", "only events for this server")
 	tool := fs.String("tool", "", "only events for this tool")
 	status := fs.String("status", "", "only events with this status (ok|denied|error|unanswered)")
-	kind := fs.String("kind", "", "only events of this kind (tool_call|egress|session_start|server_exit)")
+	kind := fs.String("kind", "", "only events of this kind (tool_call|activation|egress|session_start|server_exit)")
 	since := fs.String("since", "", "only events on/after this date (YYYY-MM-DD)")
 	list := fs.Bool("list", false, "list matching events instead of a summary")
 	jsonOut := fs.Bool("json", false, "machine-readable JSON output")
@@ -64,6 +64,8 @@ func (a *App) auditList(events []audit.Event, jsonOut bool) int {
 		switch e.Kind {
 		case audit.KindToolCall:
 			line += fmt.Sprintf(" %-16s %s", e.Tool, e.Status)
+		case audit.KindActivation:
+			line += fmt.Sprintf(" %s", e.Tool) // the artifact kind
 		case audit.KindEgress:
 			line += fmt.Sprintf(" %s %s %s", e.Method, e.Host, e.Status)
 			if e.Redactions > 0 {
@@ -90,8 +92,11 @@ func (a *App) auditSummary(events []audit.Event, jsonOut bool, dir string) int {
 		return ExitOK
 	}
 	fmt.Fprintf(a.Stdout, "%d events across %d session(s)\n", s.Total, s.Sessions)
-	fmt.Fprintf(a.Stdout, "  tool calls: %d (%d denied)\n", s.ToolCalls, denials(events, audit.KindToolCall))
-	fmt.Fprintf(a.Stdout, "  egress:     %d (%d denied, %d redactions)\n", s.Egress, denials(events, audit.KindEgress), s.Redactions)
+	fmt.Fprintf(a.Stdout, "  tool calls:  %d (%d denied)\n", s.ToolCalls, denials(events, audit.KindToolCall))
+	if s.Activations > 0 {
+		fmt.Fprintf(a.Stdout, "  activations: %d\n", s.Activations)
+	}
+	fmt.Fprintf(a.Stdout, "  egress:      %d (%d denied, %d redactions)\n", s.Egress, denials(events, audit.KindEgress), s.Redactions)
 	fmt.Fprintln(a.Stdout, "by server:")
 	for _, kv := range sortedCounts(s.ByServer) {
 		fmt.Fprintf(a.Stdout, "  %-16s %d\n", kv.k, kv.v)

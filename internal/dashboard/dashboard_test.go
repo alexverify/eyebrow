@@ -120,6 +120,46 @@ func TestFleetEndpointEmptyWhenUnset(t *testing.T) {
 	}
 }
 
+func TestActivationSurfacesUsageForNonMCP(t *testing.T) {
+	// A skill has no MCP shim, so its only usage signal is the hook-fed
+	// activation event. The scan view must show it used (F1b) just like a
+	// wrapped server's tool calls.
+	skill := lockfile.Build([]artifact.Artifact{
+		{ID: "s1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "pdf-skill", ContentHash: "h"},
+	}, time.Unix(0, 0).UTC(), "assay/test")
+	srv := dashboard.New(dashboard.Deps{
+		Inventory: func(context.Context) (lockfile.Lockfile, error) { return skill, nil },
+		Locked:    func(context.Context) (lockfile.Lockfile, error) { return skill, nil },
+		Audit: func(auditlog.Filter) ([]audit.Event, error) {
+			return []audit.Event{
+				{Server: "pdf-skill", Kind: audit.KindActivation, Tool: "skill", At: time.Unix(1000, 0).UTC()},
+				{Server: "pdf-skill", Kind: audit.KindActivation, Tool: "skill", At: time.Unix(2000, 0).UTC()},
+			}, nil
+		},
+	})
+	rec := get(t, srv.Handler(), "/api/scan")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var resp struct {
+		Artifacts []struct {
+			Name  string `json:"name"`
+			Usage *struct {
+				Count int `json:"count"`
+			} `json:"usage"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if len(resp.Artifacts) != 1 {
+		t.Fatalf("got %d artifacts", len(resp.Artifacts))
+	}
+	if resp.Artifacts[0].Usage == nil || resp.Artifacts[0].Usage.Count != 2 {
+		t.Errorf("skill usage not surfaced from activations: %+v", resp.Artifacts[0].Usage)
+	}
+}
+
 func TestInventoryEndpoint(t *testing.T) {
 	rec := get(t, testServer(t).Handler(), "/api/inventory")
 	if rec.Code != http.StatusOK {

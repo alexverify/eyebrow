@@ -292,16 +292,14 @@ func fileChanges(hasLocked bool, prev, cur []artifact.FileRef) *lockfile.FileDif
 }
 
 // usageOf joins runtime invocation telemetry to an artifact (F1) and runs the
-// dormant-then-active rule (F2). Telemetry is keyed by MCP server name — the
-// only join key the audit log carries today — so only MCP servers can match;
-// every other kind returns nil usage (no telemetry path yet, surfaced honestly
-// in the UI rather than faked). The sleeper signal needs the install time
-// (mtime) and the drift class, both already on the entry.
+// dormant-then-active rule (F2). Telemetry is keyed by artifact name: MCP
+// servers join on the shim's tool-call events, and skills/subagents/etc. join
+// on the hook-fed activation events (F1b). An artifact with no matching event
+// returns nil usage — the honest "no usage signal," surfaced in the UI rather
+// than faked. The sleeper signal needs the install time (mtime) and the drift
+// class, both already on the entry.
 func usageOf(e lockfile.Entry, class lockfile.DriftClass, used map[string]usage.Stat, now time.Time) (*DashUsage, *DashSleeper) {
-	if e.Type != artifact.TypeMCPServer {
-		return nil, nil
-	}
-	stat, ok := used[e.Name]
+	stat, ok := statFor(used, e)
 	if !ok {
 		return nil, nil
 	}
@@ -325,10 +323,11 @@ func usageOf(e lockfile.Entry, class lockfile.DriftClass, used map[string]usage.
 
 // timelineOf assembles the per-artifact event ribbon (F4) from the dated facts
 // already on hand: the install mtime, the approval timestamp, the drift class
-// (detected at scan time), and — for MCP servers — first/last invocation from
-// the audit log. The domain Build orders and labels them; this seam only maps
-// the available facts in. Usage events join by server name, so they appear only
-// for MCP servers (the same constraint as usageOf).
+// (detected at scan time), and first/last invocation from the audit log. The
+// domain Build orders and labels them; this seam only maps the available facts
+// in. Usage events join by artifact name (tool calls for MCP servers,
+// activations for skills/subagents — F1b); an artifact with no events simply
+// contributes no use milestones.
 func timelineOf(e, prev lockfile.Entry, class lockfile.DriftClass, used map[string]usage.Stat, scanAt time.Time) []timeline.Event {
 	in := timeline.Input{
 		InstalledAt: e.ModifiedAt,
@@ -346,12 +345,10 @@ func timelineOf(e, prev lockfile.Entry, class lockfile.DriftClass, used map[stri
 	case lockfile.DriftClassMutated, lockfile.DriftClassBroken, lockfile.DriftClassUpdated:
 		in.DriftedAt = scanAt
 	}
-	if e.Type == artifact.TypeMCPServer {
-		if st, ok := used[e.Name]; ok {
-			in.FirstUsed = st.FirstUsed
-			in.LastUsed = st.LastUsed
-			in.UseCount = st.Count
-		}
+	if st, ok := statFor(used, e); ok {
+		in.FirstUsed = st.FirstUsed
+		in.LastUsed = st.LastUsed
+		in.UseCount = st.Count
 	}
 	return timeline.Build(in)
 }
@@ -372,15 +369,26 @@ func reputationOf(contentHash string, rep reputation.Source) *DashReputation {
 }
 
 // livenessOf classifies how exercised an artifact is (F3), for the capability ×
-// usage fusion on its findings. Runtime telemetry joins by server name, so only
-// MCP servers can present positive evidence; every other kind is Unknown (no
-// telemetry path), never falsely dormant.
+// usage fusion on its findings. Runtime telemetry joins by artifact name — tool
+// calls for MCP servers, activations for skills/subagents (F1b) — so any kind
+// with a matching event presents positive evidence; one with none is Unknown,
+// never falsely dormant.
 func livenessOf(e lockfile.Entry, used map[string]usage.Stat, now time.Time) risk.Liveness {
-	stat, found := used[e.Name]
-	if e.Type != artifact.TypeMCPServer {
-		found = false
-	}
+	stat, found := statFor(used, e)
 	return risk.Classify(stat, found, now)
+}
+
+// statFor joins an artifact to its usage stat in the kind-aware namespace: MCP
+// servers on the bare name (the shim's tool-call key), every other kind through
+// the activation namespace (the hook-fed key). This keeps a skill and an MCP
+// server that share a name from ever sharing telemetry.
+func statFor(used map[string]usage.Stat, e lockfile.Entry) (usage.Stat, bool) {
+	if e.Type == artifact.TypeMCPServer {
+		s, ok := used[e.Name]
+		return s, ok
+	}
+	s, ok := used[usage.ActivationKey(e.Name)]
+	return s, ok
 }
 
 // relativeAgo renders a coarse "3d ago" / "5h ago" / "just now" relative to the

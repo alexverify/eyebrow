@@ -192,11 +192,15 @@ func (s *Server) reputationSource() reputation.Source {
 // usageSummary reads the runtime audit log and folds it into per-artifact
 // invocation stats (F1). A nil Audit dep or a read error yields no telemetry —
 // usage is supplementary, so it must never fail the scan view.
+//
+// It reads all events (no kind filter) so both MCP tool calls and the hook-fed
+// activation events of skills/subagents/plugins count; usage.Summarize selects
+// the invocation kinds and ignores the rest.
 func (s *Server) usageSummary() map[string]usage.Stat {
 	if s.deps.Audit == nil {
 		return nil
 	}
-	events, err := s.deps.Audit(auditlog.Filter{Kind: audit.KindToolCall})
+	events, err := s.deps.Audit(auditlog.Filter{})
 	if err != nil {
 		return nil
 	}

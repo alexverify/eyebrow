@@ -29,18 +29,42 @@ type Stat struct {
 	Count     int       `json:"count"`
 }
 
-// Summarize folds audit events into a per-server Stat. Only KindToolCall events
-// count as invocations; session lifecycle and egress events describe the same
-// runs but are not themselves "the artifact ran," so they neither inflate the
-// count nor seed the first/last timestamps. Servers with no tool calls are
-// absent from the result (a missing key reads as "no usage signal").
+// activationPrefix namespaces activation telemetry away from MCP tool-call
+// telemetry in the summarized map. MCP servers key on the bare server name (the
+// shim's join key); activations key under this prefix. The NUL byte cannot
+// appear in a real artifact name, so the two namespaces never collide — a skill
+// and an MCP server that happen to share a name never share usage stats.
+const activationPrefix = "activation\x00"
+
+// ActivationKey is the map key under which an activated artifact's stats live.
+// Callers join non-MCP artifacts (skills, subagents, …) through this key and
+// MCP servers through the bare name.
+func ActivationKey(name string) string { return activationPrefix + name }
+
+// Summarize folds audit events into per-artifact Stats. Tool calls (MCP
+// servers) and activations (skills, subagents, plugins, hooks via the host-tool
+// hook) both count as invocations — each is "the artifact ran." They are kept
+// in separate namespaces (bare name for MCP, ActivationKey for activations) so
+// same-named artifacts of different kinds never conflate. Session lifecycle and
+// egress events are not invocations, so they neither inflate the count nor seed
+// the first/last timestamps. Artifacts with no invocation are absent from the
+// result (a missing key reads as "no usage signal").
 func Summarize(events []audit.Event) map[string]Stat {
 	out := map[string]Stat{}
 	for _, e := range events {
-		if e.Kind != audit.KindToolCall || e.Server == "" {
+		if e.Server == "" {
 			continue
 		}
-		s := out[e.Server]
+		var key string
+		switch e.Kind {
+		case audit.KindToolCall:
+			key = e.Server
+		case audit.KindActivation:
+			key = ActivationKey(e.Server)
+		default:
+			continue
+		}
+		s := out[key]
 		s.Count++
 		if s.FirstUsed.IsZero() || e.At.Before(s.FirstUsed) {
 			s.FirstUsed = e.At
@@ -48,7 +72,7 @@ func Summarize(events []audit.Event) map[string]Stat {
 		if e.At.After(s.LastUsed) {
 			s.LastUsed = e.At
 		}
-		out[e.Server] = s
+		out[key] = s
 	}
 	return out
 }

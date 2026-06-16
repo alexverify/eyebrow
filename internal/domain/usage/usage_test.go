@@ -42,6 +42,47 @@ func TestSummarizeCountsToolCallsPerServer(t *testing.T) {
 	}
 }
 
+func TestSummarizeCountsActivations(t *testing.T) {
+	// Activation events (the host-tool hook surface for skills/subagents/plugins)
+	// are invocations too: they say "this artifact was invoked." They count like
+	// tool calls so F1–F4 light up for non-MCP kinds, but they live under the
+	// activation namespace.
+	evs := []audit.Event{
+		{Kind: audit.KindActivation, Server: "pdf-skill", At: ts("2026-06-01T10:00:00Z")},
+		{Kind: audit.KindActivation, Server: "pdf-skill", At: ts("2026-06-04T08:00:00Z")},
+	}
+	got := Summarize(evs)
+	s, ok := got[ActivationKey("pdf-skill")]
+	if !ok {
+		t.Fatalf("expected a stat for an activated skill under the activation namespace")
+	}
+	if s.Count != 2 {
+		t.Errorf("Count = %d, want 2", s.Count)
+	}
+	if !s.FirstUsed.Equal(ts("2026-06-01T10:00:00Z")) {
+		t.Errorf("FirstUsed = %v, want the first activation", s.FirstUsed)
+	}
+	if !s.LastUsed.Equal(ts("2026-06-04T08:00:00Z")) {
+		t.Errorf("LastUsed = %v, want the last activation", s.LastUsed)
+	}
+}
+
+func TestSummarizeNamespacesActivationsAwayFromToolCalls(t *testing.T) {
+	// A skill and an MCP server that share a name must not share usage. Tool
+	// calls key on the bare name; activations key under ActivationKey.
+	evs := []audit.Event{
+		{Kind: audit.KindToolCall, Server: "weather", At: ts("2026-06-01T10:00:00Z"), Status: audit.StatusOK},
+		{Kind: audit.KindActivation, Server: "weather", At: ts("2026-06-02T10:00:00Z")},
+	}
+	got := Summarize(evs)
+	if got["weather"].Count != 1 {
+		t.Errorf("MCP tool-call stat = %d, want 1 (not folded with the activation)", got["weather"].Count)
+	}
+	if got[ActivationKey("weather")].Count != 1 {
+		t.Errorf("activation stat = %d, want 1 (kept separate from the tool call)", got[ActivationKey("weather")].Count)
+	}
+}
+
 func TestSummarizeIgnoresNonInvocationEvents(t *testing.T) {
 	// Session lifecycle and egress events are not invocations; they must not
 	// inflate the count nor seed FirstUsed/LastUsed on their own.

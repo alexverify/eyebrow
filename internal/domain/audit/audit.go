@@ -21,6 +21,12 @@ const (
 	KindServerExit Kind = "server_exit"
 	// KindEgress records one outbound connection through the egress proxy.
 	KindEgress Kind = "egress"
+	// KindActivation records a non-MCP artifact (skill, subagent, plugin, hook,
+	// rule) being invoked by the host tool, captured via a tool hook rather than
+	// the MCP shim. Server carries the artifact name (the usage join key) and
+	// Tool the artifact kind. It never carries arguments — only that the
+	// artifact ran, and when.
+	KindActivation Kind = "activation"
 )
 
 // Statuses for KindToolCall events.

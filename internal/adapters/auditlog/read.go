@@ -94,14 +94,15 @@ func readFile(path string, f Filter) ([]audit.Event, error) {
 
 // Summary aggregates a set of events for a quick overview.
 type Summary struct {
-	Total      int            `json:"total"`
-	Sessions   int            `json:"sessions"`
-	ToolCalls  int            `json:"toolCalls"`
-	Denied     int            `json:"denied"`
-	Egress     int            `json:"egress"`
-	Redactions int            `json:"redactions"`
-	ByServer   map[string]int `json:"byServer"`
-	ByTool     map[string]int `json:"byTool"`
+	Total       int            `json:"total"`
+	Sessions    int            `json:"sessions"`
+	ToolCalls   int            `json:"toolCalls"`
+	Activations int            `json:"activations"`
+	Denied      int            `json:"denied"`
+	Egress      int            `json:"egress"`
+	Redactions  int            `json:"redactions"`
+	ByServer    map[string]int `json:"byServer"`
+	ByTool      map[string]int `json:"byTool"`
 }
 
 // Summarize rolls up events into counts.
@@ -120,6 +121,8 @@ func Summarize(evs []audit.Event) Summary {
 			if e.Tool != "" {
 				s.ByTool[e.Tool]++
 			}
+		case audit.KindActivation:
+			s.Activations++
 		case audit.KindEgress:
 			s.Egress++
 			s.Redactions += e.Redactions

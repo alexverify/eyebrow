@@ -225,9 +225,20 @@ joins in — same discipline as `Compare` and trust scoring:
 Driven adapters for the above: **`internal/adapters/auditlog`** (read the JSONL
 audit log), **`historystore`** (posture trend), **`policystore`** (policy read/
 write), **`fleetstore`** (one JSON snapshot per owner under `.assay/fleet/`),
-and **`repstore`** (the opt-in reputation corpus). The **`assay fleet`** command
+**`repstore`** (the opt-in reputation corpus), and **`hookconfig`** (install/
+remove the host-tool usage hooks in Claude Code's `settings.json`, idempotently,
+the same rewrite discipline as `mcpconfig`). The **`assay fleet`** command
 (`internal/cli/fleetcmd.go`) writes this machine's snapshot and prints the
 aggregated report; the dashboard reads the same directory.
+
+Usage telemetry has two feeds, both keyed by artifact name and folded by
+`internal/domain/usage` (MCP tool calls on the bare name, activations under
+`usage.ActivationKey` so same-named kinds never conflate): the MCP shim's
+`tool_call` events, and `activation` events written by `assay record-use`
+(`internal/cli/recordusecmd.go`) — which a `PreToolUse` hook installed by
+`assay install-hooks` (`internal/cli/installhookscmd.go`) calls on every skill
+and subagent invocation. This extends usage, the sleeper signal, the
+live-finding ranking, and the timeline to non-MCP kinds without any new join.
 
 ## Roadmap seams (hosted control plane)
 

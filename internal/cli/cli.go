@@ -82,6 +82,10 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runUnwrap(ctx, rest)
 	case "audit":
 		return a.runAudit(ctx, rest)
+	case "record-use":
+		return a.runRecordUse(ctx, rest)
+	case "install-hooks":
+		return a.runInstallHooks(ctx, rest)
 	case "dashboard":
 		return a.runDashboard(ctx, rest)
 	case "fleet":
@@ -122,6 +126,8 @@ Commands:
   wrap      Route a tool's MCP servers through the auditing shim (--status to inspect)
   unwrap    Restore the original MCP config
   audit     Summarize or list the MCP shim's audit log
+  record-use   Record an artifact activation (called by a host-tool hook)
+  install-hooks Install host-tool hooks that feed usage telemetry (--status, --uninstall)
   dashboard Serve a local read-only web dashboard (loopback)
   fleet     Export this machine's snapshot, or print the team blast-radius
   version   Print the version

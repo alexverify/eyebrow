@@ -116,13 +116,27 @@ them. Same discipline as the H1 file-diff: name what you can prove, claim
 nothing you cannot. A future call-graph pass could upgrade the seam to true
 reachability without changing the surface.
 
-## Usage telemetry joins MCP servers by name; other kinds are honest gaps
+## Usage telemetry: tool calls for MCP servers, activations for everything else
 
 Per-artifact usage (`internal/domain/usage`) and the live/exercised finding
-ranking (`internal/domain/risk`) are derived from the MCP shim's audit log,
-which keys events by **server name**. So usage, the dormant-then-active sleeper,
-and the live-finding badge appear for wrapped MCP servers; skills, plugins, and
-hooks have no runtime hook surface yet and are simply shown as "no usage
-signal." We mark the absence honestly rather than inferring "unused" — a
-classification we cannot support — leaving the seam ready for a future
-activation hook that writes the same audit events.
+ranking (`internal/domain/risk`) are derived from the audit log. Two event
+sources feed it, both keyed by **artifact name**:
+
+- **MCP servers** — the shim records a `tool_call` for each invocation, keyed by
+  the server name. This is the original join (no setup needed once a server is
+  wrapped).
+- **Everything else** — skills, subagents, plugins, hooks have no shim, so
+  `assay install-hooks` writes a host-tool `PreToolUse` hook (Claude Code's
+  Skill and Task tools) that shells out to `assay record-use`, appending an
+  `activation` event. This lights up the same first/last-used, sleeper (F2),
+  live-finding (F3), and timeline (F4) signals for non-MCP kinds.
+
+The two sources live in **separate namespaces** in the summarized map — MCP on
+the bare name, activations under `usage.ActivationKey` — so a skill and an MCP
+server that happen to share a name never conflate their telemetry. An artifact
+with neither kind of event is shown honestly as "no usage signal," never
+inferred as "unused." Activations record only *that* an artifact ran and when
+— never arguments (those routinely hold secrets), the same redaction discipline
+as the shim. An artifact that the user never installs the hooks for stays a
+silent no-op: telemetry is opt-in and additive, never a precondition for the
+scan view.
