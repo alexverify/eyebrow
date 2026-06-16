@@ -294,6 +294,7 @@ assay fleet export                 # write .assay/fleet/<hostname>.json
 assay fleet export --owner alice   # or label it yourself
 git add .assay/fleet && git commit # "git is the backend" — same as approvals
 assay fleet                        # blast-radius + policy conformance, as text
+assay fleet verify                 # CI gate: exit 1 if any machine is out of policy
 ```
 
 A snapshot is **content-free** — only each artifact's id, name, kind, content
@@ -313,6 +314,21 @@ The dashboard's **Fleet** tab turns the aggregated snapshots into three views:
   `assay.policy.json`: who is running blocked publishers, unapproved, or
   quarantined artifacts. It turns the policy from advisory into a measured
   "N of M machines in policy."
+
+`assay fleet verify` is the same conformance rollup as an **enforced CI gate**:
+it exits `1` (the stable drift/policy code) when any machine is out of policy, or
+when a drifted/quarantined artifact's reach exceeds the committed threshold:
+
+```jsonc
+// assay.policy.json
+{ "fleet": { "maxBlastRadius": 2 } }  // fail if a drift/quarantine spans >2 machines
+```
+
+Run it in the same CI job that already commits snapshots, after a step that
+collects each machine's `fleet export`. It reuses the exact pure functions the
+dashboard renders, so a CI failure matches what a teammate sees in `assay fleet`.
+With no `fleet` block in the policy, only machine conformance gates (the reach
+check is off). An empty fleet directory is nothing to gate — exit `0`.
 
 The reputation signal (`--reputation <file>`, default `assay.reputation.json`)
 is **opt-in and hash-only**: a content-hash → trust-count corpus you choose to

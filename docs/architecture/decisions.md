@@ -92,6 +92,21 @@ the same principle as the lockfile and the trusted-keys registry. A hosted API
 could replace the directory later without changing the aggregation, which is
 pure (`fleet.Aggregate` / `fleet.CheckConformance`).
 
+## The fleet CI gate reuses the dashboard's pure rollups
+
+`assay fleet verify` enforces what the dashboard's Fleet tab shows. Rather than
+re-deriving compliance, `fleet.Gate` is a thin pure function over the
+already-computed `Aggregate` (blast radius) and `CheckConformance` (per-machine
+policy) results — the exact values the dashboard renders. So a CI failure can
+never disagree with what a teammate sees locally. It fails on two conditions:
+any machine out of policy, and a drifted/quarantined artifact whose reach
+exceeds a committed `fleet.maxBlastRadius` (zero = reach check off, conformance
+alone gates). The threshold lives in `assay.policy.json`, reviewed like every
+other rule, and the gate exits `1` — the same stable drift/policy code as
+`verify --ci`, so existing CI consumers need no new exit-code handling. An empty
+fleet directory is nothing to gate (exit `0`), keeping the gate safe to add
+before any snapshots exist.
+
 ## Reputation is a local, hash-only, opt-in corpus
 
 The community trust signal (`internal/domain/reputation`) is keyed solely by
