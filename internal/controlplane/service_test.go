@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 func snap(owner string, arts ...fleet.Artifact) fleet.Snapshot {
@@ -11,7 +12,7 @@ func snap(owner string, arts ...fleet.Artifact) fleet.Snapshot {
 }
 
 func TestSubmitThenFleetAggregates(t *testing.T) {
-	svc := NewService(NewMemStore())
+	svc := NewService(NewMemStore(), nil)
 	feed := fleet.Artifact{ID: "x", Name: "feed", Kind: "skill", Hash: "h1", Drift: "drifted", Verdict: "review"}
 	if err := svc.Submit("acme", snap("alice", feed)); err != nil {
 		t.Fatal(err)
@@ -32,7 +33,7 @@ func TestSubmitThenFleetAggregates(t *testing.T) {
 }
 
 func TestSubmitReplacesOwnerSnapshot(t *testing.T) {
-	svc := NewService(NewMemStore())
+	svc := NewService(NewMemStore(), nil)
 	svc.Submit("acme", snap("alice", fleet.Artifact{ID: "x", Name: "feed", Hash: "old", Drift: "drifted"}))
 	svc.Submit("acme", snap("alice", fleet.Artifact{ID: "x", Name: "feed", Hash: "new", Drift: "verified"}))
 	rep, _ := svc.Fleet("acme")
@@ -45,7 +46,7 @@ func TestSubmitReplacesOwnerSnapshot(t *testing.T) {
 }
 
 func TestOrgsAreIsolated(t *testing.T) {
-	svc := NewService(NewMemStore())
+	svc := NewService(NewMemStore(), nil)
 	svc.Submit("acme", snap("alice", fleet.Artifact{ID: "x", Name: "feed", Hash: "h"}))
 	svc.Submit("globex", snap("carol", fleet.Artifact{ID: "y", Name: "other", Hash: "h"}))
 	rep, _ := svc.Fleet("acme")
@@ -55,7 +56,7 @@ func TestOrgsAreIsolated(t *testing.T) {
 }
 
 func TestSubmitRejectsMissingIdentity(t *testing.T) {
-	svc := NewService(NewMemStore())
+	svc := NewService(NewMemStore(), nil)
 	if err := svc.Submit("", snap("alice")); err == nil {
 		t.Error("missing org must be rejected")
 	}
@@ -65,9 +66,45 @@ func TestSubmitRejectsMissingIdentity(t *testing.T) {
 }
 
 func TestFleetEmptyOrg(t *testing.T) {
-	svc := NewService(NewMemStore())
+	svc := NewService(NewMemStore(), nil)
 	rep, err := svc.Fleet("nobody")
 	if err != nil || rep.Owners != 0 {
 		t.Errorf("an empty org should aggregate to an empty report, got %+v, %v", rep, err)
+	}
+}
+
+func TestPolicyAndKeysFromConfig(t *testing.T) {
+	cfg := NewMemConfig()
+	cfg.SetPolicy("acme", policy.Policy{RequireApproval: true, Fleet: policy.FleetPolicy{MaxBlastRadius: 2}})
+	cfg.SetTrustedKeys("acme", []TrustedKey{{Key: "abc==", Name: "alice"}})
+	svc := NewService(NewMemStore(), cfg)
+
+	p, ok, err := svc.Policy("acme")
+	if err != nil || !ok {
+		t.Fatalf("acme policy should be configured: ok=%v err=%v", ok, err)
+	}
+	if !p.RequireApproval || p.Fleet.MaxBlastRadius != 2 {
+		t.Errorf("policy not served faithfully: %+v", p)
+	}
+	keys, _ := svc.TrustedKeys("acme")
+	if len(keys) != 1 || keys[0].Name != "alice" {
+		t.Errorf("keys = %+v", keys)
+	}
+}
+
+func TestUnconfiguredOrgAndNilConfig(t *testing.T) {
+	// An org with no policy → not configured (CLI stays local).
+	cfg := NewMemConfig()
+	svc := NewService(NewMemStore(), cfg)
+	if _, ok, _ := svc.Policy("acme"); ok {
+		t.Error("an org with no policy must report not-configured")
+	}
+	// A nil config → never configured, no panic.
+	bare := NewService(NewMemStore(), nil)
+	if _, ok, _ := bare.Policy("acme"); ok {
+		t.Error("nil config must report not-configured")
+	}
+	if keys, _ := bare.TrustedKeys("acme"); keys != nil {
+		t.Errorf("nil config should yield no keys, got %+v", keys)
 	}
 }

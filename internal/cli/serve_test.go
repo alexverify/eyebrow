@@ -16,7 +16,7 @@ func TestFleetPushThenShowRemote(t *testing.T) {
 	// Stand up a real control-plane server, push this fixture project's snapshot
 	// to it, then read the aggregated fleet back through the same CLI.
 	srv := httptest.NewServer(controlplane.NewServer(
-		controlplane.NewService(controlplane.NewMemStore()),
+		controlplane.NewService(controlplane.NewMemStore(), nil),
 		controlplane.StaticAuth{"tok": "acme"},
 	))
 	t.Cleanup(srv.Close)

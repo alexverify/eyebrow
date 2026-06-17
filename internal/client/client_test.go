@@ -14,7 +14,7 @@ import (
 // against the actual server, end to end.
 func liveServer(t *testing.T) (*httptest.Server, string) {
 	t.Helper()
-	svc := controlplane.NewService(controlplane.NewMemStore())
+	svc := controlplane.NewService(controlplane.NewMemStore(), nil)
 	srv := httptest.NewServer(controlplane.NewServer(svc, controlplane.StaticAuth{"tok": "acme"}))
 	t.Cleanup(srv.Close)
 	return srv, "tok"

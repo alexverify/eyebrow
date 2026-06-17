@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // ErrInvalidSnapshot is returned when a submission is missing the org or owner
@@ -12,14 +13,19 @@ import (
 var ErrInvalidSnapshot = errors.New("controlplane: snapshot missing org or owner")
 
 // Service is the control-plane application logic: ingest snapshots and
-// aggregate them. It reuses the pure fleet functions verbatim, so a hosted
-// report is identical to what the same snapshots produce locally.
+// aggregate them, and serve the admin-set org policy/keys the CLI pulls. It
+// reuses the pure fleet functions verbatim, so a hosted report is identical to
+// what the same snapshots produce locally.
 type Service struct {
-	store Store
+	store  Store
+	config Config
 }
 
-// NewService wires the service to a store.
-func NewService(store Store) *Service { return &Service{store: store} }
+// NewService wires the service to a snapshot store and an org config. config may
+// be nil (no policy/keys configured server-side; the CLI stays local).
+func NewService(store Store, config Config) *Service {
+	return &Service{store: store, config: config}
+}
 
 // Submit validates and persists one machine's snapshot under an org. The
 // snapshot is content-free by construction (fleet.Snapshot carries no bytes);
@@ -39,4 +45,21 @@ func (s *Service) Fleet(org string) (fleet.Report, error) {
 		return fleet.Report{}, err
 	}
 	return fleet.Aggregate(snaps), nil
+}
+
+// Policy returns the org's configured policy and whether one exists. With no
+// config (or no org policy), ok is false and the CLI keeps its local policy.
+func (s *Service) Policy(org string) (policy.Policy, bool, error) {
+	if s.config == nil {
+		return policy.Policy{}, false, nil
+	}
+	return s.config.Policy(org)
+}
+
+// TrustedKeys returns the org's trusted signing keys (empty when unconfigured).
+func (s *Service) TrustedKeys(org string) ([]TrustedKey, error) {
+	if s.config == nil {
+		return nil, nil
+	}
+	return s.config.TrustedKeys(org)
 }

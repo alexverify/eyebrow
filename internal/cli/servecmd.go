@@ -31,7 +31,7 @@ func (a *App) runServe(ctx context.Context, args []string) int {
 		return ExitUsage
 	}
 
-	svc := controlplane.NewService(cpstore.New(*storeDir))
+	svc := controlplane.NewService(cpstore.New(*storeDir), nil)
 	srv := &http.Server{Addr: *addr, Handler: controlplane.NewServer(svc, auth)}
 
 	// Shut down cleanly when the process is signalled (cmd/assay cancels ctx).

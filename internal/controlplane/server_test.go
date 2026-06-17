@@ -11,7 +11,7 @@ import (
 )
 
 func testHandler() http.Handler {
-	svc := NewService(NewMemStore())
+	svc := NewService(NewMemStore(), nil)
 	return NewServer(svc, StaticAuth{"tok-acme": "acme", "tok-globex": "globex"})
 }
 
