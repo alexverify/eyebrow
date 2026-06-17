@@ -8,12 +8,16 @@ import (
 	"time"
 
 	"github.com/alexverify/assay/internal/adapters/auditlog"
+	"github.com/alexverify/assay/internal/client"
 	"github.com/alexverify/assay/internal/domain/audit"
 )
 
 // runAudit queries the shim's audit log: a summary by default, or a filtered
 // event list with --list. Filters compose (server, tool, status, kind, since).
-func (a *App) runAudit(_ context.Context, args []string) int {
+func (a *App) runAudit(ctx context.Context, args []string) int {
+	if len(args) > 0 && args[0] == "push" {
+		return a.auditPush(ctx, args[1:])
+	}
 	fs := a.flagSet("audit")
 	dir := fs.String("audit-dir", a.auditDir(), "audit log directory")
 	server := fs.String("server", "", "only events for this server")
@@ -49,6 +53,51 @@ func (a *App) runAudit(_ context.Context, args []string) int {
 		return a.auditList(events, *jsonOut)
 	}
 	return a.auditSummary(events, *jsonOut, *dir)
+}
+
+// auditPush uploads this machine's local audit events to the control plane
+// (opt-in). The events are content-free by construction — arguments are stored
+// only as digests and secrets are redacted at the shim — so what leaves is tool
+// and server names, egress hosts, timings, statuses, and digests, never raw
+// values. See docs/privacy.md.
+func (a *App) auditPush(ctx context.Context, args []string) int {
+	fs := a.flagSet("audit push")
+	dir := fs.String("audit-dir", a.auditDir(), "audit log directory")
+	server := fs.String("server", envOr("ASSAY_SERVER", ""), "control-plane URL")
+	token := fs.String("token", envOr("ASSAY_TOKEN", ""), "machine token for the control plane")
+	since := fs.String("since", "", "only push events on/after this date (YYYY-MM-DD)")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if *server == "" {
+		fmt.Fprintln(a.Stderr, "audit push: set --server (or ASSAY_SERVER) to a control-plane URL")
+		return ExitUsage
+	}
+
+	var filter auditlog.Filter
+	if *since != "" {
+		t, err := time.Parse("2006-01-02", *since)
+		if err != nil {
+			fmt.Fprintf(a.Stderr, "audit push: bad --since date %q (want YYYY-MM-DD)\n", *since)
+			return ExitUsage
+		}
+		filter.Since = t
+	}
+	events, err := auditlog.Read(*dir, filter)
+	if err != nil {
+		fmt.Fprintf(a.Stderr, "audit push: %v\n", err)
+		return ExitError
+	}
+	if len(events) == 0 {
+		fmt.Fprintf(a.Stdout, "audit push: no events in %s — nothing to send\n", *dir)
+		return ExitOK
+	}
+	if err := client.New(*server, *token).IngestAudit(ctx, events); err != nil {
+		fmt.Fprintf(a.Stderr, "audit push: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(a.Stdout, "pushed %d audit event(s) → %s\n", len(events), *server)
+	return ExitOK
 }
 
 func (a *App) auditList(events []audit.Event, jsonOut bool) int {

@@ -57,6 +57,49 @@ func TestFleetPushRequiresServer(t *testing.T) {
 	}
 }
 
+func TestAuditPushThenAlerts(t *testing.T) {
+	// A drift on the server plus a pushed denied-egress event → alerts list both.
+	store := controlplane.NewMemStore()
+	store.PutSnapshot("acme", fleet.Snapshot{Owner: "alice", Artifacts: []fleet.Artifact{
+		{ID: "x", Name: "feed", Kind: "skill", Hash: "h", Drift: "drifted", Verdict: "review"}}})
+	srv := httptest.NewServer(controlplane.NewServer(
+		controlplane.NewService(store, nil), controlplane.StaticAuth{"tok": "acme"}))
+	t.Cleanup(srv.Close)
+
+	// Seed a local audit log with a denied egress event.
+	auditDir := t.TempDir()
+	line := `{"ts":"2026-06-12T09:00:00Z","session":"s","server":"db","kind":"egress","host":"evil.example","status":"denied"}`
+	if err := os.WriteFile(filepath.Join(auditDir, "2026-06-12.jsonl"), []byte(line+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	push, pout, perr := newApp()
+	if code := push.Execute(context.Background(), []string{
+		"audit", "push", "--audit-dir", auditDir, "--server", srv.URL, "--token", "tok",
+	}); code != cli.ExitOK {
+		t.Fatalf("audit push = %d, stderr=%s", code, perr.String())
+	}
+	if !strings.Contains(pout.String(), "pushed 1 audit event") {
+		t.Errorf("push should confirm count: %s", pout.String())
+	}
+
+	list, lout, _ := newApp()
+	if code := list.Execute(context.Background(), []string{"alerts", "--server", srv.URL, "--token", "tok"}); code != cli.ExitOK {
+		t.Fatalf("alerts exit = %d", code)
+	}
+	s := lout.String()
+	if !strings.Contains(s, "evil.example") || !strings.Contains(s, "feed") {
+		t.Errorf("alerts should list the egress host and the drifted artifact:\n%s", s)
+	}
+}
+
+func TestAuditPushRequiresServer(t *testing.T) {
+	app, _, _ := newApp()
+	if code := app.Execute(context.Background(), []string{"audit", "push"}); code != cli.ExitUsage {
+		t.Errorf("audit push without a server should be a usage error, got %d", code)
+	}
+}
+
 func TestServeRequiresTokens(t *testing.T) {
 	app, _, errBuf := newApp()
 	code := app.Execute(context.Background(), []string{"serve", "--addr", "127.0.0.1:0"})

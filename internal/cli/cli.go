@@ -93,6 +93,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runFleet(ctx, rest)
 	case "serve":
 		return a.runServe(ctx, rest)
+	case "alerts":
+		return a.runAlerts(ctx, rest)
 	case "mcp-shim":
 		return a.runMCPShim(ctx, rest)
 	case "version", "-v", "--version":
@@ -128,7 +130,8 @@ Commands:
   key       Manage signing identity (show) and trusted keys (trust)
   wrap      Route a tool's MCP servers through the auditing shim (--status to inspect)
   unwrap    Restore the original MCP config
-  audit     Summarize or list the MCP shim's audit log
+  audit     Summarize or list the MCP shim's audit log (audit push uploads it to a server)
+  alerts    List team alerts from the control plane (drift, quarantine, blocked egress)
   record-use   Record an artifact activation (called by a host-tool hook)
   install-hooks Install host-tool hooks that feed usage telemetry (--status, --uninstall)
   dashboard Serve a local read-only web dashboard (loopback)
