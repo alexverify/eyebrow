@@ -22,6 +22,7 @@ import (
 
 	"github.com/alexverify/assay/internal/adapters/auditlog"
 	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/domain/alert"
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/lockfile"
@@ -68,6 +69,9 @@ type Deps struct {
 	// Conformance returns the fleet's policy-compliance rollup (G3): which
 	// machines run blocked/unapproved artifacts. Optional: nil → empty.
 	Conformance func(context.Context) (fleet.Conformance, error)
+	// Alerts returns the org's team-level alerts (4d): drift, quarantine, blocked
+	// egress, denied tool calls. Optional: nil → empty (the Alerts panel hides).
+	Alerts func(context.Context) ([]alert.Alert, error)
 	// Reputation resolves the opt-in community trust corpus (H3) for a set of
 	// content hashes — from a local file or a live hash-only service (H3b).
 	// Optional: when nil, no reputation signal is shown.
@@ -133,6 +137,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/egress-allow", s.handleEgressAllow)
 	mux.HandleFunc("/api/history", s.handleHistory)
 	mux.HandleFunc("/api/fleet", s.handleFleet)
+	mux.HandleFunc("/api/alerts", s.handleAlerts)
 	if s.static != nil {
 		mux.Handle("/", http.FileServer(http.FS(s.static)))
 	}
@@ -341,6 +346,25 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, struct {
 		History []posture.Posture `json:"history"`
 	}{History: hist})
+}
+
+// handleAlerts serves the org's team-level alerts (4d). Empty when no Alerts dep
+// is wired (e.g. the local dashboard with no control plane).
+func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
+	alerts := []alert.Alert{}
+	if s.deps.Alerts != nil {
+		got, err := s.deps.Alerts(r.Context())
+		if err != nil {
+			httpError(w, err)
+			return
+		}
+		if got != nil {
+			alerts = got
+		}
+	}
+	writeJSON(w, struct {
+		Alerts []alert.Alert `json:"alerts"`
+	}{Alerts: alerts})
 }
 
 // handleFleet serves the aggregated team blast-radius (G1): which artifacts are

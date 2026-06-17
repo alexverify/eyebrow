@@ -11,6 +11,7 @@ import (
 
 	"github.com/alexverify/assay/internal/adapters/auditlog"
 	"github.com/alexverify/assay/internal/dashboard"
+	"github.com/alexverify/assay/internal/domain/alert"
 	"github.com/alexverify/assay/internal/domain/artifact"
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/finding"
@@ -103,6 +104,43 @@ func TestFleetEndpointCarriesConformance(t *testing.T) {
 	}
 	if resp.Conformance.Owners != 2 || resp.Conformance.Compliant != 1 {
 		t.Errorf("conformance = %+v", resp.Conformance)
+	}
+}
+
+func TestAlertsEndpoint(t *testing.T) {
+	srv := dashboard.New(dashboard.Deps{
+		Alerts: func(context.Context) ([]alert.Alert, error) {
+			return []alert.Alert{
+				{Kind: alert.KindEgressDenied, Severity: alert.SeverityHigh, Subject: "evil.example", Detail: "blocked 2x", Count: 2},
+			}, nil
+		},
+	})
+	rec := get(t, srv.Handler(), "/api/alerts")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var resp struct {
+		Alerts []alert.Alert `json:"alerts"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Alerts) != 1 || resp.Alerts[0].Subject != "evil.example" {
+		t.Errorf("alerts = %+v", resp.Alerts)
+	}
+}
+
+func TestAlertsEndpointEmptyWhenUnset(t *testing.T) {
+	rec := get(t, testServer(t).Handler(), "/api/alerts")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var resp struct {
+		Alerts []alert.Alert `json:"alerts"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Alerts) != 0 {
+		t.Errorf("no Alerts dep should yield an empty list, got %+v", resp.Alerts)
 	}
 }
 
