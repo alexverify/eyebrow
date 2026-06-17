@@ -254,10 +254,11 @@ exact pure functions the local dashboard uses.
 - **`internal/controlplane`** — the server: a `Service` (`Submit`/`Fleet`/
   `Policy`/`TrustedKeys`) over two ports — a mutable `Store` (per-machine
   snapshots) and a read-mostly `Config` (admin-set org policy + trusted keys) —
-  an HTTP handler (`POST /v1/snapshots`, `GET /v1/fleet`, `GET /v1/policy`,
-  `GET /v1/registry/keys`, `/v1/healthz`), and machine bearer-token auth scoping
-  every request to one org. `Fleet` is just `fleet.Aggregate` over the org's
-  snapshots, so a hosted report is byte-identical to the local one.
+  an HTTP handler (`POST /v1/snapshots`, `GET /v1/fleet`, `GET /v1/gate`,
+  `GET /v1/policy`, `GET /v1/registry/keys`, `/v1/healthz`), and machine
+  bearer-token auth scoping every request to one org. `Fleet` is just
+  `fleet.Aggregate` and `Gate` is `fleet.Gate` over the org's snapshots, so a
+  hosted report and CI gate are byte-identical to the local ones.
 - **`internal/adapters/cpstore`** — the zero-dependency default persistence,
   satisfying both ports: snapshots under `<dir>/<org>/snapshots/<owner>.json`,
   the admin config as `<dir>/<org>/policy.json` and `trustedkeys.json`. A Postgres
@@ -266,12 +267,12 @@ exact pure functions the local dashboard uses.
   `TrustedKeys`/`Health`); any error is the caller's signal to fall back to the
   local path, and a 404 on policy means "keep the local policy."
 - CLI: `assay serve` runs the server; `assay fleet push` submits this machine's
-  snapshot; `assay fleet --server …` reads the org report; `verify`/`fleet verify`
-  pull the org policy and trusted keys (server-preferred, local fallback).
+  snapshot; `assay fleet --server …` reads the org report; `verify` pulls the org
+  policy and trusted keys (server-preferred, local fallback); `assay fleet verify
+  --server …` gates the fleet on the server over submitted snapshots.
 
-Remaining slices (still seams): hosted CI gate ergonomics, audit/usage ingest +
-alerts, the web dashboard on hosted data, and the live hash-only reputation
-lookup (H3b). **`packaging/`** — release tooling beyond GoReleaser — is also
+Remaining slices (still seams): audit/usage ingest + alerts, the web dashboard on
+hosted data, and the live hash-only reputation lookup (H3b). **`packaging/`** — release tooling beyond GoReleaser — is also
 still a seam. See each directory's `README.md` / `doc.go`.
 
 ## Design principles

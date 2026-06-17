@@ -370,15 +370,27 @@ trusted signing keys on the server (drop `policy.json` / `trustedkeys.json` unde
 files and **falling back to local** if the server has none or is unreachable:
 
 ```sh
-# verify and the fleet CI gate pull the org policy + trusted keys when a server is set
+# single-machine verify pulls the org policy + trusted keys when a server is set
 assay verify --ci --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"
-assay fleet verify --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"
 ```
 
 A server with no policy for the org returns 404, which the CLI treats as "use the
 local `assay.policy.json`" — so adopting a server never silently changes a gate
-you didn't configure. Audit ingest, a hosted dashboard, and live reputation
-lookup are the remaining (designed) slices.
+you didn't configure.
+
+**Hosted CI gate.** With a server set, `assay fleet verify` gates the fleet that
+machines have **pushed to the server** — the server runs `fleet.Gate` over the
+submitted snapshots and the org policy, so CI needs no local snapshot directory:
+
+```sh
+assay fleet push                                              # each machine, e.g. from its own CI
+assay fleet verify --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # one CI job gates the whole fleet → exit 1 on breach
+```
+
+Without a server, `fleet verify` still gates the local `.assay/fleet` directory.
+Either way the gate is the same pure `fleet.Gate`, so a CI failure matches what a
+teammate sees in `assay fleet`. Audit ingest, a hosted dashboard, and live
+reputation lookup are the remaining (designed) slices.
 
 ## Exit codes (stable contract)
 
