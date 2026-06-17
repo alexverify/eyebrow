@@ -6,10 +6,14 @@ import (
 
 	"github.com/alexverify/assay/internal/controlplane"
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
-// compile-time check: the file store satisfies the control-plane Store port.
-var _ controlplane.Store = (*Store)(nil)
+// compile-time checks: the file store satisfies both control-plane ports.
+var (
+	_ controlplane.Store  = (*Store)(nil)
+	_ controlplane.Config = (*Store)(nil)
+)
 
 func TestPersistsAcrossInstances(t *testing.T) {
 	dir := t.TempDir()
@@ -62,12 +66,63 @@ func TestOwnerCannotEscapeDir(t *testing.T) {
 		Artifacts: []fleet.Artifact{{ID: "x"}}}); err != nil {
 		t.Fatal(err)
 	}
-	// The sanitized file stays inside the org dir.
+	// The sanitized file stays inside the org's snapshots dir.
 	got, _ := s.Snapshots("acme")
 	if len(got) != 1 {
 		t.Fatalf("expected the sanitized snapshot back, got %+v", got)
 	}
-	if _, err := filepath.Glob(filepath.Join(dir, "acme", "*.json")); err != nil {
+	matches, err := filepath.Glob(filepath.Join(dir, "acme", "snapshots", "*.json"))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("sanitized snapshot should live in the org snapshots dir: %v %v", matches, err)
+	}
+}
+
+func TestPolicyRoundTrip(t *testing.T) {
+	s := New(t.TempDir())
+	if _, ok, _ := s.Policy("acme"); ok {
+		t.Fatal("unconfigured org must report no policy")
+	}
+	want := policy.Policy{RequireApproval: true, Fleet: policy.FleetPolicy{MaxBlastRadius: 3}}
+	if err := s.PutPolicy("acme", want); err != nil {
 		t.Fatal(err)
+	}
+	got, ok, err := New(s.dir).Policy("acme") // fresh instance: persisted
+	if err != nil || !ok {
+		t.Fatalf("policy should persist: ok=%v err=%v", ok, err)
+	}
+	if !got.RequireApproval || got.Fleet.MaxBlastRadius != 3 {
+		t.Errorf("policy = %+v", got)
+	}
+}
+
+func TestTrustedKeysRoundTrip(t *testing.T) {
+	s := New(t.TempDir())
+	if keys, _ := s.TrustedKeys("acme"); keys != nil {
+		t.Fatal("unconfigured org must report no keys")
+	}
+	want := []controlplane.TrustedKey{{Key: "AAAA==", Name: "alice"}, {Key: "BBBB=="}}
+	if err := s.PutTrustedKeys("acme", want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := New(s.dir).TrustedKeys("acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Name != "alice" || got[1].Key != "BBBB==" {
+		t.Errorf("keys = %+v", got)
+	}
+}
+
+func TestPolicyAndSnapshotsCoexist(t *testing.T) {
+	// An owner literally named "policy" must not collide with policy.json.
+	s := New(t.TempDir())
+	s.PutPolicy("acme", policy.Policy{RequireApproval: true})
+	s.PutSnapshot("acme", fleet.Snapshot{Owner: "policy", Artifacts: []fleet.Artifact{{ID: "x"}}})
+	if _, ok, _ := s.Policy("acme"); !ok {
+		t.Error("policy must survive a snapshot owned by 'policy'")
+	}
+	got, _ := s.Snapshots("acme")
+	if len(got) != 1 || got[0].Owner != "policy" {
+		t.Errorf("snapshot owned by 'policy' must coexist with policy.json: %+v", got)
 	}
 }

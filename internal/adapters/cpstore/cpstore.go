@@ -1,9 +1,10 @@
-// Package cpstore is a file-backed store for the control-plane server: one JSON
-// snapshot per owner under <dir>/<org>/<owner>.json. It is the zero-dependency
-// default persistence for a self-hosted `assay serve`, in the same spirit as the
-// rest of assay's "files are the backend" storage. It structurally satisfies
-// controlplane.Store; a Postgres adapter can replace it for scale without
-// touching the service or handlers.
+// Package cpstore is a file-backed store for the control-plane server. Per org
+// (<dir>/<org>/): one snapshot per owner under snapshots/<owner>.json, plus the
+// admin-set policy.json and trustedkeys.json. It is the zero-dependency default
+// persistence for a self-hosted `assay serve`, in the same spirit as the rest
+// of assay's "files are the backend" storage. It structurally satisfies both
+// controlplane.Store and controlplane.Config; a Postgres adapter can replace it
+// for scale without touching the service or handlers.
 package cpstore
 
 import (
@@ -13,7 +14,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/alexverify/assay/internal/controlplane"
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
+)
+
+const (
+	snapshotsSubdir = "snapshots"
+	policyFile      = "policy.json"
+	keysFile        = "trustedkeys.json"
 )
 
 // Store roots a file store at a directory.
@@ -25,23 +34,23 @@ func New(dir string) *Store { return &Store{dir: dir} }
 // PutSnapshot writes (or replaces) one owner's snapshot under an org. The owner
 // and org are sanitized into safe path segments so neither can escape the store.
 func (s *Store) PutSnapshot(org string, snap fleet.Snapshot) error {
-	orgDir := filepath.Join(s.dir, safeName(org))
-	if err := os.MkdirAll(orgDir, 0o755); err != nil {
+	snapDir := filepath.Join(s.dir, safeName(org), snapshotsSubdir)
+	if err := os.MkdirAll(snapDir, 0o755); err != nil {
 		return err
 	}
 	b, err := json.MarshalIndent(snap, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(orgDir, safeName(snap.Owner)+".json"), append(b, '\n'), 0o644)
+	return os.WriteFile(filepath.Join(snapDir, safeName(snap.Owner)+".json"), append(b, '\n'), 0o644)
 }
 
 // Snapshots returns every owner's snapshot for an org, sorted by file name. A
 // missing org directory yields no snapshots and no error; a corrupt or
 // ownerless file is skipped so one bad submission never hides the rest.
 func (s *Store) Snapshots(org string) ([]fleet.Snapshot, error) {
-	orgDir := filepath.Join(s.dir, safeName(org))
-	entries, err := os.ReadDir(orgDir)
+	snapDir := filepath.Join(s.dir, safeName(org), snapshotsSubdir)
+	entries, err := os.ReadDir(snapDir)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -59,7 +68,7 @@ func (s *Store) Snapshots(org string) ([]fleet.Snapshot, error) {
 
 	var out []fleet.Snapshot
 	for _, name := range names {
-		b, err := os.ReadFile(filepath.Join(orgDir, name))
+		b, err := os.ReadFile(filepath.Join(snapDir, name))
 		if err != nil {
 			return nil, err
 		}
@@ -70,6 +79,65 @@ func (s *Store) Snapshots(org string) ([]fleet.Snapshot, error) {
 		out = append(out, snap)
 	}
 	return out, nil
+}
+
+// PutPolicy writes an org's policy (the admin-set config the CLI pulls).
+func (s *Store) PutPolicy(org string, p policy.Policy) error {
+	orgDir := filepath.Join(s.dir, safeName(org))
+	if err := os.MkdirAll(orgDir, 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(orgDir, policyFile), append(b, '\n'), 0o644)
+}
+
+// Policy returns the org's configured policy. A missing file means "not
+// configured" (ok=false), so the CLI keeps its local policy.
+func (s *Store) Policy(org string) (policy.Policy, bool, error) {
+	b, err := os.ReadFile(filepath.Join(s.dir, safeName(org), policyFile))
+	if os.IsNotExist(err) {
+		return policy.Policy{}, false, nil
+	}
+	if err != nil {
+		return policy.Policy{}, false, err
+	}
+	var p policy.Policy
+	if err := json.Unmarshal(b, &p); err != nil {
+		return policy.Policy{}, false, err
+	}
+	return p, true, nil
+}
+
+// PutTrustedKeys writes an org's trusted signing keys.
+func (s *Store) PutTrustedKeys(org string, keys []controlplane.TrustedKey) error {
+	orgDir := filepath.Join(s.dir, safeName(org))
+	if err := os.MkdirAll(orgDir, 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(keys, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(orgDir, keysFile), append(b, '\n'), 0o644)
+}
+
+// TrustedKeys returns the org's trusted signing keys (nil when unconfigured).
+func (s *Store) TrustedKeys(org string) ([]controlplane.TrustedKey, error) {
+	b, err := os.ReadFile(filepath.Join(s.dir, safeName(org), keysFile))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var keys []controlplane.TrustedKey
+	if err := json.Unmarshal(b, &keys); err != nil {
+		return nil, err
+	}
+	return keys, nil
 }
 
 // safeName reduces a label to a filesystem-safe slug so it cannot escape the
