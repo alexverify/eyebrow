@@ -80,6 +80,24 @@ func (s *Service) TrustedKeys(org string) ([]TrustedKey, error) {
 	return s.config.TrustedKeys(org)
 }
 
+// Conformance evaluates every machine in the org against the org's policy
+// (Phase G3), the rollup the dashboard's Fleet tab shows. Like Gate it uses the
+// default policy when none is configured.
+func (s *Service) Conformance(org string) (fleet.Conformance, error) {
+	snaps, err := s.store.Snapshots(org)
+	if err != nil {
+		return fleet.Conformance{}, err
+	}
+	pol, ok, err := s.Policy(org)
+	if err != nil {
+		return fleet.Conformance{}, err
+	}
+	if !ok {
+		pol = policy.Default()
+	}
+	return fleet.CheckConformance(pol, snaps), nil
+}
+
 // Alerts derives the org's team-level alerts (Phase 4d) from its aggregated
 // fleet and ingested audit events — drift, quarantine, blocked egress, denied
 // tool calls — most urgent first.

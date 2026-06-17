@@ -26,6 +26,7 @@ func NewServer(svc *Service, auth Auth) http.Handler {
 	mux.HandleFunc("POST /v1/audit", h.ingestAudit)
 	mux.HandleFunc("POST /v1/reputation", h.reputation)
 	mux.HandleFunc("GET /v1/fleet", h.fleet)
+	mux.HandleFunc("GET /v1/conformance", h.conformance)
 	mux.HandleFunc("GET /v1/alerts", h.alerts)
 	mux.HandleFunc("GET /v1/gate", h.gate)
 	mux.HandleFunc("GET /v1/policy", h.policy)
@@ -86,6 +87,19 @@ func (h *handler) ingestAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) conformance(w http.ResponseWriter, r *http.Request) {
+	org, ok := h.org(w, r)
+	if !ok {
+		return
+	}
+	con, err := h.svc.Conformance(org)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, con)
 }
 
 func (h *handler) alerts(w http.ResponseWriter, r *http.Request) {

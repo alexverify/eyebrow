@@ -119,6 +119,25 @@ func TestClientIngestAuditThenAlerts(t *testing.T) {
 	}
 }
 
+func TestClientConformance(t *testing.T) {
+	cfg := controlplane.NewMemConfig()
+	cfg.SetPolicy("acme", policy.Policy{BlockPublishers: []string{"evil.example"}})
+	store := controlplane.NewMemStore()
+	store.PutSnapshot("acme", fleet.Snapshot{Owner: "bob", Artifacts: []fleet.Artifact{
+		{ID: "bad", Name: "feed", Source: "evil.example/f", Drift: "verified", Verdict: "trusted"}}})
+	srv := httptest.NewServer(controlplane.NewServer(
+		controlplane.NewService(store, cfg), controlplane.StaticAuth{"tok": "acme"}))
+	t.Cleanup(srv.Close)
+
+	con, err := client.New(srv.URL, "tok").Conformance(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if con.Owners != 1 || con.Compliant != 0 {
+		t.Errorf("conformance = %+v", con)
+	}
+}
+
 func TestClientReputationLookup(t *testing.T) {
 	cfg := controlplane.NewMemConfig()
 	cfg.SetReputation("acme", reputation.Source{

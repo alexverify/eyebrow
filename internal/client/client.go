@@ -81,6 +81,28 @@ func (c *Client) Fleet(ctx context.Context) (fleet.Report, error) {
 	return rep, nil
 }
 
+// Conformance reads the org's per-machine policy-conformance rollup (the Fleet
+// tab's conformance panel, computed server-side over the org policy).
+func (c *Client) Conformance(ctx context.Context) (fleet.Conformance, error) {
+	req, err := c.request(ctx, http.MethodGet, "/v1/conformance", nil)
+	if err != nil {
+		return fleet.Conformance{}, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fleet.Conformance{}, err
+	}
+	defer resp.Body.Close()
+	if err := expect(resp, http.StatusOK); err != nil {
+		return fleet.Conformance{}, err
+	}
+	var con fleet.Conformance
+	if err := json.NewDecoder(resp.Body).Decode(&con); err != nil {
+		return fleet.Conformance{}, err
+	}
+	return con, nil
+}
+
 // IngestAudit uploads a batch of local audit events to the org's log. The
 // events are content-free by construction (arguments digested, secrets redacted
 // at the shim). An empty batch is a no-op.

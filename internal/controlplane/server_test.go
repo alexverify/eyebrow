@@ -150,6 +150,27 @@ func TestGateEndpoint(t *testing.T) {
 	}
 }
 
+func TestConformanceEndpoint(t *testing.T) {
+	cfg := NewMemConfig()
+	cfg.SetPolicy("acme", policy.Policy{BlockPublishers: []string{"evil.example"}})
+	store := NewMemStore()
+	store.PutSnapshot("acme", fleet.Snapshot{Owner: "alice", Artifacts: []fleet.Artifact{
+		{ID: "ok", Name: "linter", Source: "github.com/x", Drift: "verified", Verdict: "trusted"}}})
+	store.PutSnapshot("acme", fleet.Snapshot{Owner: "bob", Artifacts: []fleet.Artifact{
+		{ID: "bad", Name: "feed", Source: "evil.example/f", Drift: "verified", Verdict: "trusted"}}})
+	h := NewServer(NewService(store, cfg), StaticAuth{"tok-acme": "acme"})
+
+	rec := do(t, h, "GET", "/v1/conformance", "tok-acme", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("conformance = %d", rec.Code)
+	}
+	var con fleet.Conformance
+	json.Unmarshal(rec.Body.Bytes(), &con)
+	if con.Owners != 2 || con.Compliant != 1 {
+		t.Errorf("conformance = %+v", con)
+	}
+}
+
 func TestAuditIngestThenAlerts(t *testing.T) {
 	h := NewServer(NewService(seededStore(), nil), StaticAuth{"tok-acme": "acme"})
 	// Ingest a denied egress event.
