@@ -8,6 +8,7 @@ import (
 	"github.com/alexverify/assay/internal/client"
 	"github.com/alexverify/assay/internal/controlplane"
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // liveServer spins up the real control-plane handler so the client is tested
@@ -60,5 +61,41 @@ func TestHealth(t *testing.T) {
 	srv, tok := liveServer(t)
 	if err := client.New(srv.URL, tok).Health(context.Background()); err != nil {
 		t.Errorf("health: %v", err)
+	}
+}
+
+func TestClientPullsPolicyAndKeys(t *testing.T) {
+	cfg := controlplane.NewMemConfig()
+	cfg.SetPolicy("acme", policy.Policy{RequireApproval: true, Fleet: policy.FleetPolicy{MaxBlastRadius: 4}})
+	cfg.SetTrustedKeys("acme", []controlplane.TrustedKey{{Key: "AAAA==", Name: "alice"}})
+	srv := httptest.NewServer(controlplane.NewServer(
+		controlplane.NewService(controlplane.NewMemStore(), cfg),
+		controlplane.StaticAuth{"tok": "acme"},
+	))
+	t.Cleanup(srv.Close)
+	c := client.New(srv.URL, "tok")
+
+	p, ok, err := c.Policy(context.Background())
+	if err != nil || !ok {
+		t.Fatalf("policy pull: ok=%v err=%v", ok, err)
+	}
+	if !p.RequireApproval || p.Fleet.MaxBlastRadius != 4 {
+		t.Errorf("policy = %+v", p)
+	}
+	keys, err := c.TrustedKeys(context.Background())
+	if err != nil || len(keys) != 1 || keys[0].Name != "alice" {
+		t.Errorf("keys = %+v, err=%v", keys, err)
+	}
+}
+
+func TestClientPolicyNotConfiguredFallsBack(t *testing.T) {
+	// Server with no config → 404 → ok=false, no error (caller stays local).
+	srv, tok := liveServer(t)
+	_, ok, err := client.New(srv.URL, tok).Policy(context.Background())
+	if err != nil {
+		t.Fatalf("a missing policy must not error: %v", err)
+	}
+	if ok {
+		t.Error("unconfigured policy should report ok=false")
 	}
 }

@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexverify/assay/internal/controlplane"
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 // Client talks to a control-plane server. A zero base disables it; callers
@@ -74,6 +76,51 @@ func (c *Client) Fleet(ctx context.Context) (fleet.Report, error) {
 		return fleet.Report{}, err
 	}
 	return rep, nil
+}
+
+// Policy pulls the org's configured policy. ok is false when the server has no
+// policy for the org (HTTP 404) — the caller then keeps its local policy.
+func (c *Client) Policy(ctx context.Context) (pol policy.Policy, ok bool, err error) {
+	req, err := c.request(ctx, http.MethodGet, "/v1/policy", nil)
+	if err != nil {
+		return policy.Policy{}, false, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return policy.Policy{}, false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return policy.Policy{}, false, nil
+	}
+	if err := expect(resp, http.StatusOK); err != nil {
+		return policy.Policy{}, false, err
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pol); err != nil {
+		return policy.Policy{}, false, err
+	}
+	return pol, true, nil
+}
+
+// TrustedKeys pulls the org's trusted signing keys (possibly empty).
+func (c *Client) TrustedKeys(ctx context.Context) ([]controlplane.TrustedKey, error) {
+	req, err := c.request(ctx, http.MethodGet, "/v1/registry/keys", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := expect(resp, http.StatusOK); err != nil {
+		return nil, err
+	}
+	var keys []controlplane.TrustedKey
+	if err := json.NewDecoder(resp.Body).Decode(&keys); err != nil {
+		return nil, err
+	}
+	return keys, nil
 }
 
 // Health checks the server is reachable and serving.

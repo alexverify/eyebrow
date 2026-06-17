@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/assay/internal/domain/policy"
 )
 
 func testHandler() http.Handler {
@@ -100,5 +101,44 @@ func TestHealthz(t *testing.T) {
 	h := testHandler()
 	if rec := do(t, h, "GET", "/v1/healthz", "", nil); rec.Code != http.StatusOK {
 		t.Errorf("healthz = %d", rec.Code)
+	}
+}
+
+func TestPolicyServedWhenConfigured(t *testing.T) {
+	cfg := NewMemConfig()
+	cfg.SetPolicy("acme", policy.Policy{RequireApproval: true, Fleet: policy.FleetPolicy{MaxBlastRadius: 2}})
+	cfg.SetTrustedKeys("acme", []TrustedKey{{Key: "AAAA==", Name: "alice"}})
+	h := NewServer(NewService(NewMemStore(), cfg), StaticAuth{"tok-acme": "acme", "tok-globex": "globex"})
+
+	rec := do(t, h, "GET", "/v1/policy", "tok-acme", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("policy = %d", rec.Code)
+	}
+	var p policy.Policy
+	json.Unmarshal(rec.Body.Bytes(), &p)
+	if !p.RequireApproval || p.Fleet.MaxBlastRadius != 2 {
+		t.Errorf("policy = %+v", p)
+	}
+
+	// An org with no configured policy → 404 (CLI falls back to local).
+	if rec := do(t, h, "GET", "/v1/policy", "tok-globex", nil); rec.Code != http.StatusNotFound {
+		t.Errorf("unconfigured org policy = %d, want 404", rec.Code)
+	}
+
+	rec = do(t, h, "GET", "/v1/registry/keys", "tok-acme", nil)
+	var keys []TrustedKey
+	json.Unmarshal(rec.Body.Bytes(), &keys)
+	if len(keys) != 1 || keys[0].Name != "alice" {
+		t.Errorf("keys = %+v", keys)
+	}
+}
+
+func TestPolicyAndKeysRequireAuth(t *testing.T) {
+	h := testHandler()
+	if rec := do(t, h, "GET", "/v1/policy", "", nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("policy without token = %d, want 401", rec.Code)
+	}
+	if rec := do(t, h, "GET", "/v1/registry/keys", "bad", nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("keys with bad token = %d, want 401", rec.Code)
 	}
 }

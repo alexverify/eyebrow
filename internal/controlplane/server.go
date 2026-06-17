@@ -21,6 +21,8 @@ func NewServer(svc *Service, auth Auth) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/snapshots", h.submit)
 	mux.HandleFunc("GET /v1/fleet", h.fleet)
+	mux.HandleFunc("GET /v1/policy", h.policy)
+	mux.HandleFunc("GET /v1/registry/keys", h.keys)
 	mux.HandleFunc("GET /v1/healthz", h.health)
 	return mux
 }
@@ -73,6 +75,40 @@ func (h *handler) fleet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, rep)
+}
+
+func (h *handler) policy(w http.ResponseWriter, r *http.Request) {
+	org, ok := h.org(w, r)
+	if !ok {
+		return
+	}
+	p, configured, err := h.svc.Policy(org)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if !configured {
+		// No org policy: 404 tells the CLI to keep its local policy.
+		http.Error(w, "no policy configured", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, p)
+}
+
+func (h *handler) keys(w http.ResponseWriter, r *http.Request) {
+	org, ok := h.org(w, r)
+	if !ok {
+		return
+	}
+	keys, err := h.svc.TrustedKeys(org)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if keys == nil {
+		keys = []TrustedKey{}
+	}
+	writeJSON(w, keys)
 }
 
 func (h *handler) health(w http.ResponseWriter, _ *http.Request) {
