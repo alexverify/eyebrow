@@ -3,6 +3,7 @@ package controlplane
 import (
 	"testing"
 
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -109,6 +110,34 @@ func TestGateOverSubmittedSnapshots(t *testing.T) {
 	}
 	if len(res.BlastBreaches) != 1 || res.BlastBreaches[0].Name != "feed" {
 		t.Errorf("breaches = %+v", res.BlastBreaches)
+	}
+}
+
+func TestIngestAuditAccumulates(t *testing.T) {
+	store := NewMemStore()
+	svc := NewService(store, nil)
+	if err := svc.IngestAudit("acme", []audit.Event{
+		{Server: "github", Kind: audit.KindToolCall, Status: audit.StatusOK},
+		{Server: "db", Kind: audit.KindEgress, Host: "evil.example", Status: audit.StatusDenied},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.IngestAudit("acme", []audit.Event{{Server: "github", Kind: audit.KindToolCall, Status: audit.StatusOK}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := store.AuditEvents("acme")
+	if len(got) != 3 {
+		t.Errorf("expected 3 accumulated events, got %d", len(got))
+	}
+}
+
+func TestIngestAuditRejectsMissingOrgAndEmptyBatch(t *testing.T) {
+	svc := NewService(NewMemStore(), nil)
+	if err := svc.IngestAudit("", []audit.Event{{Server: "x", Kind: audit.KindToolCall}}); err == nil {
+		t.Error("missing org must be rejected")
+	}
+	if err := svc.IngestAudit("acme", nil); err != nil {
+		t.Errorf("an empty batch should be a harmless no-op, got %v", err)
 	}
 }
 

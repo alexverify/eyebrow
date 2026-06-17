@@ -8,6 +8,7 @@
 package cpstore
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/alexverify/assay/internal/controlplane"
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -23,6 +25,7 @@ const (
 	snapshotsSubdir = "snapshots"
 	policyFile      = "policy.json"
 	keysFile        = "trustedkeys.json"
+	auditFile       = "audit.jsonl"
 )
 
 // Store roots a file store at a directory.
@@ -79,6 +82,61 @@ func (s *Store) Snapshots(org string) ([]fleet.Snapshot, error) {
 		out = append(out, snap)
 	}
 	return out, nil
+}
+
+// AppendAudit appends ingested audit events to the org's JSONL log, one event
+// per line (matching the local audit-log format).
+func (s *Store) AppendAudit(org string, events []audit.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	orgDir := filepath.Join(s.dir, safeName(org))
+	if err := os.MkdirAll(orgDir, 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(orgDir, auditFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	for _, e := range events {
+		line, err := json.Marshal(e)
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(append(line, '\n')); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AuditEvents reads back the org's ingested audit events. A missing log yields
+// none; a corrupt line is skipped so one bad event never hides the rest.
+func (s *Store) AuditEvents(org string) ([]audit.Event, error) {
+	f, err := os.Open(filepath.Join(s.dir, safeName(org), auditFile))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var out []audit.Event
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var e audit.Event
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, sc.Err()
 }
 
 // PutPolicy writes an org's policy (the admin-set config the CLI pulls).

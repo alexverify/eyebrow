@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -35,6 +36,19 @@ func (s *Service) Submit(org string, snap fleet.Snapshot) error {
 		return ErrInvalidSnapshot
 	}
 	return s.store.PutSnapshot(org, snap)
+}
+
+// IngestAudit appends a batch of audit events to the org's log. The events are
+// content-free by construction (arguments are digested, secrets redacted at the
+// shim); IngestAudit only checks the org is attributable and drops empty batches.
+func (s *Service) IngestAudit(org string, events []audit.Event) error {
+	if strings.TrimSpace(org) == "" {
+		return ErrInvalidSnapshot
+	}
+	if len(events) == 0 {
+		return nil
+	}
+	return s.store.AppendAudit(org, events)
 }
 
 // Fleet aggregates an org's stored snapshots into the blast-radius report, the

@@ -16,27 +16,49 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 )
 
-// Store persists each org's fleet snapshots, one per owner (a re-submission
-// replaces that owner's prior snapshot, so the view reflects the current fleet,
-// mirroring the offline latest-per-owner rule).
+// Store persists each org's fleet snapshots (one per owner; a re-submission
+// replaces that owner's prior snapshot, mirroring the offline latest-per-owner
+// rule) and the org's ingested audit events (append-only).
 type Store interface {
 	PutSnapshot(org string, snap fleet.Snapshot) error
 	Snapshots(org string) ([]fleet.Snapshot, error)
+	AppendAudit(org string, events []audit.Event) error
+	AuditEvents(org string) ([]audit.Event, error)
 }
 
-// MemStore is an in-memory Store keyed by org then owner. Safe for concurrent
-// use. Used by tests and an ephemeral server; it loses data on restart.
+// MemStore is an in-memory Store keyed by org. Safe for concurrent use. Used by
+// tests and an ephemeral server; it loses data on restart.
 type MemStore struct {
 	mu    sync.Mutex
 	byOrg map[string]map[string]fleet.Snapshot
+	audit map[string][]audit.Event
 }
 
 // NewMemStore returns an empty in-memory store.
 func NewMemStore() *MemStore {
-	return &MemStore{byOrg: map[string]map[string]fleet.Snapshot{}}
+	return &MemStore{
+		byOrg: map[string]map[string]fleet.Snapshot{},
+		audit: map[string][]audit.Event{},
+	}
+}
+
+// AppendAudit appends ingested audit events to an org's log.
+func (m *MemStore) AppendAudit(org string, events []audit.Event) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.audit[org] = append(m.audit[org], events...)
+	return nil
+}
+
+// AuditEvents returns an org's ingested audit events.
+func (m *MemStore) AuditEvents(org string) ([]audit.Event, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]audit.Event(nil), m.audit[org]...), nil
 }
 
 // PutSnapshot stores (or replaces) one owner's snapshot under an org.

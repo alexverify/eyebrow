@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/alexverify/assay/internal/controlplane"
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -74,6 +75,31 @@ func TestOwnerCannotEscapeDir(t *testing.T) {
 	matches, err := filepath.Glob(filepath.Join(dir, "acme", "snapshots", "*.json"))
 	if err != nil || len(matches) != 1 {
 		t.Fatalf("sanitized snapshot should live in the org snapshots dir: %v %v", matches, err)
+	}
+}
+
+func TestAuditAppendAndRead(t *testing.T) {
+	dir := t.TempDir()
+	s := New(dir)
+	if got, _ := s.AuditEvents("acme"); got != nil {
+		t.Fatal("no audit yet should be nil")
+	}
+	if err := s.AppendAudit("acme", []audit.Event{
+		{Server: "github", Kind: audit.KindToolCall, Status: audit.StatusOK},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AppendAudit("acme", []audit.Event{
+		{Server: "db", Kind: audit.KindEgress, Host: "evil.example", Status: audit.StatusDenied},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := New(dir).AuditEvents("acme") // fresh instance: persisted across restart
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Server != "github" || got[1].Host != "evil.example" {
+		t.Errorf("audit round-trip = %+v", got)
 	}
 }
 
