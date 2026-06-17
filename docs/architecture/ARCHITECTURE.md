@@ -254,11 +254,16 @@ exact pure functions the local dashboard uses.
 - **`internal/controlplane`** — the server: a `Service` (`Submit`/`Fleet`/
   `Policy`/`TrustedKeys`) over two ports — a mutable `Store` (per-machine
   snapshots) and a read-mostly `Config` (admin-set org policy + trusted keys) —
-  an HTTP handler (`POST /v1/snapshots`, `GET /v1/fleet`, `GET /v1/gate`,
-  `GET /v1/policy`, `GET /v1/registry/keys`, `/v1/healthz`), and machine
-  bearer-token auth scoping every request to one org. `Fleet` is just
-  `fleet.Aggregate` and `Gate` is `fleet.Gate` over the org's snapshots, so a
-  hosted report and CI gate are byte-identical to the local ones.
+  an HTTP handler (`POST /v1/snapshots`, `POST /v1/audit`, `GET /v1/fleet`,
+  `GET /v1/gate`, `GET /v1/alerts`, `GET /v1/policy`, `GET /v1/registry/keys`,
+  `/v1/healthz`), and machine bearer-token auth scoping every request to one org.
+  `Fleet` is `fleet.Aggregate`, `Gate` is `fleet.Gate`, and `Alerts` is
+  `alert.Derive` over the org's snapshots and ingested audit — so the hosted
+  report, CI gate, and alerts are byte-identical to the local computation.
+- **`internal/domain/alert`** — pure derivation of team alerts (drift,
+  quarantine, blocked egress, denied tool calls) from a fleet report + audit
+  events; content-free snapshots carry no findings, so it alerts on what it can
+  prove and names the gap rather than faking finding-level alerts.
 - **`internal/adapters/cpstore`** — the zero-dependency default persistence,
   satisfying both ports: snapshots under `<dir>/<org>/snapshots/<owner>.json`,
   the admin config as `<dir>/<org>/policy.json` and `trustedkeys.json`. A Postgres
@@ -266,13 +271,15 @@ exact pure functions the local dashboard uses.
 - **`internal/client`** — the opt-in CLI client (`Submit`/`Fleet`/`Policy`/
   `TrustedKeys`/`Health`); any error is the caller's signal to fall back to the
   local path, and a 404 on policy means "keep the local policy."
-- CLI: `assay serve` runs the server; `assay fleet push` submits this machine's
-  snapshot; `assay fleet --server …` reads the org report; `verify` pulls the org
-  policy and trusted keys (server-preferred, local fallback); `assay fleet verify
-  --server …` gates the fleet on the server over submitted snapshots.
+- CLI: `assay serve` runs the server; `assay fleet push` / `assay audit push`
+  submit this machine's snapshot and audit events; `assay fleet --server …` reads
+  the org report and `assay alerts` its alerts; `verify` pulls the org policy and
+  trusted keys (server-preferred, local fallback); `assay fleet verify --server …`
+  gates the fleet on the server over submitted snapshots.
 
-Remaining slices (still seams): audit/usage ingest + alerts, the web dashboard on
-hosted data, and the live hash-only reputation lookup (H3b). **`packaging/`** — release tooling beyond GoReleaser — is also
+What leaves a machine, and only on opt-in, is specified in
+[`docs/privacy.md`](../privacy.md). Remaining slices (still seams): the web
+dashboard on hosted data, and the live hash-only reputation lookup (H3b). **`packaging/`** — release tooling beyond GoReleaser — is also
 still a seam. See each directory's `README.md` / `doc.go`.
 
 ## Design principles

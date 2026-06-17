@@ -389,8 +389,24 @@ assay fleet verify --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # one CI jo
 
 Without a server, `fleet verify` still gates the local `.assay/fleet` directory.
 Either way the gate is the same pure `fleet.Gate`, so a CI failure matches what a
-teammate sees in `assay fleet`. Audit ingest, a hosted dashboard, and live
-reputation lookup are the remaining (designed) slices.
+teammate sees in `assay fleet`.
+
+**Audit ingest and team alerts.** Each machine can upload its runtime audit log,
+and anyone can read the org's derived alerts:
+
+```sh
+assay audit push --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # upload this machine's events
+assay alerts     --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # drift / quarantine / blocked egress / denied tools
+```
+
+Alerts are derived server-side from the aggregated fleet (drifted or quarantined
+artifacts, and on how many machines) and the ingested audit (blocked egress
+hosts, denied tool calls). The audit events are **content-free** — tool/server
+names, egress hostnames, timings, statuses, and argument *digests*, never raw
+arguments or secrets. `audit push` reveals which tools ran and which hosts they
+reached, so it is strictly opt-in; see **[docs/privacy.md](privacy.md)** for the
+full contract of what leaves a machine. A hosted dashboard and live reputation
+lookup are the remaining (designed) slices.
 
 ## Exit codes (stable contract)
 

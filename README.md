@@ -67,6 +67,8 @@ make build            # builds ./bin/assay (zero external dependencies)
 ./bin/assay fleet verify  # CI gate: exit 1 if any machine is out of policy
 ./bin/assay serve         # run the self-hostable team control plane (opt-in)
 ./bin/assay fleet push    # submit this machine's snapshot to a control plane (--server)
+./bin/assay audit push    # upload this machine's audit events (--server)
+./bin/assay alerts        # team alerts: drift, quarantine, blocked egress (--server)
 ```
 
 Exit codes (stable for CI): `0` clean · `1` drift / findings over threshold ·
@@ -178,7 +180,7 @@ Requires Go 1.25+. See [CONTRIBUTING.md](CONTRIBUTING.md).
 |---|---|---|
 | 1 — `scan`/`verify`/lockfile | Read-only inventory, hashing, analysis, drift, signing/trust, CI Action | **implemented** (Claude Code, Cursor, Gemini, OpenCode, Codex, Windsurf, Copilot CLI) |
 | 2 — `wrap` | MCP interposition supervisor, OS sandbox, egress proxy + redaction | **implemented** — shim with audit log, live tool policy, egress proxy + secret redaction, OS sandbox (Seatbelt/bwrap) |
-| 3 — control plane | Policy API, audit log, approval workflow, dashboard | **in progress** — local dashboard (embedded Next.js UI, `assay dashboard`) shipped: trust verdicts, capability & file-manifest drift diff (with line-level diffs when a baseline is captured), usage telemetry (MCP tool calls + skill/subagent activation hooks) + dormant-then-active detection, per-artifact timeline, reachability-aware findings, fleet blast-radius / inventory heatmap / policy conformance with an enforced CI gate (`assay fleet` / `fleet verify`), and an opt-in hash-only reputation signal; a self-hostable team server (`assay serve` + `fleet push`) ingests snapshots and serves the same aggregated blast-radius, org policy / trusted-keys pull, and a hosted CI gate (`fleet verify --server`) — slices 4a–4c; remaining hosted slices (audit ingest, hosted dashboard) designed |
+| 3 — control plane | Policy API, audit log, approval workflow, dashboard | **in progress** — local dashboard (embedded Next.js UI, `assay dashboard`) shipped: trust verdicts, capability & file-manifest drift diff (with line-level diffs when a baseline is captured), usage telemetry (MCP tool calls + skill/subagent activation hooks) + dormant-then-active detection, per-artifact timeline, reachability-aware findings, fleet blast-radius / inventory heatmap / policy conformance with an enforced CI gate (`assay fleet` / `fleet verify`), and an opt-in hash-only reputation signal; a self-hostable team server (`assay serve`) ingests snapshots and audit events, serves the same aggregated blast-radius, org policy / trusted-keys pull, a hosted CI gate (`fleet verify --server`), and team alerts (`assay alerts`) — slices 4a–4d; remaining hosted slices (hosted dashboard, live reputation) designed. What leaves a machine is specified in [docs/privacy.md](docs/privacy.md) |
 
 ## License
 
