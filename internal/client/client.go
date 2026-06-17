@@ -78,6 +78,28 @@ func (c *Client) Fleet(ctx context.Context) (fleet.Report, error) {
 	return rep, nil
 }
 
+// Gate runs the fleet CI gate server-side over the org's submitted snapshots and
+// returns the result. The caller maps !OK to a non-zero exit.
+func (c *Client) Gate(ctx context.Context) (fleet.GateResult, error) {
+	req, err := c.request(ctx, http.MethodGet, "/v1/gate", nil)
+	if err != nil {
+		return fleet.GateResult{}, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fleet.GateResult{}, err
+	}
+	defer resp.Body.Close()
+	if err := expect(resp, http.StatusOK); err != nil {
+		return fleet.GateResult{}, err
+	}
+	var res fleet.GateResult
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fleet.GateResult{}, err
+	}
+	return res, nil
+}
+
 // Policy pulls the org's configured policy. ok is false when the server has no
 // policy for the org (HTTP 404) — the caller then keeps its local policy.
 func (c *Client) Policy(ctx context.Context) (pol policy.Policy, ok bool, err error) {

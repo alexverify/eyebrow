@@ -10,6 +10,7 @@ import (
 
 	"github.com/alexverify/assay/internal/cli"
 	"github.com/alexverify/assay/internal/controlplane"
+	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
 
@@ -67,35 +68,43 @@ func TestServeRequiresTokens(t *testing.T) {
 	}
 }
 
-func TestFleetVerifyPullsServerPolicy(t *testing.T) {
-	// The server holds a strict blast-radius policy; a local fleet dir with a
-	// drift on two machines must fail the gate when verify pulls that policy,
-	// even though no local policy file exists.
+func TestFleetVerifyRemoteGate(t *testing.T) {
+	// Two machines pushed a drift of the same artifact; the org policy caps the
+	// blast radius at 1. `fleet verify --server` gates the fleet on the server
+	// (no local snapshot dir) and must fail.
+	store := controlplane.NewMemStore()
+	for _, h := range []struct{ owner, hash string }{{"alice", "h1"}, {"bob", "h2"}} {
+		store.PutSnapshot("acme", fleet.Snapshot{Owner: h.owner, Artifacts: []fleet.Artifact{
+			{ID: "x", Name: "feed", Kind: "skill", Hash: h.hash, Drift: "drifted", Verdict: "review"},
+		}})
+	}
 	cfg := controlplane.NewMemConfig()
 	cfg.SetPolicy("acme", policy.Policy{Fleet: policy.FleetPolicy{MaxBlastRadius: 1}})
 	srv := httptest.NewServer(controlplane.NewServer(
-		controlplane.NewService(controlplane.NewMemStore(), cfg),
-		controlplane.StaticAuth{"tok": "acme"},
-	))
+		controlplane.NewService(store, cfg), controlplane.StaticAuth{"tok": "acme"}))
 	t.Cleanup(srv.Close)
 
-	dir := t.TempDir()
-	for _, o := range []string{"alice", "bob"} {
-		body := `{"owner":"` + o + `","artifacts":[{"id":"x","name":"feed","kind":"skill","hash":"h-` + o + `","drift":"drifted","verdict":"review"}]}`
-		if err := os.WriteFile(filepath.Join(dir, o+".json"), []byte(body), 0o600); err != nil {
-			t.Fatal(err)
-		}
+	app, out, _ := newApp()
+	code := app.Execute(context.Background(), []string{"fleet", "verify", "--server", srv.URL, "--token", "tok"})
+	if code != cli.ExitDrift {
+		t.Fatalf("remote gate should fail (1), got %d\n%s", code, out.String())
 	}
+	if !strings.Contains(out.String(), "blast radius") {
+		t.Errorf("should report the breach:\n%s", out.String())
+	}
+}
+
+func TestFleetVerifyRemoteGateClean(t *testing.T) {
+	store := controlplane.NewMemStore()
+	store.PutSnapshot("acme", fleet.Snapshot{Owner: "alice", Artifacts: []fleet.Artifact{
+		{ID: "x", Name: "feed", Hash: "h", Drift: "verified", Verdict: "trusted"}}})
+	srv := httptest.NewServer(controlplane.NewServer(
+		controlplane.NewService(store, controlplane.NewMemConfig()), controlplane.StaticAuth{"tok": "acme"}))
+	t.Cleanup(srv.Close)
 
 	app, _, _ := newApp()
-	// Point --policy at a nonexistent file so only the server policy can gate.
-	code := app.Execute(context.Background(), []string{
-		"fleet", "verify", "--dir", dir,
-		"--policy", filepath.Join(dir, "none.json"),
-		"--server", srv.URL, "--token", "tok",
-	})
-	if code != cli.ExitDrift {
-		t.Fatalf("server policy should fail the gate (1), got %d", code)
+	if code := app.Execute(context.Background(), []string{"fleet", "verify", "--server", srv.URL, "--token", "tok"}); code != cli.ExitOK {
+		t.Errorf("a clean remote fleet should pass (0), got %d", code)
 	}
 }
 
