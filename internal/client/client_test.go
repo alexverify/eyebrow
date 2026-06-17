@@ -7,6 +7,8 @@ import (
 
 	"github.com/alexverify/assay/internal/client"
 	"github.com/alexverify/assay/internal/controlplane"
+	"github.com/alexverify/assay/internal/domain/alert"
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -85,6 +87,34 @@ func TestClientPullsPolicyAndKeys(t *testing.T) {
 	keys, err := c.TrustedKeys(context.Background())
 	if err != nil || len(keys) != 1 || keys[0].Name != "alice" {
 		t.Errorf("keys = %+v, err=%v", keys, err)
+	}
+}
+
+func TestClientIngestAuditThenAlerts(t *testing.T) {
+	store := controlplane.NewMemStore()
+	store.PutSnapshot("acme", fleet.Snapshot{Owner: "alice", Artifacts: []fleet.Artifact{
+		{ID: "x", Name: "feed", Hash: "h", Drift: "drifted", Verdict: "review"}}})
+	srv := httptest.NewServer(controlplane.NewServer(
+		controlplane.NewService(store, nil), controlplane.StaticAuth{"tok": "acme"}))
+	t.Cleanup(srv.Close)
+	c := client.New(srv.URL, "tok")
+	ctx := context.Background()
+
+	if err := c.IngestAudit(ctx, []audit.Event{
+		{Kind: audit.KindEgress, Host: "evil.example", Status: audit.StatusDenied},
+	}); err != nil {
+		t.Fatalf("ingest: %v", err)
+	}
+	alerts, err := c.Alerts(ctx)
+	if err != nil {
+		t.Fatalf("alerts: %v", err)
+	}
+	var kinds []alert.Kind
+	for _, a := range alerts {
+		kinds = append(kinds, a.Kind)
+	}
+	if len(alerts) < 2 {
+		t.Errorf("expected drift + egress alerts, got %+v", kinds)
 	}
 }
 

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/alexverify/assay/internal/controlplane"
+	"github.com/alexverify/assay/internal/domain/alert"
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -76,6 +78,52 @@ func (c *Client) Fleet(ctx context.Context) (fleet.Report, error) {
 		return fleet.Report{}, err
 	}
 	return rep, nil
+}
+
+// IngestAudit uploads a batch of local audit events to the org's log. The
+// events are content-free by construction (arguments digested, secrets redacted
+// at the shim). An empty batch is a no-op.
+func (c *Client) IngestAudit(ctx context.Context, events []audit.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	body, err := json.Marshal(events)
+	if err != nil {
+		return err
+	}
+	req, err := c.request(ctx, http.MethodPost, "/v1/audit", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return expect(resp, http.StatusNoContent)
+}
+
+// Alerts reads the org's derived team alerts (drift, quarantine, blocked egress,
+// denied tool calls).
+func (c *Client) Alerts(ctx context.Context) ([]alert.Alert, error) {
+	req, err := c.request(ctx, http.MethodGet, "/v1/alerts", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := expect(resp, http.StatusOK); err != nil {
+		return nil, err
+	}
+	var alerts []alert.Alert
+	if err := json.NewDecoder(resp.Body).Decode(&alerts); err != nil {
+		return nil, err
+	}
+	return alerts, nil
 }
 
 // Gate runs the fleet CI gate server-side over the org's submitted snapshots and

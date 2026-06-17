@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/alexverify/assay/internal/domain/alert"
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
 )
@@ -145,6 +147,44 @@ func TestGateEndpoint(t *testing.T) {
 	json.Unmarshal(rec.Body.Bytes(), &res)
 	if res.OK || len(res.BlastBreaches) != 1 {
 		t.Errorf("gate result = %+v", res)
+	}
+}
+
+func TestAuditIngestThenAlerts(t *testing.T) {
+	h := NewServer(NewService(seededStore(), nil), StaticAuth{"tok-acme": "acme"})
+	// Ingest a denied egress event.
+	ev := []audit.Event{{Kind: audit.KindEgress, Host: "evil.example", Status: audit.StatusDenied}}
+	if rec := do(t, h, "POST", "/v1/audit", "tok-acme", ev); rec.Code != http.StatusNoContent {
+		t.Fatalf("ingest = %d", rec.Code)
+	}
+	rec := do(t, h, "GET", "/v1/alerts", "tok-acme", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("alerts = %d", rec.Code)
+	}
+	var alerts []alert.Alert
+	json.Unmarshal(rec.Body.Bytes(), &alerts)
+	// seededStore has a 2-machine drift → a drift alert; plus the egress alert.
+	var sawDrift, sawEgress bool
+	for _, a := range alerts {
+		switch a.Kind {
+		case alert.KindDrift:
+			sawDrift = true
+		case alert.KindEgressDenied:
+			sawEgress = true
+		}
+	}
+	if !sawDrift || !sawEgress {
+		t.Errorf("expected drift + egress alerts, got %+v", alerts)
+	}
+}
+
+func TestAuditAndAlertsRequireAuth(t *testing.T) {
+	h := testHandler()
+	if rec := do(t, h, "POST", "/v1/audit", "", []audit.Event{{Kind: audit.KindToolCall}}); rec.Code != http.StatusUnauthorized {
+		t.Errorf("ingest without token = %d, want 401", rec.Code)
+	}
+	if rec := do(t, h, "GET", "/v1/alerts", "bad", nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("alerts with bad token = %d, want 401", rec.Code)
 	}
 }
 

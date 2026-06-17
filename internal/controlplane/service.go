@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/alexverify/assay/internal/domain/alert"
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
@@ -76,6 +77,21 @@ func (s *Service) TrustedKeys(org string) ([]TrustedKey, error) {
 		return nil, nil
 	}
 	return s.config.TrustedKeys(org)
+}
+
+// Alerts derives the org's team-level alerts (Phase 4d) from its aggregated
+// fleet and ingested audit events — drift, quarantine, blocked egress, denied
+// tool calls — most urgent first.
+func (s *Service) Alerts(org string) ([]alert.Alert, error) {
+	snaps, err := s.store.Snapshots(org)
+	if err != nil {
+		return nil, err
+	}
+	events, err := s.store.AuditEvents(org)
+	if err != nil {
+		return nil, err
+	}
+	return alert.Derive(fleet.Aggregate(snaps), events), nil
 }
 
 // Gate runs the fleet CI gate (Phase 3) server-side over the org's submitted

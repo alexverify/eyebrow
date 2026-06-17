@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/alexverify/assay/internal/domain/alert"
+	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 )
 
@@ -20,7 +22,9 @@ func NewServer(svc *Service, auth Auth) http.Handler {
 	h := &handler{svc: svc, auth: auth}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/snapshots", h.submit)
+	mux.HandleFunc("POST /v1/audit", h.ingestAudit)
 	mux.HandleFunc("GET /v1/fleet", h.fleet)
+	mux.HandleFunc("GET /v1/alerts", h.alerts)
 	mux.HandleFunc("GET /v1/gate", h.gate)
 	mux.HandleFunc("GET /v1/policy", h.policy)
 	mux.HandleFunc("GET /v1/registry/keys", h.keys)
@@ -63,6 +67,39 @@ func (h *handler) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) ingestAudit(w http.ResponseWriter, r *http.Request) {
+	org, ok := h.org(w, r)
+	if !ok {
+		return
+	}
+	var events []audit.Event
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxBody)).Decode(&events); err != nil {
+		http.Error(w, "bad audit json", http.StatusBadRequest)
+		return
+	}
+	if err := h.svc.IngestAudit(org, events); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) alerts(w http.ResponseWriter, r *http.Request) {
+	org, ok := h.org(w, r)
+	if !ok {
+		return
+	}
+	alerts, err := h.svc.Alerts(org)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if alerts == nil {
+		alerts = []alert.Alert{}
+	}
+	writeJSON(w, alerts)
 }
 
 func (h *handler) fleet(w http.ResponseWriter, r *http.Request) {
