@@ -8,6 +8,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 // ErrInvalidSnapshot is returned when a submission is missing the org or owner
@@ -92,6 +93,27 @@ func (s *Service) Alerts(org string) ([]alert.Alert, error) {
 		return nil, err
 	}
 	return alert.Derive(fleet.Aggregate(snaps), events), nil
+}
+
+// Reputation looks up the requested content hashes in the org's reputation
+// corpus and returns only the matches (H3b). It returns a subset, never the
+// whole corpus, so the response reveals nothing about hashes the caller did not
+// already hold. An unconfigured org yields an empty result.
+func (s *Service) Reputation(org string, hashes []string) (reputation.Source, error) {
+	if s.config == nil {
+		return reputation.Source{}, nil
+	}
+	corpus, err := s.config.Reputation(org)
+	if err != nil {
+		return nil, err
+	}
+	out := reputation.Source{}
+	for _, h := range hashes {
+		if sig, ok := corpus.Lookup(h); ok {
+			out[strings.ToLower(h)] = sig
+		}
+	}
+	return out, nil
 }
 
 // Gate runs the fleet CI gate (Phase 3) server-side over the org's submitted

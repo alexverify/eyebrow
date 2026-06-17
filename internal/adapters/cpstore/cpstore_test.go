@@ -8,6 +8,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 // compile-time checks: the file store satisfies both control-plane ports.
@@ -136,6 +137,24 @@ func TestTrustedKeysRoundTrip(t *testing.T) {
 	}
 	if len(got) != 2 || got[0].Name != "alice" || got[1].Key != "BBBB==" {
 		t.Errorf("keys = %+v", got)
+	}
+}
+
+func TestReputationRoundTrip(t *testing.T) {
+	s := New(t.TempDir())
+	if src, _ := s.Reputation("acme"); src != nil {
+		t.Fatal("unconfigured org must report no corpus")
+	}
+	want := reputation.Source{"sha256-aaa": {Hash: "sha256-aaa", Trusters: 7}}
+	if err := s.PutReputation("acme", want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := New(s.dir).Reputation("acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sig, ok := got.Lookup("sha256-aaa"); !ok || sig.Trusters != 7 {
+		t.Errorf("reputation = %+v", got)
 	}
 }
 

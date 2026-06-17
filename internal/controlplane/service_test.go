@@ -6,6 +6,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 func snap(owner string, arts ...fleet.Artifact) fleet.Snapshot {
@@ -147,6 +148,38 @@ func TestGateCleanFleetPasses(t *testing.T) {
 	res, err := svc.Gate("acme")
 	if err != nil || !res.OK {
 		t.Errorf("a clean fleet with no policy should pass: ok=%v err=%v", res.OK, err)
+	}
+}
+
+func TestReputationLookupReturnsOnlyRequestedMatches(t *testing.T) {
+	cfg := NewMemConfig()
+	cfg.SetReputation("acme", reputation.Source{
+		"sha256-aaa": {Hash: "sha256-aaa", Trusters: 12},
+		"sha256-bbb": {Hash: "sha256-bbb", Trusters: 3},
+	})
+	svc := NewService(NewMemStore(), cfg)
+
+	got, err := svc.Reputation("acme", []string{"sha256-aaa", "sha256-zzz"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only the requested-and-present hash comes back; nothing about bbb or zzz.
+	if len(got) != 1 {
+		t.Fatalf("expected exactly the one matching hash, got %+v", got)
+	}
+	if sig, ok := got.Lookup("sha256-aaa"); !ok || sig.Trusters != 12 {
+		t.Errorf("aaa signal = %+v ok=%v", sig, ok)
+	}
+	if _, ok := got.Lookup("sha256-bbb"); ok {
+		t.Error("a hash the caller did not request must not leak back")
+	}
+}
+
+func TestReputationNilConfig(t *testing.T) {
+	svc := NewService(NewMemStore(), nil)
+	got, err := svc.Reputation("acme", []string{"sha256-aaa"})
+	if err != nil || len(got) != 0 {
+		t.Errorf("nil config should yield an empty result, got %+v err=%v", got, err)
 	}
 }
 

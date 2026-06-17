@@ -19,6 +19,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 	policyFile      = "policy.json"
 	keysFile        = "trustedkeys.json"
 	auditFile       = "audit.jsonl"
+	reputationFile  = "reputation.json"
 )
 
 // Store roots a file store at a directory.
@@ -137,6 +139,35 @@ func (s *Store) AuditEvents(org string) ([]audit.Event, error) {
 		out = append(out, e)
 	}
 	return out, sc.Err()
+}
+
+// PutReputation writes an org's reputation corpus.
+func (s *Store) PutReputation(org string, src reputation.Source) error {
+	orgDir := filepath.Join(s.dir, safeName(org))
+	if err := os.MkdirAll(orgDir, 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(src, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(orgDir, reputationFile), append(b, '\n'), 0o644)
+}
+
+// Reputation returns the org's hash-keyed reputation corpus (nil when absent).
+func (s *Store) Reputation(org string) (reputation.Source, error) {
+	b, err := os.ReadFile(filepath.Join(s.dir, safeName(org), reputationFile))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var src reputation.Source
+	if err := json.Unmarshal(b, &src); err != nil {
+		return nil, err
+	}
+	return src, nil
 }
 
 // PutPolicy writes an org's policy (the admin-set config the CLI pulls).

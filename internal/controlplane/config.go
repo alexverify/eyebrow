@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 // TrustedKey is one publisher signing key the org trusts, mirroring the local
@@ -24,6 +25,10 @@ type Config interface {
 	Policy(org string) (policy.Policy, bool, error)
 	// TrustedKeys returns the org's trusted signing keys (possibly empty).
 	TrustedKeys(org string) ([]TrustedKey, error)
+	// Reputation returns the org's hash-keyed trust corpus (the team's "we trust
+	// this exact hash" set), backing the live reputation lookup (H3b). Empty when
+	// unconfigured.
+	Reputation(org string) (reputation.Source, error)
 }
 
 // MemConfig is an in-memory Config for tests and ephemeral servers.
@@ -31,11 +36,16 @@ type MemConfig struct {
 	mu   sync.Mutex
 	pol  map[string]policy.Policy
 	keys map[string][]TrustedKey
+	rep  map[string]reputation.Source
 }
 
 // NewMemConfig returns an empty in-memory config.
 func NewMemConfig() *MemConfig {
-	return &MemConfig{pol: map[string]policy.Policy{}, keys: map[string][]TrustedKey{}}
+	return &MemConfig{
+		pol:  map[string]policy.Policy{},
+		keys: map[string][]TrustedKey{},
+		rep:  map[string]reputation.Source{},
+	}
 }
 
 // SetPolicy configures an org's policy.
@@ -65,4 +75,18 @@ func (m *MemConfig) TrustedKeys(org string) ([]TrustedKey, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.keys[org], nil
+}
+
+// SetReputation configures an org's reputation corpus.
+func (m *MemConfig) SetReputation(org string, src reputation.Source) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rep[org] = src
+}
+
+// Reputation returns the org's reputation corpus.
+func (m *MemConfig) Reputation(org string) (reputation.Source, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.rep[org], nil
 }
