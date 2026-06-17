@@ -31,6 +31,7 @@ import {
   type FleetGrid,
   type FleetCell,
   type FleetConformance,
+  type Alert,
 } from "@/lib/scan-data"
 import {
   getAllFindings,
@@ -51,7 +52,7 @@ import { StatCard } from "@/components/dashboard/stat-card"
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
 
-type TabId = "changes" | "inventory" | "findings" | "drift" | "activity" | "fleet" | "policy"
+type TabId = "changes" | "inventory" | "findings" | "drift" | "activity" | "fleet" | "alerts" | "policy"
 
 const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "changes", label: "Changes", icon: Inbox },
@@ -60,6 +61,7 @@ const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "drift", label: "Rug-pull / Drift", icon: GitCompareArrows },
   { id: "activity", label: "Activity", icon: ActivityIcon },
   { id: "fleet", label: "Fleet Blast Radius", icon: Users },
+  { id: "alerts", label: "Team Alerts", icon: AlertTriangle },
   { id: "policy", label: "Policy", icon: SlidersHorizontal },
 ]
 
@@ -265,6 +267,7 @@ export function Dashboard() {
         {tab === "findings" && <FindingsPanel findings={findings} />}
         {tab === "drift" && <DriftPanel drifted={driftedArtifacts} updated={updatedArtifacts} />}
         {tab === "fleet" && <FleetPanel live={live} />}
+        {tab === "alerts" && <AlertsPanel />}
         {tab === "policy" && <PolicyPanel live={live} />}
       </div>
 
@@ -905,6 +908,76 @@ function EgressMap({ events }: { events: ActivityEvent[] }) {
       ))}
     </div>
   )
+}
+
+// AlertsPanel shows the team-level alerts from the control plane (4d): drift,
+// quarantine, blocked egress, denied tool calls. It is populated only when the
+// dashboard runs against a control plane (`assay dashboard --server`); locally
+// it shows an explanatory empty state.
+function AlertsPanel() {
+  const [alerts, setAlerts] = useState<Alert[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/alerts")
+      .then((r) => (r.ok ? r.json() : { alerts: [] }))
+      .then((d: { alerts?: Alert[] }) => !cancelled && setAlerts(d.alerts ?? []))
+      .catch(() => !cancelled && setAlerts([]))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (alerts === null) {
+    return <p className="text-sm text-muted-foreground">Loading alerts…</p>
+  }
+  if (alerts.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-5">
+        <p className="text-sm text-muted-foreground">No team alerts.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Alerts come from a control plane. Run{" "}
+          <span className="font-mono">assay dashboard --server &lt;url&gt; --token &lt;tok&gt;</span> after machines
+          push snapshots and audit events (<span className="font-mono">assay fleet push</span>,{" "}
+          <span className="font-mono">assay audit push</span>).
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Derived from the fleet (drift, quarantine) and ingested audit (blocked egress, denied tools), most urgent
+        first.
+      </p>
+      {alerts.map((al, i) => (
+        <div
+          key={`${al.kind}-${al.subject}-${i}`}
+          className="flex items-start gap-3 rounded-md border border-border bg-card p-3"
+        >
+          <span className={cn("mt-0.5 w-16 shrink-0 text-xs font-semibold uppercase", alertColor(al.severity))}>
+            {al.severity}
+          </span>
+          <div className="min-w-0">
+            <p className="font-mono text-sm">{al.subject}</p>
+            <p className="text-xs text-muted-foreground">{al.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function alertColor(sev: Alert["severity"]): string {
+  switch (sev) {
+    case "critical":
+      return "text-sev-critical"
+    case "high":
+      return "text-sev-high"
+    default:
+      return "text-muted-foreground"
+  }
 }
 
 function FleetPanel({ live }: { live: boolean }) {

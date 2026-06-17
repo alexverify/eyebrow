@@ -291,6 +291,16 @@ export interface FleetReport {
   conformance?: FleetConformance
 }
 
+// Alert is one team-level signal from the control plane (4d): drift, quarantine,
+// a blocked egress host, or a denied tool call.
+export interface Alert {
+  kind: 'drift' | 'quarantine' | 'egress_denied' | 'tool_denied'
+  severity: 'critical' | 'high' | 'info'
+  subject: string
+  detail: string
+  count?: number
+}
+
 // Human labels for policy-conformance reasons (G3).
 export const CONFORMANCE_REASONS: Record<string, string> = {
   blocked_publisher: "blocked publisher",
