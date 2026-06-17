@@ -18,6 +18,7 @@ import (
 	"github.com/alexverify/assay/internal/domain/lockfile"
 	"github.com/alexverify/assay/internal/domain/policy"
 	"github.com/alexverify/assay/internal/domain/posture"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 func testServer(t *testing.T) *dashboard.Server {
@@ -219,6 +220,33 @@ func TestScanDegradesWithoutBlobs(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "lineDiffs") {
 		t.Errorf("without a blob store there should be no lineDiffs field:\n%s", rec.Body.String())
+	}
+}
+
+func TestScanSurfacesReputationForInventoryHashes(t *testing.T) {
+	// The Reputation dep is queried with the inventory's content hashes (the H3b
+	// live-lookup seam); its result must surface on the matching artifact.
+	inv := lockfile.Build([]artifact.Artifact{
+		{ID: "a1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "feed", ContentHash: "sha256-aaa"},
+	}, time.Unix(0, 0).UTC(), "assay/test")
+	var gotHashes []string
+	srv := dashboard.New(dashboard.Deps{
+		Inventory: func(context.Context) (lockfile.Lockfile, error) { return inv, nil },
+		Locked:    func(context.Context) (lockfile.Lockfile, error) { return inv, nil },
+		Reputation: func(hashes []string) (reputation.Source, error) {
+			gotHashes = hashes
+			return reputation.Source{"sha256-aaa": {Hash: "sha256-aaa", Trusters: 11}}, nil
+		},
+	})
+	rec := get(t, srv.Handler(), "/api/scan")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if len(gotHashes) != 1 || gotHashes[0] != "sha256-aaa" {
+		t.Errorf("reputation dep should be queried with inventory hashes, got %v", gotHashes)
+	}
+	if !strings.Contains(rec.Body.String(), "\"trusters\":11") {
+		t.Errorf("reputation should surface on the artifact:\n%s", rec.Body.String())
 	}
 }
 

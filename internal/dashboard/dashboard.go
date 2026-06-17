@@ -68,9 +68,10 @@ type Deps struct {
 	// Conformance returns the fleet's policy-compliance rollup (G3): which
 	// machines run blocked/unapproved artifacts. Optional: nil → empty.
 	Conformance func(context.Context) (fleet.Conformance, error)
-	// Reputation loads the opt-in community trust corpus (H3), keyed by content
-	// hash. Optional: when nil, no reputation signal is shown.
-	Reputation func() (reputation.Source, error)
+	// Reputation resolves the opt-in community trust corpus (H3) for a set of
+	// content hashes — from a local file or a live hash-only service (H3b).
+	// Optional: when nil, no reputation signal is shown.
+	Reputation func(hashes []string) (reputation.Source, error)
 	// Blobs returns the captured bytes (path → content) for a content hash,
 	// backing the line-level drift diff (H1b), or nil when that hash has no
 	// stored baseline. Optional: when nil, the scan view falls back to the
@@ -175,21 +176,36 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	arts := BuildScan(current, locked, s.approvedSet(locked), s.usageSummary(), s.reputationSource())
+	arts := BuildScan(current, locked, s.approvedSet(locked), s.usageSummary(), s.reputationSource(inventoryHashes(current)))
 	AttachLineDiffs(arts, s.deps.Blobs)
 	writeJSON(w, struct {
 		Artifacts []DashArtifact `json:"artifacts"`
 	}{Artifacts: arts})
 }
 
-// reputationSource loads the opt-in community reputation corpus (H3). A nil dep
-// or a load error yields an empty corpus — the signal is supplementary, so it
-// must never fail the scan view; a miss simply shows no reputation.
-func (s *Server) reputationSource() reputation.Source {
+// inventoryHashes collects the content hashes of the current inventory, the keys
+// a reputation lookup needs (whether served from a local corpus or a live
+// hash-only service).
+func inventoryHashes(lf lockfile.Lockfile) []string {
+	out := make([]string, 0, len(lf.Artifacts))
+	for _, e := range lf.Artifacts {
+		if e.ContentHash != "" {
+			out = append(out, e.ContentHash)
+		}
+	}
+	return out
+}
+
+// reputationSource resolves the opt-in community trust corpus (H3) for the given
+// hashes — from a local file or a live hash-only lookup (H3b), per the wired
+// dep. A nil dep or a load error yields an empty corpus — the signal is
+// supplementary, so it must never fail the scan view; a miss simply shows no
+// reputation.
+func (s *Server) reputationSource(hashes []string) reputation.Source {
 	if s.deps.Reputation == nil {
 		return nil
 	}
-	src, err := s.deps.Reputation()
+	src, err := s.deps.Reputation(hashes)
 	if err != nil {
 		return nil
 	}

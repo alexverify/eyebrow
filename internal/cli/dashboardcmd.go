@@ -15,6 +15,7 @@ import (
 	"github.com/alexverify/assay/internal/adapters/repstore"
 	"github.com/alexverify/assay/internal/adapters/snapshotstore"
 	"github.com/alexverify/assay/internal/app/ports"
+	"github.com/alexverify/assay/internal/client"
 	"github.com/alexverify/assay/internal/dashboard"
 	"github.com/alexverify/assay/internal/domain/audit"
 	"github.com/alexverify/assay/internal/domain/fleet"
@@ -36,6 +37,8 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	historyPath := fs.String("history", a.historyPath(), "posture-trend history file")
 	fleetDir := fs.String("fleet-dir", a.fleetDir(), "shared fleet-snapshot directory (blast radius)")
 	reputationPath := fs.String("reputation", "assay.reputation.json", "opt-in community reputation corpus (hash-keyed; absent = no signal)")
+	reputationServer := fs.String("reputation-server", envOr("ASSAY_SERVER", ""), "control-plane URL for a live hash-only reputation lookup (opt-in; overrides the local corpus)")
+	reputationToken := fs.String("reputation-token", envOr("ASSAY_TOKEN", ""), "machine token for the reputation lookup")
 	snapshotDir := fs.String("snapshot-dir", "", "content-addressed store of approved file bytes (line-level drift diff); default <path>/.assay/snapshots")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
@@ -111,7 +114,13 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 			}
 			return fleet.CheckConformance(p, snaps), nil
 		},
-		Reputation: func() (reputation.Source, error) {
+		Reputation: func(hashes []string) (reputation.Source, error) {
+			// A live hash-only lookup when a control plane is configured (H3b);
+			// otherwise the local opt-in corpus. The live lookup sends only the
+			// inventory's hashes, never anything about their content.
+			if *reputationServer != "" {
+				return client.New(*reputationServer, *reputationToken).Reputation(context.Background(), hashes)
+			}
 			return repstore.Load(*reputationPath)
 		},
 		Blobs: snapshotstore.New(*snapshotDir).Get,

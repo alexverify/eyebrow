@@ -12,6 +12,7 @@ import (
 	"github.com/alexverify/assay/internal/controlplane"
 	"github.com/alexverify/assay/internal/domain/fleet"
 	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/assay/internal/domain/reputation"
 )
 
 func TestFleetPushThenShowRemote(t *testing.T) {
@@ -90,6 +91,36 @@ func TestAuditPushThenAlerts(t *testing.T) {
 	s := lout.String()
 	if !strings.Contains(s, "evil.example") || !strings.Contains(s, "feed") {
 		t.Errorf("alerts should list the egress host and the drifted artifact:\n%s", s)
+	}
+}
+
+func TestReputationLookupCommand(t *testing.T) {
+	cfg := controlplane.NewMemConfig()
+	cfg.SetReputation("acme", reputation.Source{"sha256-aaa": {Hash: "sha256-aaa", Trusters: 11}})
+	srv := httptest.NewServer(controlplane.NewServer(
+		controlplane.NewService(controlplane.NewMemStore(), cfg), controlplane.StaticAuth{"tok": "acme"}))
+	t.Cleanup(srv.Close)
+
+	app, out, _ := newApp()
+	code := app.Execute(context.Background(), []string{
+		"reputation", "--server", srv.URL, "--token", "tok", "sha256-aaa", "sha256-miss",
+	})
+	if code != cli.ExitOK {
+		t.Fatalf("reputation exit = %d", code)
+	}
+	s := out.String()
+	if !strings.Contains(s, "established") || !strings.Contains(s, "11") {
+		t.Errorf("known hash should show its grade and count:\n%s", s)
+	}
+	if !strings.Contains(s, "unknown") {
+		t.Errorf("a miss should show unknown:\n%s", s)
+	}
+}
+
+func TestReputationRequiresServer(t *testing.T) {
+	app, _, _ := newApp()
+	if code := app.Execute(context.Background(), []string{"reputation", "sha256-x"}); code != cli.ExitUsage {
+		t.Errorf("reputation without a server should be a usage error, got %d", code)
 	}
 }
 
