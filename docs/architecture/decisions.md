@@ -118,6 +118,26 @@ hand-rolled LCS for the same reason the rest of the core is dependency-free —
 but a *bounded* line differ, not a parser, so the correctness bar that justified
 the TOML dependency does not apply here.
 
+## The hosted dashboard stays loopback-only, not a network UI
+
+The team dashboard on hosted data (4e) keeps the existing **loopback-only** UI
+and only swaps its data source: `assay dashboard --server` points the `Fleet`,
+`Conformance`, `Alerts`, and `Reputation` deps at the control-plane client. We
+deliberately did *not* serve the UI over the network with an SSO login. The
+reason is the dashboard's founding constraint — "no auth because there is no
+remotely reachable surface." A network-served UI would reintroduce exactly that
+surface (and an OIDC dependency) for a tool whose whole pitch is a small,
+auditable attack surface. Keeping the UI on loopback means the machine bearer
+token authenticates only the CLI→server calls, there is no session/cookie/redirect
+machinery, and the whole thing is testable headlessly.
+
+The honest cost: the per-artifact security profile (findings, capabilities, line
+diffs) stays **local**, because hosted snapshots are content-free by design — so
+that view reflects this machine while Fleet and Alerts reflect the team. A
+centrally-hosted multi-user UI with SSO is a real product (multi-user sessions,
+an identity provider, a published web attack-surface review); it is left as a
+future extension rather than bolted on here.
+
 ## The control plane is a self-hostable binary that reuses the pure core
 
 The team server (`internal/controlplane`, slice 4a) is a *self-hostable single

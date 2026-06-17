@@ -281,10 +281,17 @@ exact pure functions the local dashboard uses.
 The live hash-only reputation lookup (H3b) reuses the existing `reputation.Source`
 seam: the dashboard's `Reputation` dep now resolves a corpus for the inventory's
 content hashes, served either from a local file or — when a server is configured
-— from `POST /v1/reputation`, which returns matches only. What leaves a machine,
-and only on opt-in, is specified in [`docs/privacy.md`](../privacy.md). The
-remaining slice (still a seam) is the web dashboard on hosted data. **`packaging/`** — release tooling beyond GoReleaser — is also
-still a seam. See each directory's `README.md` / `doc.go`.
+— from `POST /v1/reputation`, which returns matches only.
+
+The dashboard on hosted data (4e) keeps the **loopback-only** UI and swaps its
+data source: `assay dashboard --server` wires the `Fleet`, `Conformance`,
+`Alerts`, and `Reputation` deps to the control-plane client instead of local
+stores, with a new `/api/alerts` endpoint. No network UI and no SSO — the machine
+token authenticates the CLI's calls; the per-artifact scan view stays local
+(hosted snapshots are content-free). What leaves a machine, and only on opt-in,
+is specified in [`docs/privacy.md`](../privacy.md). **`packaging/`** — release
+tooling beyond GoReleaser — remains a seam, as does a centrally-hosted multi-user
+UI with SSO. See each directory's `README.md` / `doc.go`.
 
 ## Design principles
 

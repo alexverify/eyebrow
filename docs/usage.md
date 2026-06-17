@@ -419,7 +419,24 @@ assay dashboard --reputation-server "$ASSAY_SERVER" --reputation-token "$ASSAY_T
 A lookup sends only the content hashes you already hold — a hash discloses
 nothing about content you don't — and the server replies with matches only. With
 no `--reputation-server`, the dashboard uses the local `assay.reputation.json`
-corpus as before. The hosted dashboard on org data is the remaining slice.
+corpus as before.
+
+**Dashboard on hosted data.** Point the local dashboard at a control plane and
+its **Fleet Blast Radius** and **Team Alerts** tabs read the org's hosted data
+instead of local snapshots:
+
+```sh
+ASSAY_SERVER=https://assay.acme.internal:7140 ASSAY_TOKEN=sek-alice assay dashboard
+# or: assay dashboard --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"
+```
+
+The dashboard stays **loopback-only** — it never exposes a network UI; the
+machine token authenticates the local CLI's calls to the control plane, so there
+is no new auth surface and no SSO to configure. The per-artifact security profile
+(findings, capabilities, line diffs) remains **local** — hosted snapshots are
+content-free by design — so that view reflects this machine, while Fleet and
+Alerts reflect the team. A centrally-hosted multi-user UI with SSO is a possible
+future extension.
 
 ## Exit codes (stable contract)
 
