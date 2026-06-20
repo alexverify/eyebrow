@@ -91,6 +91,12 @@ type Artifact struct {
 	// would churn the lockfile and break signature stability. It lives only on
 	// the in-memory inventory, for display (e.g. the dashboard).
 	ModifiedAt time.Time `json:"-"`
+
+	// Description is the artifact's stated purpose, read from its frontmatter at
+	// scan time. Display-only and excluded from JSON for the same reason as
+	// ModifiedAt: it derives from content already covered by the hash, so
+	// persisting it would only churn the lockfile.
+	Description string `json:"-"`
 }
 
 // MakeID returns a stable identifier derived from the tuple that uniquely

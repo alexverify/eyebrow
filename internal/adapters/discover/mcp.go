@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"bufio"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -9,6 +10,44 @@ import (
 	"github.com/alexverify/assay/internal/adapters/mcpconfig"
 	"github.com/alexverify/assay/internal/domain/artifact"
 )
+
+// frontmatterDescription reads the `description:` value from a Markdown file's
+// leading `---` YAML frontmatter, the stated purpose of a skill or subagent.
+// It is intentionally minimal (single-line scalar only, zero deps); a missing
+// frontmatter, missing key, or block scalar yields "".
+func frontmatterDescription(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	inFrontmatter := false
+	for sc.Scan() {
+		t := strings.TrimSpace(sc.Text())
+		if !inFrontmatter {
+			if t == "" {
+				continue
+			}
+			if t != "---" {
+				return "" // no frontmatter block
+			}
+			inFrontmatter = true
+			continue
+		}
+		if t == "---" {
+			return "" // end of frontmatter, no description
+		}
+		if rest, ok := strings.CutPrefix(t, "description:"); ok {
+			v := strings.Trim(strings.TrimSpace(rest), `"'`)
+			if v == ">" || v == "|" {
+				return "" // block scalar — out of scope
+			}
+			return v
+		}
+	}
+	return ""
+}
 
 // mcpDecl is one entry under an "mcpServers" config object.
 type mcpDecl struct {
@@ -78,6 +117,7 @@ func skillsFromDir(tool, root, scope string) []artifact.Artifact {
 			Name:           e.Name(),
 			Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: dir},
 			DiscoveredFrom: filepath.Join(dir, "SKILL.md"),
+			Description:    frontmatterDescription(filepath.Join(dir, "SKILL.md")),
 		}
 		a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
 		out = append(out, a)
@@ -132,6 +172,7 @@ func mdFilesFromDir(tool, root, scope string, typ artifact.Type) []artifact.Arti
 			Name:           strings.TrimSuffix(e.Name(), ".md"),
 			Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: path},
 			DiscoveredFrom: path,
+			Description:    frontmatterDescription(path),
 		}
 		a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
 		out = append(out, a)

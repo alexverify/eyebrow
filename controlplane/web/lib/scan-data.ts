@@ -129,6 +129,7 @@ export interface Approval {
 export interface Artifact {
   id: string
   name: string
+  description?: string // stated purpose, from the artifact's frontmatter
   kind: ArtifactKind
   agent: Agent
   version: string

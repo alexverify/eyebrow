@@ -25,8 +25,9 @@ import (
 type DashArtifact struct {
 	ID          string        `json:"id"`
 	Name        string        `json:"name"`
-	Kind        string        `json:"kind"`  // skill | mcp | plugin | <type>
-	Agent       string        `json:"agent"` // display name of the tool
+	Description string        `json:"description,omitempty"` // stated purpose, from frontmatter
+	Kind        string        `json:"kind"`                  // skill | mcp | plugin | <type>
+	Agent       string        `json:"agent"`                 // display name of the tool
 	Version     string        `json:"version"`
 	Source      string        `json:"source"`
 	InstalledAt string        `json:"installedAt"`
@@ -259,6 +260,7 @@ func BuildScan(current, locked lockfile.Lockfile, approved map[string]bool, used
 		out = append(out, DashArtifact{
 			ID:             e.ID,
 			Name:           e.Name,
+			Description:    e.Description,
 			Kind:           kindOf(e.Type),
 			Agent:          agentName(e.Tool),
 			Version:        versionOf(e.Source),

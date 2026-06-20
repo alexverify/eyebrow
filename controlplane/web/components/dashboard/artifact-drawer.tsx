@@ -130,6 +130,12 @@ function DrawerBody({
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <CapabilitySummary a={a} />
+        {a.description ? (
+          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+            <span className="text-muted-foreground/60">Claims to: </span>
+            {a.description}
+          </p>
+        ) : null}
         {onViewSource && primaryFile ? (
           <button
             type="button"
