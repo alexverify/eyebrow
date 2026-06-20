@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 // CodeTarget identifies the file to open and where to anchor it. highlights are
 // the finding lines to mark (used by the highlighting slice); focusLine is the
@@ -52,6 +53,11 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
 
   if (!target) return null
   const lines = content === null ? [] : content.split("\n")
+  // Index highlights by line so each rendered row knows whether it's flagged.
+  const marks = new Map<number, { title: string; severity: string }>()
+  for (const h of target.highlights ?? []) {
+    if (h.line > 0) marks.set(h.line, { title: h.title, severity: h.severity })
+  }
 
   return (
     <div
@@ -86,12 +92,32 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
               {lines.map((ln, i) => {
                 const n = i + 1
                 const isFocus = n === target.focusLine
+                const mark = marks.get(n)
                 return (
-                  <div key={n} ref={isFocus ? focusRef : undefined} className="flex px-2">
-                    <span className="w-12 shrink-0 select-none pr-3 text-right text-muted-foreground/60">
+                  <div
+                    key={n}
+                    ref={isFocus ? focusRef : undefined}
+                    className={cn(
+                      "flex px-2",
+                      mark && "bg-sev-high/10",
+                      mark && "border-l-2 border-sev-high",
+                      isFocus && mark && "bg-sev-high/20",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-12 shrink-0 select-none pr-3 text-right",
+                        mark ? "text-sev-high" : "text-muted-foreground/60",
+                      )}
+                    >
                       {n}
                     </span>
                     <code className="whitespace-pre-wrap break-words text-foreground">{ln || " "}</code>
+                    {mark ? (
+                      <span className="ml-3 shrink-0 self-center rounded border border-sev-high/40 bg-sev-high/10 px-1.5 py-0.5 text-[10px] font-medium text-sev-high">
+                        ◀ {mark.title}
+                      </span>
+                    ) : null}
                   </div>
                 )
               })}
