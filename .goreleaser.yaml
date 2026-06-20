@@ -41,3 +41,22 @@ changelog:
     exclude:
       - "^docs"
       - "^chore"
+
+homebrew_casks:
+  - repository:
+      owner: alexverify
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/alexverify/eyebrow"
+    description: "Supply-chain integrity for AI coding tools"
+    license: "MIT"
+    # Skip auto-commit on snapshot builds (no token, no real release).
+    skip_upload: auto
+    # eyebrow's release binaries are unsigned; strip the macOS quarantine
+    # xattr on install so Gatekeeper doesn't block the CLI.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/eyebrow"]
+          end

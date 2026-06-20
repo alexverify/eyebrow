@@ -10,6 +10,9 @@ each other:
 | `eyebrow.policy.json` | What `verify --ci` fails on | you, by hand |
 | `eyebrow.trustedkeys` | Whose lockfile signatures count | `eyebrow key trust` |
 
+Install without cloning: `brew install alexverify/tap/eyebrow`, or
+`curl -fsSL https://raw.githubusercontent.com/alexverify/eyebrow/main/install.sh | sh`.
+
 ## Solo: catch rug pulls
 
 ```sh

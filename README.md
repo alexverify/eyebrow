@@ -27,20 +27,32 @@ changes.
 
 ## Install
 
-Grab a static binary from the
-[releases page](https://github.com/alexverify/eyebrow/releases) (Linux,
-macOS, and Windows; amd64/arm64) and check it against the published
-`checksums.txt`:
+**Homebrew** (macOS / Linux):
+
+```sh
+brew install alexverify/tap/eyebrow
+```
+
+**Shell installer** (no Homebrew; downloads a checksum-verified binary):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/alexverify/eyebrow/main/install.sh | sh
+```
+
+**Go users:**
+
+```sh
+go install github.com/alexverify/eyebrow/cmd/eyebrow@latest
+```
+
+**Manual:** grab a static binary from the
+[releases page](https://github.com/alexverify/eyebrow/releases) and verify it:
 
 ```sh
 shasum -a 256 -c --ignore-missing checksums.txt
 ```
 
-Or build from source (requires Go 1.25+, nothing else):
-
-```sh
-make build   # → ./bin/eyebrow
-```
+Or build from source (Go 1.25+): `make build` → `./bin/eyebrow`.
 
 ## Quickstart
 
