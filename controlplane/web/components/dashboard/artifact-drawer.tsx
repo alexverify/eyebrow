@@ -611,7 +611,15 @@ function Findings({
   const highlightsFor = (file: string) =>
     a.findings
       .filter((f) => f.file === file)
-      .map((f) => ({ line: f.line ?? 0, title: f.title, severity: f.severity, snippet: f.evidence }))
+      .map((f) => ({
+        line: f.line ?? 0,
+        title: f.title,
+        severity: f.severity,
+        snippet: f.evidence,
+        ruleId: f.ruleId,
+        owasp: f.owasp,
+        detail: f.detail,
+      }))
   if (a.findings.length === 0) {
     return (
       <Section title="Findings">
@@ -648,6 +656,7 @@ function Findings({
                         artifactId: a.id,
                         file: f.file!,
                         focusLine: f.line,
+                        artifact: { name: a.name, kind: a.kind, agent: a.agent, source: a.source },
                         highlights: highlightsFor(f.file!),
                       })
                     }

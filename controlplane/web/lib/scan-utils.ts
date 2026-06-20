@@ -10,6 +10,7 @@ import {
 export interface FlatFinding extends Finding {
   artifactId: string
   artifactName: string
+  artifactKind: Artifact["kind"]
   agent: Artifact["agent"]
 }
 
@@ -39,6 +40,7 @@ export function getAllFindings(artifacts: Artifact[]): FlatFinding[] {
         ...f,
         artifactId: a.id,
         artifactName: a.name,
+        artifactKind: a.kind,
         agent: a.agent,
       })),
     )

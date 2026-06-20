@@ -535,8 +535,17 @@ function FindingsPanel({
                         artifactId: f.artifactId,
                         file: f.file!,
                         focusLine: f.line,
+                        artifact: { name: f.artifactName, kind: f.artifactKind, agent: f.agent },
                         highlights: [
-                          { line: f.line ?? 0, title: f.title, severity: f.severity, snippet: f.evidence },
+                          {
+                            line: f.line ?? 0,
+                            title: f.title,
+                            severity: f.severity,
+                            snippet: f.evidence,
+                            ruleId: f.ruleId,
+                            owasp: f.owasp,
+                            detail: f.detail,
+                          },
                         ],
                       })
                     }

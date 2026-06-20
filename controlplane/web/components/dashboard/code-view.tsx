@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -8,11 +8,22 @@ import { cn } from "@/lib/utils"
 // the finding lines to mark; focusLine is the line scrolled into view on open.
 // snippet lets the view degrade to the stored evidence when the file can't be
 // read (e.g. a remote artifact whose bytes weren't captured).
+export interface CodeHighlight {
+  line: number
+  title: string
+  severity: string
+  snippet?: string
+  ruleId?: string
+  owasp?: string
+  detail?: string
+}
+
 export interface CodeTarget {
   artifactId: string
   file: string
   focusLine?: number
-  highlights?: { line: number; title: string; severity: string; snippet?: string }[]
+  artifact?: { name: string; kind: string; agent: string; source?: string }
+  highlights?: CodeHighlight[]
 }
 
 // CodeView is a full-screen view that shows one artifact file with line numbers,
@@ -23,6 +34,7 @@ export interface CodeTarget {
 // ← Back control) return to the dashboard.
 export function CodeView({ target, onClose }: { target: CodeTarget | null; onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null)
+  const [absPath, setAbsPath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeLine, setActiveLine] = useState<number | undefined>(undefined)
   const focusRef = useRef<HTMLDivElement | null>(null)
@@ -37,15 +49,19 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
   useEffect(() => {
     if (!target) return
     setContent(null)
+    setAbsPath(null)
     setError(null)
     setActiveLine(target.focusLine)
     const url = `/api/source?id=${encodeURIComponent(target.artifactId)}&file=${encodeURIComponent(target.file)}`
     fetch(url)
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.text()).trim() || `HTTP ${r.status}`)
-        return (await r.json()) as { content: string }
+        return (await r.json()) as { content: string; absPath?: string }
       })
-      .then((d) => setContent(d.content))
+      .then((d) => {
+        setContent(d.content)
+        setAbsPath(d.absPath ?? null)
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "failed to load file"))
   }, [target])
 
@@ -81,6 +97,8 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
     if (h.line > 0) marks.set(h.line, { title: h.title, severity: h.severity })
   }
 
+  const activeFinding =
+    (target.highlights ?? []).find((h) => h.line === activeLine) ?? target.highlights?.[0]
   const idx = activeLine ? navLines.indexOf(activeLine) : -1
   const step = (delta: number) => {
     if (navLines.length === 0) return
@@ -128,7 +146,8 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
           </div>
         ) : null}
       </div>
-      <div className="mx-auto w-full max-w-5xl flex-1 overflow-auto">
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto">
         {content === null && error === null ? (
             <p className="p-4 font-mono text-xs text-muted-foreground">loading…</p>
           ) : error !== null ? (
@@ -168,7 +187,70 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
               })}
             </pre>
           )}
+        </div>
+        <DetailPanel target={target} absPath={absPath} active={activeFinding} />
       </div>
+    </div>
+  )
+}
+
+// DetailPanel is the right-hand context column: where the file lives on disk,
+// the artifact it belongs to, and the focused finding's rule detail.
+function DetailPanel({
+  target,
+  absPath,
+  active,
+}: {
+  target: CodeTarget
+  absPath: string | null
+  active?: CodeHighlight
+}) {
+  return (
+    <aside className="hidden w-80 shrink-0 space-y-5 overflow-auto border-l border-border p-5 md:block">
+      <Field label="File">
+        <p className="break-all font-mono text-xs text-foreground">{absPath ?? target.file}</p>
+      </Field>
+      {target.artifact ? (
+        <Field label="Artifact">
+          <p className="font-mono text-xs text-foreground">{target.artifact.name}</p>
+          <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+            {target.artifact.kind} · {target.artifact.agent}
+          </p>
+          {target.artifact.source ? (
+            <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">
+              {target.artifact.source}
+            </p>
+          ) : null}
+        </Field>
+      ) : null}
+      {active ? (
+        <Field label="Finding">
+          <div className="flex items-center gap-2">
+            <span className="rounded border border-sev-high/40 bg-sev-high/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-sev-high">
+              {active.severity}
+            </span>
+            {active.ruleId ? (
+              <span className="font-mono text-[11px] text-muted-foreground">{active.ruleId}</span>
+            ) : null}
+          </div>
+          <p className="mt-1.5 text-xs text-foreground">{active.title}</p>
+          {active.owasp ? (
+            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">OWASP {active.owasp}</p>
+          ) : null}
+          {active.detail ? (
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{active.detail}</p>
+          ) : null}
+        </Field>
+      ) : null}
+    </aside>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      {children}
     </div>
   )
 }
