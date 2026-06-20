@@ -3,17 +3,13 @@
 Release and distribution tooling. Empty today; `make build` produces a local
 binary in the meantime.
 
-## Plan (GoReleaser)
+## Outputs (GoReleaser)
 
-Outputs:
+- GitHub Releases with signed checksums (macOS/Linux/Windows, amd64/arm64).
+- A Homebrew tap (`brew install alexverify/tap/eyebrow`) via the `brews:` block.
+- `install.sh` (`curl | sh`) — checksum-verified binary download.
 
-- GitHub Releases with signed checksums (macOS arm64/amd64, Linux amd64/arm64).
-- A Homebrew tap (`brew install eyebrow`).
-- `install.sh` (`curl | sh`).
-- An **npm shim package** (`eyebrow`) that downloads the platform binary on
-  postinstall so the JS crowd can `npx eyebrow scan`.
-
-The npm shim's postinstall download must verify a pinned checksum and document
-the trade-off loudly — a postinstall download in a supply-chain tool is ironic,
-so it must be exemplary. (Note: the native matchers already flag
-`postinstall`/`preinstall` scripts.)
+npm distribution was considered and **declined**: shipping a Go binary through
+npm needs a package-per-platform fan-out (scope, publish token, N packages) and
+is not the idiomatic Go path. See
+`docs/superpowers/specs/2026-06-20-distribution-design.md`.
