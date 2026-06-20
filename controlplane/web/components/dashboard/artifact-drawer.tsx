@@ -90,6 +90,14 @@ function DrawerBody({
   onChanged?: () => void
   onViewSource?: (t: CodeTarget) => void
 }) {
+  const viewSource = (file: string) =>
+    onViewSource?.({
+      artifactId: a.id,
+      file,
+      artifact: { name: a.name, kind: a.kind, agent: a.agent, source: a.source },
+    })
+  const primaryFile = a.files?.[0]?.path
+
   return (
     <>
       <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
@@ -122,6 +130,15 @@ function DrawerBody({
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <CapabilitySummary a={a} />
+        {onViewSource && primaryFile ? (
+          <button
+            type="button"
+            onClick={() => viewSource(primaryFile)}
+            className="mb-4 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted/40"
+          >
+            <FileCode2 className="h-3.5 w-3.5" /> View source
+          </button>
+        ) : null}
         <SleeperBanner a={a} />
         {live ? <Actions a={a} onChanged={onChanged} /> : null}
         <Trust a={a} />
@@ -133,7 +150,7 @@ function DrawerBody({
         <ChangedFiles a={a} />
         <Capabilities a={a} />
         <Findings a={a} live={live} onChanged={onChanged} onViewSource={onViewSource} />
-        <FileManifest a={a} />
+        <FileManifest a={a} onView={onViewSource ? viewSource : undefined} />
         {a.kind === "mcp" && <Activity name={a.name} live={live} />}
       </div>
     </>
@@ -804,7 +821,7 @@ function MuteControl({ ruleId, onChanged }: { ruleId: string; onChanged?: () => 
   )
 }
 
-function FileManifest({ a }: { a: Artifact }) {
+function FileManifest({ a, onView }: { a: Artifact; onView?: (file: string) => void }) {
   const files = a.files ?? []
   if (files.length === 0) return null
   return (
@@ -817,7 +834,18 @@ function FileManifest({ a }: { a: Artifact }) {
           {files.map((f) => (
             <div key={f.path} className="flex items-baseline justify-between gap-4 px-3 py-1.5 font-mono text-[11px]">
               <span className="truncate text-foreground">{f.path}</span>
-              <span className="shrink-0 text-muted-foreground">{f.hash.slice(0, 12)}</span>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-muted-foreground">{f.hash.slice(0, 12)}</span>
+                {onView ? (
+                  <button
+                    type="button"
+                    onClick={() => onView(f.path)}
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    View ↗
+                  </button>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
