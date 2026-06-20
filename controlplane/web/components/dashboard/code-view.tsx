@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { X, ChevronUp, ChevronDown } from "lucide-react"
+import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // CodeTarget identifies the file to open and where to anchor it. highlights are
@@ -15,11 +15,12 @@ export interface CodeTarget {
   highlights?: { line: number; title: string; severity: string; snippet?: string }[]
 }
 
-// CodeView is a modal overlay that shows one artifact file with line numbers,
+// CodeView is a full-screen view that shows one artifact file with line numbers,
 // fetched live from the loopback backend (GET /api/source). It marks the flagged
 // lines, scrolls the active one into view, lets you step between findings in the
 // same file, and falls back to the stored snippets when the file is unreadable.
-// Closes on Esc or a backdrop click.
+// Opening pushes a history entry so the browser Back button (and Esc, and the
+// ← Back control) return to the dashboard.
 export function CodeView({ target, onClose }: { target: CodeTarget | null; onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,13 +49,22 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
       .catch((e) => setError(e instanceof Error ? e.message : "failed to load file"))
   }, [target])
 
+  // Push a history entry on open so the browser Back button returns to the
+  // dashboard; popping it (Back, Esc, or the ← Back control via history.back)
+  // drives onClose, keeping history clean.
   useEffect(() => {
     if (!target) return
+    window.history.pushState({ assaySource: true }, "")
+    const onPop = () => onClose()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") window.history.back()
     }
+    window.addEventListener("popstate", onPop)
     window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("popstate", onPop)
+      window.removeEventListener("keydown", onKey)
+    }
   }, [target, onClose])
 
   // Bring the active flagged line to the middle of the viewport on open and on
@@ -79,55 +89,47 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
   }
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
           <span className="min-w-0 truncate font-mono text-sm text-foreground">
             {target.file}
             {activeLine ? <span className="text-muted-foreground">:{activeLine}</span> : null}
           </span>
+        </div>
+        {navLines.length > 1 ? (
           <div className="flex shrink-0 items-center gap-2">
-            {navLines.length > 1 ? (
-              <>
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {Math.max(idx, 0) + 1}/{navLines.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => step(-1)}
-                  aria-label="Previous finding"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => step(1)}
-                  aria-label="Next finding"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </>
-            ) : null}
+            <span className="font-mono text-[11px] text-muted-foreground">
+              finding {Math.max(idx, 0) + 1}/{navLines.length}
+            </span>
             <button
               type="button"
-              onClick={onClose}
-              aria-label="Close"
+              onClick={() => step(-1)}
+              aria-label="Previous finding"
               className="text-muted-foreground hover:text-foreground"
             >
-              <X className="h-4 w-4" />
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => step(1)}
+              aria-label="Next finding"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ChevronDown className="h-4 w-4" />
             </button>
           </div>
-        </div>
-        <div className="overflow-auto">
-          {content === null && error === null ? (
+        ) : null}
+      </div>
+      <div className="mx-auto w-full max-w-5xl flex-1 overflow-auto">
+        {content === null && error === null ? (
             <p className="p-4 font-mono text-xs text-muted-foreground">loading…</p>
           ) : error !== null ? (
             <SnippetFallback target={target} error={error} />
@@ -166,7 +168,6 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
               })}
             </pre>
           )}
-        </div>
       </div>
     </div>
   )
