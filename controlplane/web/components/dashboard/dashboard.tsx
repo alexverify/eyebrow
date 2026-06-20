@@ -51,7 +51,7 @@ import {
   type PolicyMute,
 } from "@/lib/actions"
 import { StatCard } from "@/components/dashboard/stat-card"
-import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge } from "@/components/dashboard/badges"
+import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge, SafeBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
 import { CodeView, type CodeTarget } from "@/components/dashboard/code-view"
 
@@ -323,7 +323,7 @@ export function Dashboard() {
         }}
       />
 
-      <CodeView target={codeTarget} onClose={() => setCodeTarget(null)} />
+      <CodeView target={codeTarget} onClose={() => setCodeTarget(null)} onChanged={reload} />
     </div>
   )
 }
@@ -507,6 +507,7 @@ function FindingsPanel({
               <SeverityBadge severity={f.severity} />
               <LivenessBadge liveness={f.liveness} />
               <ReachBadge reach={f.reach} />
+              {f.safe ? <SafeBadge stale={f.safeStale} /> : null}
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{f.title}</span>
               <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
                 {f.artifactName}
@@ -545,6 +546,9 @@ function FindingsPanel({
                             ruleId: f.ruleId,
                             owasp: f.owasp,
                             detail: f.detail,
+                            key: f.key,
+                            safe: f.safe,
+                            safeStale: f.safeStale,
                           },
                         ],
                       })

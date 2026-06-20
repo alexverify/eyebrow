@@ -77,6 +77,15 @@ export async function accountAll(): Promise<{ count: number }> {
   return (await r.json()) as { count: number }
 }
 
+/**
+ * flagSafe marks (or clears) one finding as an accepted false positive. The
+ * finding stays visible but the CI gate accepts it; persisted on the lockfile
+ * entry. key is the finding's stable identity (rule|file|line).
+ */
+export function flagSafe(id: string, key: string, on: boolean): Promise<void> {
+  return postJSON("/api/finding-safe", { id, key, on })
+}
+
 export interface PolicyLists {
   allowPublishers: string[]
   blockPublishers: string[]

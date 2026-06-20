@@ -44,6 +44,10 @@ export interface Finding {
   location: string // file + line
   file?: string // POSIX-relative path within the artifact, for the code view
   line?: number // 1-based line of the flagged code
+  key?: string // stable identity (rule|file|line), sent to the flag-safe endpoint
+  safe?: boolean // flagged as an accepted false positive (still shown)
+  safeStale?: boolean // content changed since it was flagged safe
+  safeBy?: string
   ruleId?: string
   owasp?: string
 

@@ -1,8 +1,9 @@
 "use client"
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react"
+import { ArrowLeft, ChevronUp, ChevronDown, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { flagSafe } from "@/lib/actions"
 
 // CodeTarget identifies the file to open and where to anchor it. highlights are
 // the finding lines to mark; focusLine is the line scrolled into view on open.
@@ -16,6 +17,9 @@ export interface CodeHighlight {
   ruleId?: string
   owasp?: string
   detail?: string
+  key?: string
+  safe?: boolean
+  safeStale?: boolean
 }
 
 export interface CodeTarget {
@@ -32,11 +36,21 @@ export interface CodeTarget {
 // same file, and falls back to the stored snippets when the file is unreadable.
 // Opening pushes a history entry so the browser Back button (and Esc, and the
 // ← Back control) return to the dashboard.
-export function CodeView({ target, onClose }: { target: CodeTarget | null; onClose: () => void }) {
+export function CodeView({
+  target,
+  onClose,
+  onChanged,
+}: {
+  target: CodeTarget | null
+  onClose: () => void
+  onChanged?: () => void
+}) {
   const [content, setContent] = useState<string | null>(null)
   const [absPath, setAbsPath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeLine, setActiveLine] = useState<number | undefined>(undefined)
+  const [safeKeys, setSafeKeys] = useState<Set<string>>(new Set())
+  const [flagging, setFlagging] = useState(false)
   const focusRef = useRef<HTMLDivElement | null>(null)
 
   // The flagged lines, de-duplicated and ordered, drive prev/next navigation.
@@ -52,6 +66,7 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
     setAbsPath(null)
     setError(null)
     setActiveLine(target.focusLine)
+    setSafeKeys(new Set((target.highlights ?? []).filter((h) => h.safe && h.key).map((h) => h.key!)))
     const url = `/api/source?id=${encodeURIComponent(target.artifactId)}&file=${encodeURIComponent(target.file)}`
     fetch(url)
       .then(async (r) => {
@@ -100,6 +115,26 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
   const activeFinding =
     (target.highlights ?? []).find((h) => h.line === activeLine) ?? target.highlights?.[0]
   const idx = activeLine ? navLines.indexOf(activeLine) : -1
+
+  async function toggleSafe(h: CodeHighlight) {
+    if (!h.key || !target) return
+    const on = !safeKeys.has(h.key)
+    setFlagging(true)
+    try {
+      await flagSafe(target.artifactId, h.key, on)
+      setSafeKeys((prev) => {
+        const next = new Set(prev)
+        if (on) next.add(h.key!)
+        else next.delete(h.key!)
+        return next
+      })
+      onChanged?.()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "flag-safe failed")
+    } finally {
+      setFlagging(false)
+    }
+  }
   const step = (delta: number) => {
     if (navLines.length === 0) return
     const next = idx < 0 ? 0 : (idx + delta + navLines.length) % navLines.length
@@ -188,7 +223,14 @@ export function CodeView({ target, onClose }: { target: CodeTarget | null; onClo
             </pre>
           )}
         </div>
-        <DetailPanel target={target} absPath={absPath} active={activeFinding} />
+        <DetailPanel
+          target={target}
+          absPath={absPath}
+          active={activeFinding}
+          safe={activeFinding?.key ? safeKeys.has(activeFinding.key) : false}
+          flagging={flagging}
+          onToggleSafe={() => activeFinding && toggleSafe(activeFinding)}
+        />
       </div>
     </div>
   )
@@ -200,10 +242,16 @@ function DetailPanel({
   target,
   absPath,
   active,
+  safe,
+  flagging,
+  onToggleSafe,
 }: {
   target: CodeTarget
   absPath: string | null
   active?: CodeHighlight
+  safe: boolean
+  flagging: boolean
+  onToggleSafe: () => void
 }) {
   return (
     <aside className="hidden w-80 shrink-0 space-y-5 overflow-auto border-l border-border p-5 md:block">
@@ -239,6 +287,31 @@ function DetailPanel({
           ) : null}
           {active.detail ? (
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{active.detail}</p>
+          ) : null}
+          {safe ? (
+            <p className="mt-2 inline-flex items-center gap-1 rounded border border-ok/30 bg-ok/10 px-1.5 py-0.5 text-[10px] font-medium text-ok">
+              <ShieldCheck className="h-3 w-3" /> flagged safe
+            </p>
+          ) : null}
+          {safe && active.safeStale ? (
+            <p className="mt-1.5 text-[11px] text-sev-medium">
+              ⚠ the code changed since this was flagged safe — worth re-checking.
+            </p>
+          ) : null}
+          {active.key ? (
+            <button
+              type="button"
+              onClick={onToggleSafe}
+              disabled={flagging}
+              className={cn(
+                "mt-3 w-full rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50",
+                safe
+                  ? "border-border text-muted-foreground hover:text-foreground"
+                  : "border-ok/40 bg-ok/10 text-ok hover:bg-ok/20",
+              )}
+            >
+              {flagging ? "Saving…" : safe ? "Un-flag" : "Flag as safe"}
+            </button>
           ) : null}
         </Field>
       ) : null}

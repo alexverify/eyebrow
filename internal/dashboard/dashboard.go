@@ -550,19 +550,27 @@ func (s *Server) handleFindingSafe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	// The content hash at flag time comes from the live inventory, so the UI can
-	// later note when the flagged code changed.
-	curHash := ""
-	if inv, err := s.deps.Inventory(r.Context()); err == nil {
-		for _, e := range inv.Artifacts {
-			if e.ID == body.ID {
-				curHash = e.ContentHash
-				break
-			}
+	// The live inventory gives the content hash at flag time (so the UI can note
+	// when the flagged code later changed) and lets us account for an artifact
+	// not yet in the lockfile, the same upsert the approve path uses.
+	live, err := s.deps.Inventory(r.Context())
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	var liveEntry *lockfile.Entry
+	for i := range live.Artifacts {
+		if live.Artifacts[i].ID == body.ID {
+			liveEntry = &live.Artifacts[i]
+			break
 		}
 	}
+	curHash := ""
+	if liveEntry != nil {
+		curHash = liveEntry.ContentHash
+	}
 	found := false
-	err := s.deps.Mutate(r.Context(), func(lf *lockfile.Lockfile) error {
+	err = s.deps.Mutate(r.Context(), func(lf *lockfile.Lockfile) error {
 		for i := range lf.Artifacts {
 			if lf.Artifacts[i].ID != body.ID {
 				continue
@@ -570,6 +578,12 @@ func (s *Server) handleFindingSafe(w http.ResponseWriter, r *http.Request) {
 			found = true
 			setFindingSafe(&lf.Artifacts[i], body.Key, body.On, curHash)
 			return nil
+		}
+		// Not yet in the lockfile: account for it from the live inventory first.
+		if liveEntry != nil {
+			lf.Artifacts = append(lf.Artifacts, *liveEntry)
+			setFindingSafe(&lf.Artifacts[len(lf.Artifacts)-1], body.Key, body.On, curHash)
+			found = true
 		}
 		return nil
 	})

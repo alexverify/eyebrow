@@ -19,6 +19,23 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
   )
 }
 
+// SafeBadge marks a finding flagged as an accepted false positive: still shown,
+// but acknowledged. A stale flag (code changed since it was flagged) is tinted
+// to invite a re-check.
+export function SafeBadge({ stale }: { stale?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
+        stale ? "border-sev-medium/40 bg-sev-medium/10 text-sev-medium" : "border-ok/30 bg-ok/10 text-ok",
+      )}
+      title={stale ? "Flagged safe, but the code changed since — worth re-checking." : "Flagged as an accepted false positive."}
+    >
+      ✓ safe{stale ? " (stale)" : ""}
+    </span>
+  )
+}
+
 export function DriftBadge({ status, approved }: { status: DriftStatus; approved?: boolean }) {
   const d = DRIFT_STYLES[status]
   // An approved-but-unsigned artifact is a softer state than a never-approved
