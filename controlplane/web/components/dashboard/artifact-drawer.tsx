@@ -121,6 +121,7 @@ function DrawerBody({
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
+        <CapabilitySummary a={a} />
         <SleeperBanner a={a} />
         {live ? <Actions a={a} onChanged={onChanged} /> : null}
         <Trust a={a} />
@@ -557,6 +558,57 @@ function DiffHunks({ diff }: { diff: LineDiff }) {
     </div>
   )
 }
+
+// CapabilitySummary is the at-a-glance "what can this actually do" line: a row
+// of chips derived from the capability and trust data already present, so an
+// engineer skimming the inventory gets the verdict without reading every section.
+// Risky traits are tinted; reassuring negatives are muted.
+function CapabilitySummary({ a }: { a: Artifact }) {
+  const c = a.capabilities
+  const network = c?.network ?? []
+  const filesystem = c?.filesystem ?? []
+  const sensitive = filesystem.some((p) => /\.ssh|\.aws|\.env|credential|secret|\.npmrc|id_rsa/i.test(p))
+
+  const POSTURE: Record<string, { label: string; tone: Tone }> = {
+    verified: { label: "verified", tone: "ok" },
+    unsigned: { label: "unsigned", tone: "warn" },
+    new: { label: "unaudited", tone: "warn" },
+    updated: { label: "updated", tone: "warn" },
+    drifted: { label: "drifted", tone: "bad" },
+  }
+
+  const chips: { label: string; tone: Tone }[] = [
+    c?.exec ? { label: "runs commands", tone: "bad" } : { label: "no exec", tone: "muted" },
+    network.length > 0 ? { label: "uses network", tone: "bad" } : { label: "no network", tone: "muted" },
+    sensitive
+      ? { label: "reads sensitive paths", tone: "bad" }
+      : filesystem.length > 0
+        ? { label: "reads files", tone: "warn" }
+        : { label: "no file access", tone: "muted" },
+    POSTURE[a.drift] ?? { label: a.drift, tone: "muted" },
+  ]
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-1.5">
+      {chips.map((ch, i) => (
+        <span
+          key={i}
+          className={cn(
+            "rounded-md border px-2 py-0.5 font-mono text-[11px]",
+            ch.tone === "bad" && "border-sev-high/40 bg-sev-high/10 text-sev-high",
+            ch.tone === "warn" && "border-sev-medium/40 bg-sev-medium/10 text-sev-medium",
+            ch.tone === "ok" && "border-ok/30 bg-ok/10 text-ok",
+            ch.tone === "muted" && "border-border bg-muted/40 text-muted-foreground",
+          )}
+        >
+          {ch.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+type Tone = "bad" | "warn" | "ok" | "muted"
 
 function Capabilities({ a }: { a: Artifact }) {
   const c = a.capabilities
