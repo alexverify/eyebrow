@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
 )
 
 // CertFetcher returns the SPKI pin (base64 SHA-256 of the leaf certificate's

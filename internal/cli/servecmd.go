@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/adapters/cpstore"
-	"github.com/alexverify/assay/internal/controlplane"
+	"github.com/alexverify/eyebrow/internal/adapters/cpstore"
+	"github.com/alexverify/eyebrow/internal/controlplane"
 )
 
 // runServe runs the self-hostable team control plane (Component 3b, slice 4a):
@@ -35,13 +35,13 @@ func (a *App) runServe(ctx context.Context, args []string) int {
 	svc := controlplane.NewService(store, store) // cpstore is both Store and Config
 	srv := &http.Server{Addr: *addr, Handler: controlplane.NewServer(svc, auth)}
 
-	// Shut down cleanly when the process is signalled (cmd/assay cancels ctx).
+	// Shut down cleanly when the process is signalled (cmd/eyebrow cancels ctx).
 	go func() {
 		<-ctx.Done()
 		_ = srv.Shutdown(context.Background())
 	}()
 
-	fmt.Fprintf(a.Stdout, "assay control plane on http://%s  (store: %s)\n", *addr, *storeDir)
+	fmt.Fprintf(a.Stdout, "eyebrow control plane on http://%s  (store: %s)\n", *addr, *storeDir)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		fmt.Fprintf(a.Stderr, "serve: %v\n", err)
 		return ExitError
@@ -69,8 +69,8 @@ func loadTokens(path string) (controlplane.StaticAuth, error) {
 	return controlplane.StaticAuth(m), nil
 }
 
-// controlplaneDir is the default snapshot store for `assay serve`.
+// controlplaneDir is the default snapshot store for `eyebrow serve`.
 func (a *App) controlplaneDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".assay", "controlplane")
+	return filepath.Join(home, ".eyebrow", "controlplane")
 }

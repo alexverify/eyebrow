@@ -6,10 +6,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // maxBody caps a submission body. Snapshots are small (counts and hashes), so a

@@ -8,10 +8,10 @@ binary in the meantime.
 Outputs:
 
 - GitHub Releases with signed checksums (macOS arm64/amd64, Linux amd64/arm64).
-- A Homebrew tap (`brew install assay`).
+- A Homebrew tap (`brew install eyebrow`).
 - `install.sh` (`curl | sh`).
-- An **npm shim package** (`assay`) that downloads the platform binary on
-  postinstall so the JS crowd can `npx assay scan`.
+- An **npm shim package** (`eyebrow`) that downloads the platform binary on
+  postinstall so the JS crowd can `npx eyebrow scan`.
 
 The npm shim's postinstall download must verify a pinned checksum and document
 the trade-off loudly — a postinstall download in a supply-chain tool is ironic,

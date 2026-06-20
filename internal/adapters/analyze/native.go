@@ -16,8 +16,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
 )
 
 type rule struct {

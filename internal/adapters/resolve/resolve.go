@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/digest"
-	"github.com/alexverify/assay/internal/platform/run"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/digest"
+	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
 // Router dispatches resolution by Source.Kind.

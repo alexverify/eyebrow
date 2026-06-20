@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
 )
 
 func art(name, hash string) artifact.Artifact {
@@ -23,7 +23,7 @@ func art(name, hash string) artifact.Artifact {
 var fixedTime = time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC)
 
 func buildOne(a artifact.Artifact) Lockfile {
-	return Build([]artifact.Artifact{a}, fixedTime, "assay/test")
+	return Build([]artifact.Artifact{a}, fixedTime, "eyebrow/test")
 }
 
 func TestDiffFilesAddedRemovedModified(t *testing.T) {
@@ -94,7 +94,7 @@ func equalStrings(a, b []string) bool {
 func TestBuildSortsByID(t *testing.T) {
 	a := art("zebra", "sha256-1")
 	b := art("alpha", "sha256-2")
-	lf := Build([]artifact.Artifact{a, b}, fixedTime, "assay/test")
+	lf := Build([]artifact.Artifact{a, b}, fixedTime, "eyebrow/test")
 	if lf.Artifacts[0].ID > lf.Artifacts[1].ID {
 		t.Fatalf("entries not sorted by ID: %q then %q", lf.Artifacts[0].ID, lf.Artifacts[1].ID)
 	}

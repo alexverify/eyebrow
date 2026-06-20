@@ -14,10 +14,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 // Sentinel errors adapters may return so services can react without coupling
@@ -97,7 +97,7 @@ type Analyzer interface {
 	AnalyzeContent(ctx context.Context, a artifact.Artifact, content []byte) ([]finding.Finding, error)
 }
 
-// LockStore reads and writes assaylock.json.
+// LockStore reads and writes eyebrowlock.json.
 type LockStore interface {
 	Read(ctx context.Context, path string) (lockfile.Lockfile, error)
 	Write(ctx context.Context, path string, lf lockfile.Lockfile) error

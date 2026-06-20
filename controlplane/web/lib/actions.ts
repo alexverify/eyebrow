@@ -2,7 +2,7 @@
 
 // Client helpers for the dashboard's write actions (approve / quarantine /
 // freeze, plus the policy editor, finding mute, and egress allowlist). Each POST
-// carries the X-Assay-Token header; the token is fetched once from the
+// carries the X-Eyebrow-Token header; the token is fetched once from the
 // same-origin /api/token endpoint, which a cross-origin page cannot read. In
 // demo mode (no backend) the fetch fails and the write affordances are hidden.
 
@@ -62,7 +62,7 @@ async function postJSON(path: string, body: unknown): Promise<void> {
   const token = await getToken()
   const r = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Assay-Token": token },
+    headers: { "Content-Type": "application/json", "X-Eyebrow-Token": token },
     body: JSON.stringify(body),
   })
   if (!r.ok) {
@@ -86,7 +86,7 @@ export async function accountAll(): Promise<{ count: number }> {
   const token = await getToken()
   const r = await fetch("/api/account-all", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Assay-Token": token },
+    headers: { "Content-Type": "application/json", "X-Eyebrow-Token": token },
   })
   if (!r.ok) {
     throw new Error(`/api/account-all failed: ${(await r.text()).trim() || r.status}`)

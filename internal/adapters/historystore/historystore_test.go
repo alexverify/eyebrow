@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
 )
 
 func TestAppendAndReadRoundTrips(t *testing.T) {

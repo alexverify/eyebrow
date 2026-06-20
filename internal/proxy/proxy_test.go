@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/app/apptest"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/app/apptest"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 func startProxy(t *testing.T, pol policy.Policy) (*url.URL, *apptest.AuditSink) {

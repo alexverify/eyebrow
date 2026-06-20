@@ -263,7 +263,7 @@ function Trust({ a }: { a: Artifact }) {
       {a.reputation && a.reputation.grade !== "unknown" && a.reputation.trusters > 0 ? (
         <p className="mt-2 text-xs text-muted-foreground">
           Community: this exact hash is trusted by{" "}
-          <span className="text-foreground">{a.reputation.trusters}</span> other assay user
+          <span className="text-foreground">{a.reputation.trusters}</span> other eyebrow user
           {a.reputation.trusters === 1 ? "" : "s"}
           {a.reputation.firstSeen ? `, first seen ${a.reputation.firstSeen}` : ""}. Hash-only, opt-in — no
           code or identity leaves your machine.
@@ -387,7 +387,7 @@ function Integrity({ a }: { a: Artifact }) {
 }
 
 // SleeperBanner surfaces the dormant-then-active finding (F2) at the very top of
-// the profile, because it is the single highest-signal supply-chain event assay
+// the profile, because it is the single highest-signal supply-chain event eyebrow
 // can catch: an artifact that sat unused for weeks, drifted, then ran for the
 // first time. The triple (old install × content drift × first-ever invocation)
 // is invisible to a pure static scanner.
@@ -479,7 +479,7 @@ function Usage({ a }: { a: Artifact }) {
         </>
       ) : (
         <p className="text-xs text-muted-foreground">
-          No invocations recorded. Wrap this server with <span className="font-mono">assay wrap</span> to
+          No invocations recorded. Wrap this server with <span className="font-mono">eyebrow wrap</span> to
           capture when it runs.
         </p>
       )}
@@ -899,7 +899,7 @@ function Activity({ name, live }: { name: string; live: boolean }) {
         <p className="text-xs text-muted-foreground">Loading…</p>
       ) : events.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No audit events. Wrap this server with <span className="font-mono">assay wrap</span> to record tool
+          No audit events. Wrap this server with <span className="font-mono">eyebrow wrap</span> to record tool
           calls and egress.
         </p>
       ) : (

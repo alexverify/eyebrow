@@ -10,7 +10,7 @@ export function DashboardHeader() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 font-mono text-sm font-semibold tracking-tight text-foreground">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            Assay
+            Eyebrow
           </Link>
           <nav className="hidden items-center gap-5 font-mono text-xs text-muted-foreground sm:flex">
             <span className="text-foreground">Dashboard</span>
@@ -25,7 +25,7 @@ export function DashboardHeader() {
             local · this machine
           </span>
           <a
-            href="https://github.com/alexverify/assay"
+            href="https://github.com/alexverify/eyebrow"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"

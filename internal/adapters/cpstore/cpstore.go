@@ -1,8 +1,8 @@
 // Package cpstore is a file-backed store for the control-plane server. Per org
 // (<dir>/<org>/): one snapshot per owner under snapshots/<owner>.json, plus the
 // admin-set policy.json and trustedkeys.json. It is the zero-dependency default
-// persistence for a self-hosted `assay serve`, in the same spirit as the rest
-// of assay's "files are the backend" storage. It structurally satisfies both
+// persistence for a self-hosted `eyebrow serve`, in the same spirit as the rest
+// of eyebrow's "files are the backend" storage. It structurally satisfies both
 // controlplane.Store and controlplane.Config; a Postgres adapter can replace it
 // for scale without touching the service or handlers.
 package cpstore
@@ -15,11 +15,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/alexverify/assay/internal/controlplane"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/controlplane"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alexverify/assay/internal/client"
+	"github.com/alexverify/eyebrow/internal/client"
 )
 
 // runAlerts lists the org's team-level alerts from the control plane: drifted or
@@ -12,14 +12,14 @@ import (
 // from ingested audit. Read-only; opt-in (requires a server).
 func (a *App) runAlerts(ctx context.Context, args []string) int {
 	fs := a.flagSet("alerts")
-	server := fs.String("server", envOr("ASSAY_SERVER", ""), "control-plane URL")
-	token := fs.String("token", envOr("ASSAY_TOKEN", ""), "machine token for the control plane")
+	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL")
+	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
 	jsonOut := fs.Bool("json", false, "machine-readable JSON output")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
 	if *server == "" {
-		fmt.Fprintln(a.Stderr, "alerts: set --server (or ASSAY_SERVER) to a control-plane URL")
+		fmt.Fprintln(a.Stderr, "alerts: set --server (or EYEBROW_SERVER) to a control-plane URL")
 		return ExitUsage
 	}
 

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/assay/internal/adapters/mcpconfig"
-	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/adapters/mcpconfig"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 // frontmatterDescription reads the `description:` value from a Markdown file's
@@ -197,7 +197,7 @@ func fileArtifact(tool, path, scope string, typ artifact.Type, name string) []ar
 	return []artifact.Artifact{a}
 }
 
-// unshim sees through `assay wrap`: a declaration routed via the
+// unshim sees through `eyebrow wrap`: a declaration routed via the
 // mcp-shim is normalized back to the underlying server, so wrapping never
 // changes the discovered artifact (and never reads as drift on verify).
 func unshim(d mcpDecl) mcpDecl {

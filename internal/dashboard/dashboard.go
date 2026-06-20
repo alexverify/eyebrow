@@ -1,4 +1,4 @@
-// Package dashboard serves a local, read-only web view of what assay sees
+// Package dashboard serves a local, read-only web view of what eyebrow sees
 // on this machine: the inventory, drift against the lockfile, findings, and the
 // MCP shim's audit timeline. It is the Go backend of the dashboard — the UI is
 // a Next.js app embedded as a static export (see assets/).
@@ -23,16 +23,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexverify/assay/internal/adapters/auditlog"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/posture"
-	"github.com/alexverify/assay/internal/domain/reputation"
-	"github.com/alexverify/assay/internal/domain/usage"
+	"github.com/alexverify/eyebrow/internal/adapters/auditlog"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/usage"
 )
 
 //go:embed all:assets
@@ -58,7 +58,7 @@ type Deps struct {
 	Mutate func(ctx context.Context, fn func(lf *lockfile.Lockfile) error) error
 	// SignApproval returns a detached signature over an entry's approval binding
 	// (ID + content hash), produced with the local signing key, so a dashboard
-	// approval is Verified rather than merely Unsigned — no separate `assay sign`.
+	// approval is Verified rather than merely Unsigned — no separate `eyebrow sign`.
 	// Optional: when nil, dashboard approvals are recorded unsigned.
 	SignApproval func(e lockfile.Entry) (string, error)
 	// Policy returns the committed policy, backing the Policy tab and the egress
@@ -109,7 +109,7 @@ type Server struct {
 // New constructs a Server. It mints a single random token that gates the write
 // endpoints: a malicious page in the user's browser can issue a cross-origin
 // POST but cannot read GET /api/token (same-origin policy), so it cannot forge
-// the X-Assay-Token header. Combined with the loopback-Host guard, this
+// the X-Eyebrow-Token header. Combined with the loopback-Host guard, this
 // keeps the mutating surface same-origin only.
 func New(d Deps) *Server {
 	static := d.Static
@@ -413,7 +413,7 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 
 // signApproval attaches a signature to an approved entry when a local signing
 // key is wired, so the approval reads as Verified instead of Unsigned without a
-// separate `assay sign` step. The signature commits to the entry's current
+// separate `eyebrow sign` step. The signature commits to the entry's current
 // content hash, so it must run after the hash is set. Best-effort: a missing key
 // or signing error leaves the approval unsigned and never blocks the approve.
 func (s *Server) signApproval(e *lockfile.Entry) {
@@ -442,7 +442,7 @@ func (s *Server) handleAccountAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if r.Header.Get("X-Assay-Token") != s.token || s.token == "" {
+	if r.Header.Get("X-Eyebrow-Token") != s.token || s.token == "" {
 		http.Error(w, "missing or invalid write token", http.StatusForbidden)
 		return
 	}
@@ -483,7 +483,7 @@ func (s *Server) mutate(w http.ResponseWriter, r *http.Request, set func(*lockfi
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if r.Header.Get("X-Assay-Token") != s.token || s.token == "" {
+	if r.Header.Get("X-Eyebrow-Token") != s.token || s.token == "" {
 		http.Error(w, "missing or invalid write token", http.StatusForbidden)
 		return
 	}
@@ -553,7 +553,7 @@ func (s *Server) handleFindingSafe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if r.Header.Get("X-Assay-Token") != s.token || s.token == "" {
+	if r.Header.Get("X-Eyebrow-Token") != s.token || s.token == "" {
 		http.Error(w, "missing or invalid write token", http.StatusForbidden)
 		return
 	}
@@ -800,7 +800,7 @@ func (s *Server) allowPolicyWrite(w http.ResponseWriter, r *http.Request) bool {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return false
 	}
-	if r.Header.Get("X-Assay-Token") != s.token || s.token == "" {
+	if r.Header.Get("X-Eyebrow-Token") != s.token || s.token == "" {
 		http.Error(w, "missing or invalid write token", http.StatusForbidden)
 		return false
 	}
@@ -864,7 +864,7 @@ func loopbackOnly(next http.Handler) http.Handler {
 		case "localhost", "127.0.0.1", "::1":
 			next.ServeHTTP(w, r)
 		default:
-			http.Error(w, "assay dashboard accepts loopback requests only", http.StatusForbidden)
+			http.Error(w, "eyebrow dashboard accepts loopback requests only", http.StatusForbidden)
 		}
 	})
 }

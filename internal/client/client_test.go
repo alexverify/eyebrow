@@ -5,13 +5,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alexverify/assay/internal/client"
-	"github.com/alexverify/assay/internal/controlplane"
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/client"
+	"github.com/alexverify/eyebrow/internal/controlplane"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // liveServer spins up the real control-plane handler so the client is tested

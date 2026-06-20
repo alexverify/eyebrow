@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Check, Copy } from "lucide-react"
 
-export function CopyCommand({ command = "npx assay audit" }: { command?: string }) {
+export function CopyCommand({ command = "npx eyebrow audit" }: { command?: string }) {
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {

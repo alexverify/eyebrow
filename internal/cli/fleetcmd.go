@@ -7,21 +7,21 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alexverify/assay/internal/adapters/fleetstore"
-	"github.com/alexverify/assay/internal/adapters/lockstore"
-	"github.com/alexverify/assay/internal/adapters/policystore"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/client"
-	"github.com/alexverify/assay/internal/dashboard"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/adapters/fleetstore"
+	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
+	"github.com/alexverify/eyebrow/internal/adapters/policystore"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/client"
+	"github.com/alexverify/eyebrow/internal/dashboard"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
 )
 
 // runFleet exports this machine's snapshot or prints the team blast-radius (G1).
 //
-//	assay fleet export   write a counts-and-hashes snapshot to the shared dir
-//	assay fleet          aggregate every snapshot in the dir and print exposure
+//	eyebrow fleet export   write a counts-and-hashes snapshot to the shared dir
+//	eyebrow fleet          aggregate every snapshot in the dir and print exposure
 //
 // A snapshot carries no code and no secrets — only artifact identity, content
 // hash, and the local drift/verdict — so the fleet directory is safe to commit.
@@ -34,9 +34,9 @@ func (a *App) runFleet(ctx context.Context, args []string) int {
 	c := bindCommon(fs)
 	dir := fs.String("dir", a.fleetDir(), "shared fleet-snapshot directory")
 	owner := fs.String("owner", "", "snapshot owner label (default: hostname)")
-	policyPath := fs.String("policy", "assay.policy.json", "policy file for conformance (show)")
-	server := fs.String("server", envOr("ASSAY_SERVER", ""), "control-plane URL (opt-in; overrides the local dir for push/show)")
-	token := fs.String("token", envOr("ASSAY_TOKEN", ""), "machine token for the control plane")
+	policyPath := fs.String("policy", "eyebrow.policy.json", "policy file for conformance (show)")
+	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL (opt-in; overrides the local dir for push/show)")
+	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -167,7 +167,7 @@ func (a *App) fleetExport(ctx context.Context, c commonFlags, dir, owner string)
 // alternative to committing it). Opt-in: it runs only when a server is set.
 func (a *App) fleetPush(ctx context.Context, c commonFlags, server, token, owner string) int {
 	if server == "" {
-		fmt.Fprintln(a.Stderr, "fleet push: set --server (or ASSAY_SERVER) to a control-plane URL")
+		fmt.Fprintln(a.Stderr, "fleet push: set --server (or EYEBROW_SERVER) to a control-plane URL")
 		return ExitUsage
 	}
 	snap, err := a.buildSnapshot(ctx, c, owner)
@@ -204,7 +204,7 @@ func (a *App) fleetShow(dir, policyPath string) int {
 		return ExitError
 	}
 	if len(snaps) == 0 {
-		fmt.Fprintf(a.Stdout, "no fleet snapshots in %s — run `assay fleet export` on each machine\n", dir)
+		fmt.Fprintf(a.Stdout, "no fleet snapshots in %s — run `eyebrow fleet export` on each machine\n", dir)
 		return ExitOK
 	}
 	r := fleet.Aggregate(snaps)

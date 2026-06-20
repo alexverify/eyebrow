@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/alexverify/assay/internal/cli"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/cli"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 func readLockfile(t *testing.T, path string) lockfile.Lockfile {

@@ -12,18 +12,18 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/alexverify/assay/internal/adapters/analyze"
-	"github.com/alexverify/assay/internal/adapters/discover"
-	"github.com/alexverify/assay/internal/adapters/hash"
-	"github.com/alexverify/assay/internal/adapters/lockstore"
-	"github.com/alexverify/assay/internal/adapters/report"
-	"github.com/alexverify/assay/internal/adapters/resolve"
-	"github.com/alexverify/assay/internal/adapters/sign"
-	"github.com/alexverify/assay/internal/adapters/snapshotstore"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/app/scan"
-	"github.com/alexverify/assay/internal/app/verify"
-	"github.com/alexverify/assay/internal/buildinfo"
+	"github.com/alexverify/eyebrow/internal/adapters/analyze"
+	"github.com/alexverify/eyebrow/internal/adapters/discover"
+	"github.com/alexverify/eyebrow/internal/adapters/hash"
+	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
+	"github.com/alexverify/eyebrow/internal/adapters/report"
+	"github.com/alexverify/eyebrow/internal/adapters/resolve"
+	"github.com/alexverify/eyebrow/internal/adapters/sign"
+	"github.com/alexverify/eyebrow/internal/adapters/snapshotstore"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/app/scan"
+	"github.com/alexverify/eyebrow/internal/app/verify"
+	"github.com/alexverify/eyebrow/internal/buildinfo"
 )
 
 // Exit codes form a stable contract for CI consumers.
@@ -116,7 +116,7 @@ func (a *App) usage() {
 	fmt.Fprintf(a.Stderr, `%s — supply-chain integrity for AI coding tools
 
 Usage:
-  assay <command> [flags]
+  eyebrow <command> [flags]
 
 Commands:
   scan      Discover, resolve, hash, and analyze artifacts; write the lockfile
@@ -143,7 +143,7 @@ Commands:
   version   Print the version
   help      Show this help
 
-Run "assay <command> -h" for command-specific flags.
+Run "eyebrow <command> -h" for command-specific flags.
 `, buildinfo.Name)
 }
 
@@ -216,7 +216,7 @@ func (a *App) verifyService(jsonOut bool, rulesDir string, verifier ports.Lockfi
 // auditDir is the default audit-log location.
 func (a *App) auditDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".assay", "audit")
+	return filepath.Join(home, ".eyebrow", "audit")
 }
 
 // snapshotDir is the content-addressed store of approved file bytes backing the
@@ -224,32 +224,32 @@ func (a *App) auditDir() string {
 // baselines stay project-local (and gitignored) — a local cache, not part of the
 // signed lockfile.
 func (a *App) snapshotDir(projectPath string) string {
-	return filepath.Join(projectPath, ".assay", "snapshots")
+	return filepath.Join(projectPath, ".eyebrow", "snapshots")
 }
 
 // fleetDir is the default fleet-snapshot directory: a project-local, shared
 // path meant to be committed ("git is the backend"), so the whole team's
 // snapshots aggregate without any server.
 func (a *App) fleetDir() string {
-	return filepath.Join(".assay", "fleet")
+	return filepath.Join(".eyebrow", "fleet")
 }
 
 // historyPath is the default posture-trend history file.
 func (a *App) historyPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".assay", "history.jsonl")
+	return filepath.Join(home, ".eyebrow", "history.jsonl")
 }
 
 // keyPath is the default local signing-key location.
 func (a *App) keyPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".assay", "key")
+	return filepath.Join(home, ".eyebrow", "key")
 }
 
 // trustedKeysPath is the user-level trusted-keys registry.
 func (a *App) trustedKeysPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".assay", "trusted_keys")
+	return filepath.Join(home, ".eyebrow", "trusted_keys")
 }
 
 // lockfileVerifier builds the trust set used to check lockfile signatures: the

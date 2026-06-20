@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/reputation"
-	"github.com/alexverify/assay/internal/domain/usage"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/usage"
 )
 
 func TestBuildScanReputationJoinByHash(t *testing.T) {
@@ -49,7 +49,7 @@ func art(id, tool string, typ artifact.Type, name, hash string) artifact.Artifac
 }
 
 func lf(arts ...artifact.Artifact) lockfile.Lockfile {
-	return lockfile.Build(arts, time.Unix(1000, 0).UTC(), "assay/test")
+	return lockfile.Build(arts, time.Unix(1000, 0).UTC(), "eyebrow/test")
 }
 
 func find(t *testing.T, scan []DashArtifact, name string) DashArtifact {
@@ -277,7 +277,7 @@ func TestBuildScanUpdatedVsMutatedStatus(t *testing.T) {
 func TestBuildScanUsageJoinsByServerNameForMCP(t *testing.T) {
 	scanAt := time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC)
 	cur := art("a1", "claude-code", artifact.TypeMCPServer, "weather", "sha256-x")
-	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "assay/test")
+	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "eyebrow/test")
 
 	used := map[string]usage.Stat{
 		"weather": {
@@ -322,7 +322,7 @@ func TestBuildScanSleeperOnDormantDriftThenRun(t *testing.T) {
 	cur.Source = artifact.Source{Kind: artifact.SourceNPM, Ref: "1.0.0", Integrity: "sha512-A"}
 	cur.ModifiedAt = scanAt.Add(-60 * 24 * time.Hour) // installed ~60 days ago
 
-	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "assay/test")
+	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "eyebrow/test")
 	used := map[string]usage.Stat{
 		"db": {FirstUsed: scanAt.Add(-24 * time.Hour), LastUsed: scanAt, Count: 1}, // first run yesterday
 	}
@@ -339,7 +339,7 @@ func TestBuildScanNoSleeperWithoutDrift(t *testing.T) {
 	scanAt := time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC)
 	cur := art("m1", "cursor", artifact.TypeMCPServer, "db", "sha256-same")
 	cur.ModifiedAt = scanAt.Add(-60 * 24 * time.Hour)
-	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "assay/test")
+	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "eyebrow/test")
 	used := map[string]usage.Stat{"db": {FirstUsed: scanAt.Add(-24 * time.Hour), Count: 1}}
 	// Locked == current content → no drift → no sleeper even though dormant+used.
 	if got := find(t, BuildScan(current, lf(cur), nil, used, nil), "db"); got.Sleeper != nil {
@@ -355,7 +355,7 @@ func TestBuildScanTimelineRibbon(t *testing.T) {
 	cur.Source = artifact.Source{Kind: artifact.SourceNPM, Ref: "1.0.0", Integrity: "sha512-A"}
 	cur.ModifiedAt = scanAt.Add(-40 * 24 * time.Hour)
 
-	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "assay/test")
+	current := lockfile.Build([]artifact.Artifact{cur}, scanAt, "eyebrow/test")
 	used := map[string]usage.Stat{
 		"db": {FirstUsed: scanAt.Add(-2 * 24 * time.Hour), LastUsed: scanAt.Add(-1 * time.Hour), Count: 5},
 	}
@@ -392,7 +392,7 @@ func TestBuildScanFindingLivenessFusion(t *testing.T) {
 	cold := art("m2", "cursor", artifact.TypeMCPServer, "cold-srv", "sha256-b")
 	cold.Findings = []finding.Finding{{RuleID: "R1", Severity: finding.SeverityHigh, Explanation: "x"}}
 
-	current := lockfile.Build([]artifact.Artifact{live, cold}, scanAt, "assay/test")
+	current := lockfile.Build([]artifact.Artifact{live, cold}, scanAt, "eyebrow/test")
 	used := map[string]usage.Stat{
 		"live-srv": {FirstUsed: scanAt.Add(-48 * time.Hour), LastUsed: scanAt.Add(-24 * time.Hour), Count: 3},
 	}
@@ -417,7 +417,7 @@ func TestBuildScanFindingLivenessUnknownForSkill(t *testing.T) {
 	// telemetry joins by MCP server name only.
 	skill := art("s1", "claude-code", artifact.TypeSkill, "shared", "sha256-x")
 	skill.Findings = []finding.Finding{{RuleID: "R1", Severity: finding.SeverityMedium, Explanation: "x"}}
-	current := lockfile.Build([]artifact.Artifact{skill}, scanAt, "assay/test")
+	current := lockfile.Build([]artifact.Artifact{skill}, scanAt, "eyebrow/test")
 	used := map[string]usage.Stat{"shared": {LastUsed: scanAt, Count: 99}}
 	got := find(t, BuildScan(current, lockfile.Lockfile{}, nil, used, nil), "shared").Findings[0]
 	if got.Liveness != "unknown" {

@@ -9,13 +9,13 @@ package sbom
 import (
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/digest"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/digest"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
-// BOM is the subset of the CycloneDX 1.6 schema assay emits.
+// BOM is the subset of the CycloneDX 1.6 schema eyebrow emits.
 type BOM struct {
 	BOMFormat       string          `json:"bomFormat"`   // always "CycloneDX"
 	SpecVersion     string          `json:"specVersion"` // "1.6"
@@ -90,7 +90,7 @@ func Build(lf lockfile.Lockfile, ts string) BOM {
 		BOMFormat:       "CycloneDX",
 		SpecVersion:     "1.6",
 		Version:         1,
-		Metadata:        Metadata{Timestamp: ts, Tools: []Tool{{Vendor: "assay", Name: "assay"}}},
+		Metadata:        Metadata{Timestamp: ts, Tools: []Tool{{Vendor: "eyebrow", Name: "eyebrow"}}},
 		Components:      components,
 		Vulnerabilities: vulns,
 	}
@@ -119,20 +119,20 @@ func properties(e lockfile.Entry) []Property {
 		return append(props, Property{Name: name, Value: val})
 	}
 	var p []Property
-	p = add(p, "assay:tool", e.Tool)
-	p = add(p, "assay:type", string(e.Type))
-	p = add(p, "assay:scope", e.Scope)
-	p = add(p, "assay:sourceKind", string(e.Source.Kind))
-	p = add(p, "assay:integrity", e.Source.Integrity)
-	p = add(p, "assay:provenance", e.Source.Provenance)
+	p = add(p, "eyebrow:tool", e.Tool)
+	p = add(p, "eyebrow:type", string(e.Type))
+	p = add(p, "eyebrow:scope", e.Scope)
+	p = add(p, "eyebrow:sourceKind", string(e.Source.Kind))
+	p = add(p, "eyebrow:integrity", e.Source.Integrity)
+	p = add(p, "eyebrow:provenance", e.Source.Provenance)
 	if e.Quarantined {
-		p = add(p, "assay:quarantined", "true")
+		p = add(p, "eyebrow:quarantined", "true")
 	}
 	if e.Frozen {
-		p = add(p, "assay:frozen", "true")
+		p = add(p, "eyebrow:frozen", "true")
 	}
 	if e.Approval != nil && e.Approval.Status == "approved" {
-		p = add(p, "assay:approved", "true")
+		p = add(p, "eyebrow:approved", "true")
 	}
 	return p
 }
@@ -140,7 +140,7 @@ func properties(e lockfile.Entry) []Property {
 func vulnerability(ref string, f finding.Finding) Vulnerability {
 	return Vulnerability{
 		ID:          f.RuleID,
-		Source:      Source{Name: "assay"},
+		Source:      Source{Name: "eyebrow"},
 		Ratings:     []Rating{{Severity: string(f.Severity), Method: "other"}},
 		Description: f.Explanation,
 		Affects:     []Affect{{Ref: ref}},

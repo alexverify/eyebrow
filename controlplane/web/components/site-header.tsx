@@ -6,7 +6,7 @@ export function SiteHeader() {
     <header className="border-b border-border">
       <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-4">
         <a href="#" className="font-mono text-sm font-semibold tracking-tight text-foreground">
-          Assay
+          Eyebrow
         </a>
         <nav className="flex items-center gap-6 font-mono text-xs text-muted-foreground">
           <a href="#docs" className="transition-colors hover:text-foreground">
@@ -16,7 +16,7 @@ export function SiteHeader() {
             Team
           </a>
           <a
-            href="https://github.com/alexverify/assay"
+            href="https://github.com/alexverify/eyebrow"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"

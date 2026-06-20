@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alexverify/assay/internal/platform/run"
+	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
 func TestPackFetcherDownloadsAndExtracts(t *testing.T) {

@@ -11,7 +11,7 @@ const GAPS = [
   },
   {
     title: "Your machine, right now",
-    body: "no inventory, no lockfile, no tamper detection, no egress control. Assay lives here.",
+    body: "no inventory, no lockfile, no tamper detection, no egress control. Eyebrow lives here.",
     isGap: true,
   },
 ]

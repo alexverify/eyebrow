@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/cli"
-	"github.com/alexverify/assay/internal/controlplane"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/cli"
+	"github.com/alexverify/eyebrow/internal/controlplane"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 func TestFleetPushThenShowRemote(t *testing.T) {

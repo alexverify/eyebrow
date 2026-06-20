@@ -83,9 +83,9 @@ hard.
 ## Fleet is aggregated snapshots, not live telemetry
 
 The team blast-radius (`internal/domain/fleet`) is built the same offline-first
-way as approvals: each developer's `assay fleet export` writes a **content-free**
+way as approvals: each developer's `eyebrow fleet export` writes a **content-free**
 snapshot — artifact id, name, kind, content hash, source ref, and the owner's
-local drift/verdict, *nothing else* — under `.assay/fleet/`, which is committed
+local drift/verdict, *nothing else* — under `.eyebrow/fleet/`, which is committed
 to the repo. The dashboard aggregates whatever snapshots it finds. No server, no
 telemetry upload, no secrets, no code leaves a machine. "Git is the backend,"
 the same principle as the lockfile and the trusted-keys registry. A hosted API
@@ -101,9 +101,9 @@ the bytes, and bytes must not go in the lockfile: they would bloat the
 committed file and, worse, churn the canonical signing bytes on every edit.
 
 So the approved bytes live in a separate, content-addressed blob store
-(`internal/adapters/snapshotstore`, default `<project>/.assay/snapshots`,
+(`internal/adapters/snapshotstore`, default `<project>/.eyebrow/snapshots`,
 gitignored) — a *local cache of baselines*, explicitly not part of the integrity
-anchor. `assay scan` (and the dashboard's live build) capture each artifact's
+anchor. `eyebrow scan` (and the dashboard's live build) capture each artifact's
 files keyed by content hash; because it is content-addressed, the same hash is
 captured once. The dashboard then diffs the locked hash's bytes against the
 current hash's bytes with the pure `internal/domain/textdiff` LCS differ.
@@ -121,7 +121,7 @@ the TOML dependency does not apply here.
 ## The hosted dashboard stays loopback-only, not a network UI
 
 The team dashboard on hosted data (4e) keeps the existing **loopback-only** UI
-and only swaps its data source: `assay dashboard --server` points the `Fleet`,
+and only swaps its data source: `eyebrow dashboard --server` points the `Fleet`,
 `Conformance`, `Alerts`, and `Reputation` deps at the control-plane client. We
 deliberately did *not* serve the UI over the network with an SSO login. The
 reason is the dashboard's founding constraint — "no auth because there is no
@@ -141,7 +141,7 @@ future extension rather than bolted on here.
 ## The control plane is a self-hostable binary that reuses the pure core
 
 The team server (`internal/controlplane`, slice 4a) is a *self-hostable single
-binary* (`assay serve`), not a managed SaaS. That matches the run-it-yourself,
+binary* (`eyebrow serve`), not a managed SaaS. That matches the run-it-yourself,
 auditable ethos and defers the hardest SaaS concerns (billing, residency, our
 own breach surface); a multi-tenant SaaS later is the same binary with tenancy
 on by default. It is written in Go specifically so the server's `Fleet` endpoint
@@ -151,7 +151,7 @@ to audit.
 
 Two deliberate choices keep it honest. **Persistence defaults to a
 zero-dependency file store** (`internal/adapters/cpstore`, one JSON per machine)
-in the same "files are the backend" spirit as the rest of assay; Postgres is a
+in the same "files are the backend" spirit as the rest of eyebrow; Postgres is a
 future adapter behind the same `Store` port, for scale, not a baseline
 requirement — so `serve` adds no dependency to the shipped binary. **Auth is a
 machine bearer token scoping each request to one org** (constant-time compare,
@@ -174,7 +174,7 @@ snapshots in a `snapshots/` subdir precisely so an owner literally named
 The CLI **prefers the server but falls back to local**: `verify` and
 `fleet verify` pull `GET /v1/policy` and `GET /v1/registry/keys` when a
 `--server` is set, but a 404 (no org policy) or any transport error drops back to
-the committed `assay.policy.json` / trusted-keys registry. So adopting a server
+the committed `eyebrow.policy.json` / trusted-keys registry. So adopting a server
 never silently changes a gate you didn't configure, and an unreachable server
 never blocks CI — the same advisory-feed contract the offline reputation and
 advisory feeds follow. The server policy is `Normalize`d exactly as
@@ -182,14 +182,14 @@ advisory feeds follow. The server policy is `Normalize`d exactly as
 
 ## The fleet CI gate reuses the dashboard's pure rollups
 
-`assay fleet verify` enforces what the dashboard's Fleet tab shows. Rather than
+`eyebrow fleet verify` enforces what the dashboard's Fleet tab shows. Rather than
 re-deriving compliance, `fleet.Gate` is a thin pure function over the
 already-computed `Aggregate` (blast radius) and `CheckConformance` (per-machine
 policy) results — the exact values the dashboard renders. So a CI failure can
 never disagree with what a teammate sees locally. It fails on two conditions:
 any machine out of policy, and a drifted/quarantined artifact whose reach
 exceeds a committed `fleet.maxBlastRadius` (zero = reach check off, conformance
-alone gates). The threshold lives in `assay.policy.json`, reviewed like every
+alone gates). The threshold lives in `eyebrow.policy.json`, reviewed like every
 other rule, and the gate exits `1` — the same stable drift/policy code as
 `verify --ci`, so existing CI consumers need no new exit-code handling. An empty
 fleet directory is nothing to gate (exit `0`), keeping the gate safe to add
@@ -236,8 +236,8 @@ sources feed it, both keyed by **artifact name**:
   the server name. This is the original join (no setup needed once a server is
   wrapped).
 - **Everything else** — skills, subagents, plugins, hooks have no shim, so
-  `assay install-hooks` writes a host-tool `PreToolUse` hook (Claude Code's
-  Skill and Task tools) that shells out to `assay record-use`, appending an
+  `eyebrow install-hooks` writes a host-tool `PreToolUse` hook (Claude Code's
+  Skill and Task tools) that shells out to `eyebrow record-use`, appending an
   `activation` event. This lights up the same first/last-used, sleeper (F2),
   live-finding (F3), and timeline (F4) signals for non-MCP kinds.
 

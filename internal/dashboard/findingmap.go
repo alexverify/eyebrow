@@ -3,7 +3,7 @@ package dashboard
 import (
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
 )
 
 // ruleInfo gives a finding rule the two presentation fields the dashboard

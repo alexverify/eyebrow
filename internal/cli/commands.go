@@ -11,17 +11,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexverify/assay/internal/adapters/historystore"
-	"github.com/alexverify/assay/internal/adapters/lockstore"
-	"github.com/alexverify/assay/internal/adapters/notify"
-	"github.com/alexverify/assay/internal/adapters/sbom"
-	"github.com/alexverify/assay/internal/adapters/sign"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/app/scan"
-	"github.com/alexverify/assay/internal/app/verify"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/adapters/historystore"
+	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
+	"github.com/alexverify/eyebrow/internal/adapters/notify"
+	"github.com/alexverify/eyebrow/internal/adapters/sbom"
+	"github.com/alexverify/eyebrow/internal/adapters/sign"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/app/scan"
+	"github.com/alexverify/eyebrow/internal/app/verify"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
 )
 
 // commonFlags are shared by the read pipeline commands.
@@ -37,7 +37,7 @@ func bindCommon(fs *flag.FlagSet) commonFlags {
 	return commonFlags{
 		path:     fs.String("path", ".", "project root to scan"),
 		global:   fs.Bool("global", false, "also include the global (user-home) scope"),
-		lockfile: fs.String("lockfile", "assaylock.json", "lockfile path"),
+		lockfile: fs.String("lockfile", "eyebrowlock.json", "lockfile path"),
 		json:     fs.Bool("json", false, "machine-readable JSON output"),
 		rules:    fs.String("rules", "rules", "semgrep rules pack dir (optional accelerator; ignored when absent)"),
 	}
@@ -86,10 +86,10 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 	fs := a.flagSet("verify")
 	c := bindCommon(fs)
 	ci := fs.Bool("ci", false, "strict mode: also apply the policy gate (severity threshold, approvals)")
-	policyPath := fs.String("policy", "assay.policy.json", "policy file applied in --ci mode")
-	trustedKeys := fs.String("trusted-keys", "assay.trustedkeys", "committed trusted-keys registry checked by requireSignature")
-	server := fs.String("server", envOr("ASSAY_SERVER", ""), "control-plane URL (opt-in: pull org policy and trusted keys)")
-	token := fs.String("token", envOr("ASSAY_TOKEN", ""), "machine token for the control plane")
+	policyPath := fs.String("policy", "eyebrow.policy.json", "policy file applied in --ci mode")
+	trustedKeys := fs.String("trusted-keys", "eyebrow.trustedkeys", "committed trusted-keys registry checked by requireSignature")
+	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL (opt-in: pull org policy and trusted keys)")
+	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -114,7 +114,7 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 	}, a.Stdout)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "verify: no lockfile found; run 'assay scan' first")
+			fmt.Fprintln(a.Stderr, "verify: no lockfile found; run 'eyebrow scan' first")
 			return ExitError
 		}
 		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
@@ -162,7 +162,7 @@ func (a *App) runDiff(ctx context.Context, args []string) int {
 	}, a.Stdout)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "diff: no lockfile found; run 'assay scan' first")
+			fmt.Fprintln(a.Stderr, "diff: no lockfile found; run 'eyebrow scan' first")
 			return ExitError
 		}
 		fmt.Fprintf(a.Stderr, "diff: %v\n", err)
@@ -248,7 +248,7 @@ func digestSummary(locked, current lockfile.Lockfile) string {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "assay digest — %d artifact(s)\n", len(current.Artifacts))
+	fmt.Fprintf(&b, "eyebrow digest — %d artifact(s)\n", len(current.Artifacts))
 	fmt.Fprintf(&b, "  unchanged: %d\n  updated:   %d\n  drifted:   %d\n  new:       %d\n",
 		unchanged, updated, drifted, fresh)
 	fmt.Fprintf(&b, "  findings:  %d (critical=%d high=%d medium=%d low=%d)\n",
@@ -270,7 +270,7 @@ func digestSummary(locked, current lockfile.Lockfile) string {
 // file. It is the auditable supply-chain document a customer might ask for.
 func (a *App) runSBOM(ctx context.Context, args []string) int {
 	fs := a.flagSet("sbom")
-	lock := fs.String("lockfile", "assaylock.json", "lockfile to export")
+	lock := fs.String("lockfile", "eyebrowlock.json", "lockfile to export")
 	outPath := fs.String("o", "", "write to this file instead of stdout")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
@@ -278,7 +278,7 @@ func (a *App) runSBOM(ctx context.Context, args []string) int {
 	lf, err := lockstore.New().Read(ctx, *lock)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "sbom: no lockfile found; run 'assay scan' first")
+			fmt.Fprintln(a.Stderr, "sbom: no lockfile found; run 'eyebrow scan' first")
 			return ExitError
 		}
 		fmt.Fprintf(a.Stderr, "sbom: %v\n", err)
@@ -324,7 +324,7 @@ func (a *App) runList(ctx context.Context, args []string) int {
 
 func (a *App) runApprove(ctx context.Context, args []string) int {
 	fs := a.flagSet("approve")
-	lock := fs.String("lockfile", "assaylock.json", "lockfile path")
+	lock := fs.String("lockfile", "eyebrowlock.json", "lockfile path")
 	all := fs.Bool("all", false, "approve every artifact in the lockfile (bulk onboarding)")
 	signApproval := fs.Bool("sign", false, "cryptographically sign each approval with your local key")
 	key := fs.String("key", a.keyPath(), "ed25519 private key path for --sign (created if absent)")
@@ -345,7 +345,7 @@ func (a *App) runApprove(ctx context.Context, args []string) int {
 	lf, err := store.Read(ctx, *lock)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "approve: no lockfile found; run 'assay scan' first")
+			fmt.Fprintln(a.Stderr, "approve: no lockfile found; run 'eyebrow scan' first")
 			return ExitError
 		}
 		fmt.Fprintf(a.Stderr, "approve: %v\n", err)
@@ -406,7 +406,7 @@ func (a *App) runFreeze(ctx context.Context, args []string) int {
 // (quarantine, freeze). set toggles the relevant flag; --remove lifts it.
 func (a *App) runMark(ctx context.Context, name string, args []string, set func(*lockfile.Entry, bool)) int {
 	fs := a.flagSet(name)
-	lock := fs.String("lockfile", "assaylock.json", "lockfile path")
+	lock := fs.String("lockfile", "eyebrowlock.json", "lockfile path")
 	all := fs.Bool("all", false, "apply to every artifact in the lockfile")
 	remove := fs.Bool("remove", false, "lift the "+name+" instead of applying it")
 	if err := fs.Parse(args); err != nil {
@@ -426,7 +426,7 @@ func (a *App) runMark(ctx context.Context, name string, args []string, set func(
 	lf, err := store.Read(ctx, *lock)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintf(a.Stderr, "%s: no lockfile found; run 'assay scan' first\n", name)
+			fmt.Fprintf(a.Stderr, "%s: no lockfile found; run 'eyebrow scan' first\n", name)
 			return ExitError
 		}
 		fmt.Fprintf(a.Stderr, "%s: %v\n", name, err)
@@ -458,7 +458,7 @@ func (a *App) runMark(ctx context.Context, name string, args []string, set func(
 
 func (a *App) runSign(ctx context.Context, args []string) int {
 	fs := a.flagSet("sign")
-	lock := fs.String("lockfile", "assaylock.json", "lockfile to sign")
+	lock := fs.String("lockfile", "eyebrowlock.json", "lockfile to sign")
 	key := fs.String("key", a.keyPath(), "ed25519 private key path (created if absent)")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
@@ -473,7 +473,7 @@ func (a *App) runSign(ctx context.Context, args []string) int {
 	lf, err := store.Read(ctx, *lock)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "sign: no lockfile found; run 'assay scan' first")
+			fmt.Fprintln(a.Stderr, "sign: no lockfile found; run 'eyebrow scan' first")
 			return ExitError
 		}
 		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
@@ -497,7 +497,7 @@ func (a *App) runSign(ctx context.Context, args []string) int {
 // teammate's public key to a trusted-keys registry.
 func (a *App) runKey(ctx context.Context, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(a.Stderr, "key: usage: assay key <show|trust> [flags]")
+		fmt.Fprintln(a.Stderr, "key: usage: eyebrow key <show|trust> [flags]")
 		return ExitUsage
 	}
 	sub, rest := args[0], args[1:]
@@ -535,7 +535,7 @@ func (a *App) runKeyTrust(args []string) int {
 		return ExitUsage
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(a.Stderr, "key trust: provide exactly one base64 public key (from 'assay key show')")
+		fmt.Fprintln(a.Stderr, "key trust: provide exactly one base64 public key (from 'eyebrow key show')")
 		return ExitUsage
 	}
 	if err := sign.AppendTrustedKey(*file, fs.Arg(0), *name); err != nil {

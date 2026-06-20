@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // Load reads the reputation corpus at path. A missing or empty path yields an

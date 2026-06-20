@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
 )
 
 // Sink writes events under a directory, satisfying ports.AuditSink.

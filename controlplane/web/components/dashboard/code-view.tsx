@@ -85,7 +85,7 @@ export function CodeView({
   // drives onClose, keeping history clean.
   useEffect(() => {
     if (!target) return
-    window.history.pushState({ assaySource: true }, "")
+    window.history.pushState({ eyebrowSource: true }, "")
     const onPop = () => onClose()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") window.history.back()

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 func ts(s string) time.Time {

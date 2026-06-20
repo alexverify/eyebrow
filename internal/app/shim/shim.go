@@ -1,5 +1,5 @@
 // Package shim implements the MCP interposition relay — the heart of
-// `assay wrap` (Component 2).
+// `eyebrow wrap` (Component 2).
 //
 // The relay sits between an AI tool (the client) and a real MCP server,
 // pumping newline-delimited JSON-RPC in both directions. Allowed traffic is
@@ -18,10 +18,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/jsonrpc"
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/jsonrpc"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 // Deps are the relay's collaborators.
@@ -149,7 +149,7 @@ func (s *Service) deny(ctx context.Context, opts Options, m jsonrpc.Message, d p
 		} `json:"error"`
 	}{JSONRPC: "2.0", ID: json.RawMessage(m.ID)}
 	resp.Error.Code = DeniedErrorCode
-	resp.Error.Message = fmt.Sprintf("assay policy: tool %q denied for server %q (%s)", m.ToolName, opts.Server, d.Reason)
+	resp.Error.Message = fmt.Sprintf("eyebrow policy: tool %q denied for server %q (%s)", m.ToolName, opts.Server, d.Reason)
 
 	if line, err := json.Marshal(resp); err == nil {
 		_, _ = toClient.Write(append(line, '\n'))

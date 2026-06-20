@@ -3,7 +3,7 @@ package sign
 import (
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 func approvedEntry(id, hash string) lockfile.Entry {

@@ -1,4 +1,4 @@
-// Package policystore loads a policy file (assay.policy.json) from disk.
+// Package policystore loads a policy file (eyebrow.policy.json) from disk.
 // Policy is optional: a missing file yields the default policy.
 package policystore
 
@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 // Load reads and parses a policy file. If the path does not exist it returns
@@ -42,7 +42,7 @@ func Save(path string, p policy.Policy) error {
 	b = append(b, '\n')
 
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".assaypolicy-*.tmp")
+	tmp, err := os.CreateTemp(dir, ".eyebrowpolicy-*.tmp")
 	if err != nil {
 		return err
 	}

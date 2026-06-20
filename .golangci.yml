@@ -1,4 +1,4 @@
-# golangci-lint configuration for assay.
+# golangci-lint configuration for eyebrow.
 # Optional locally; recommended in CI. Install: https://golangci-lint.run
 version: "2"
 

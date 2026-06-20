@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/adapters/auditlog"
-	"github.com/alexverify/assay/internal/cli"
-	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/adapters/auditlog"
+	"github.com/alexverify/eyebrow/internal/cli"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
 )
 
 func TestRecordUseAppendsActivation(t *testing.T) {

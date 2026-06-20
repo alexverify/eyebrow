@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 func hasProp(c Component, name, val string) bool {
@@ -50,7 +50,7 @@ func TestBuildMapsComponentsAndVulns(t *testing.T) {
 	if len(c.Hashes) != 1 || c.Hashes[0].Alg != "SHA-256" || c.Hashes[0].Content != "deadbeef" {
 		t.Errorf("hashes = %+v", c.Hashes)
 	}
-	if !hasProp(c, "assay:provenance", "https://slsa.dev/provenance/v1") {
+	if !hasProp(c, "eyebrow:provenance", "https://slsa.dev/provenance/v1") {
 		t.Errorf("provenance property missing: %+v", c.Properties)
 	}
 

@@ -6,12 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/adapters/hookconfig"
+	"github.com/alexverify/eyebrow/internal/adapters/hookconfig"
 )
 
 // runInstallHooks installs (or reports/removes) the host-tool hooks that feed
 // usage telemetry: a PreToolUse hook on Skill and Task routes activations
-// through `assay record-use`, so skills and subagents gain the same
+// through `eyebrow record-use`, so skills and subagents gain the same
 // first/last-used, sleeper, and live-finding signals as wrapped MCP servers.
 // It rewrites the tool's settings idempotently, mirroring wrap/unwrap.
 func (a *App) runInstallHooks(_ context.Context, args []string) int {
@@ -19,7 +19,7 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 	tool := fs.String("tool", "claude-code", "tool whose settings to edit (claude-code only for now)")
 	settings := fs.String("settings", "", "settings file to edit (default: ~/.claude/settings.json)")
 	status := fs.Bool("status", false, "show install state instead of changing anything")
-	uninstall := fs.Bool("uninstall", false, "remove the hooks assay installed")
+	uninstall := fs.Bool("uninstall", false, "remove the hooks eyebrow installed")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -51,10 +51,10 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 			return ExitError
 		}
 		if len(cmds) == 0 {
-			fmt.Fprintf(a.Stdout, "no assay hooks installed in %s\n", path)
+			fmt.Fprintf(a.Stdout, "no eyebrow hooks installed in %s\n", path)
 			return ExitOK
 		}
-		fmt.Fprintf(a.Stdout, "%d assay hook(s) in %s:\n", len(cmds), path)
+		fmt.Fprintf(a.Stdout, "%d eyebrow hook(s) in %s:\n", len(cmds), path)
 		for _, c := range cmds {
 			fmt.Fprintf(a.Stdout, "  %s\n", c)
 		}
@@ -73,13 +73,13 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 				return ExitError
 			}
 		}
-		fmt.Fprintf(a.Stdout, "removed %d assay hook(s) from %s\n", n, path)
+		fmt.Fprintf(a.Stdout, "removed %d eyebrow hook(s) from %s\n", n, path)
 		return ExitOK
 	}
 
 	bin, err := os.Executable()
 	if err != nil || bin == "" {
-		bin = "assay" // fall back to PATH resolution
+		bin = "eyebrow" // fall back to PATH resolution
 	}
 	added, err := cfg.Install(bin)
 	if err != nil {
@@ -92,7 +92,7 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 			return ExitError
 		}
 	}
-	fmt.Fprintf(a.Stdout, "installed assay usage hooks in %s (%d new); "+
+	fmt.Fprintf(a.Stdout, "installed eyebrow usage hooks in %s (%d new); "+
 		"skill and subagent activations will be recorded to %s\n", path, added, a.auditDir())
 	return ExitOK
 }

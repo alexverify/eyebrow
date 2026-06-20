@@ -143,7 +143,7 @@ export function ReputationBadge({ reputation }: { reputation?: Artifact["reputat
         "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium",
         established ? "border-ok/40 bg-ok/10 text-ok" : "border-border bg-muted/40 text-muted-foreground",
       )}
-      title={`Trusted by ${reputation.trusters} other assay users${reputation.firstSeen ? `, first seen ${reputation.firstSeen}` : ""}. Hash-only, opt-in signal.`}
+      title={`Trusted by ${reputation.trusters} other eyebrow users${reputation.firstSeen ? `, first seen ${reputation.firstSeen}` : ""}. Hash-only, opt-in signal.`}
     >
       ✓ {reputation.trusters} trust
     </span>

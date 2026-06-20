@@ -1,5 +1,5 @@
 /**
- * Static export so the dashboard ships embedded in the assay Go binary
+ * Static export so the dashboard ships embedded in the eyebrow Go binary
  * (go:embed) and serves on loopback with no Node runtime.
  * @type {import('next').NextConfig}
  */

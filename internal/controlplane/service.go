@@ -4,11 +4,11 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // ErrInvalidSnapshot is returned when a submission is missing the org or owner
@@ -135,7 +135,7 @@ func (s *Service) Reputation(org string, hashes []string) (reputation.Source, er
 }
 
 // Gate runs the fleet CI gate (Phase 3) server-side over the org's submitted
-// snapshots and configured policy — the hosted equivalent of `assay fleet
+// snapshots and configured policy — the hosted equivalent of `eyebrow fleet
 // verify`. It reuses the exact pure functions, so a CI failure here matches what
 // a teammate sees locally. With no org policy configured, the default policy
 // applies (blast-radius check off; only quarantine flags conformance).

@@ -3,16 +3,16 @@
 # Validate with: goreleaser check && goreleaser release --snapshot --clean
 version: 2
 
-project_name: assay
+project_name: eyebrow
 
 builds:
-  - main: ./cmd/assay
+  - main: ./cmd/eyebrow
     env:
       - CGO_ENABLED=0
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X github.com/alexverify/assay/internal/buildinfo.Version={{.Version}}
+      - -s -w -X github.com/alexverify/eyebrow/internal/buildinfo.Version={{.Version}}
     goos:
       - linux
       - darwin

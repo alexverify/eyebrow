@@ -1,4 +1,4 @@
-// Package lockstore reads and writes assaylock.json. It keeps the file
+// Package lockstore reads and writes eyebrowlock.json. It keeps the file
 // human-diffable (indented JSON, trailing newline) and writes atomically so a
 // crash mid-write never corrupts an existing lockfile.
 package lockstore
@@ -12,8 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 // Store is a filesystem-backed ports.LockStore.
@@ -50,7 +50,7 @@ func (Store) Write(_ context.Context, path string, lf lockfile.Lockfile) error {
 	b = append(b, '\n')
 
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".assaylock-*.tmp")
+	tmp, err := os.CreateTemp(dir, ".eyebrowlock-*.tmp")
 	if err != nil {
 		return err
 	}

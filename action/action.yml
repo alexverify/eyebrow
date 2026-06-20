@@ -1,10 +1,10 @@
-# Composite Action wrapping `assay verify --ci`.
+# Composite Action wrapping `eyebrow verify --ci`.
 # The binary version defaults to the ref this action is pinned at, so
-# `uses: alexverify/assay/action@v0.1.0` pins the action AND the binary
+# `uses: alexverify/eyebrow/action@v0.1.0` pins the action AND the binary
 # with a single tag, checksum-verified before it runs.
-name: assay verify
+name: eyebrow verify
 description: >-
-  Verify the committed assaylock.json against the live environment — drift,
+  Verify the committed eyebrowlock.json against the live environment — drift,
   policy gate, approvals, and lockfile signature — and fail the build on
   violations.
 branding:
@@ -14,7 +14,7 @@ branding:
 inputs:
   version:
     description: >-
-      assay release tag to install (e.g. v0.1.0). Defaults to the ref the
+      eyebrow release tag to install (e.g. v0.1.0). Defaults to the ref the
       action is pinned at; required when pinning the action to a branch or SHA.
     default: ""
   path:
@@ -22,18 +22,18 @@ inputs:
     default: "."
   lockfile:
     description: Lockfile path.
-    default: assaylock.json
+    default: eyebrowlock.json
   policy:
     description: Policy file applied by the gate.
-    default: assay.policy.json
+    default: eyebrow.policy.json
   trusted-keys:
     description: Committed trusted-keys registry checked by requireSignature.
-    default: assay.trustedkeys
+    default: eyebrow.trustedkeys
 
 runs:
   using: composite
   steps:
-    - name: Install assay (checksum-verified)
+    - name: Install eyebrow (checksum-verified)
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
@@ -55,17 +55,17 @@ runs:
           ARM64) arch=arm64 ;;
           *) echo "::error::unsupported runner arch '${RUNNER_ARCH}'"; exit 1 ;;
         esac
-        archive="assay_${version#v}_${os}_${arch}.tar.gz"
-        base="https://github.com/alexverify/assay/releases/download/${version}"
+        archive="eyebrow_${version#v}_${os}_${arch}.tar.gz"
+        base="https://github.com/alexverify/eyebrow/releases/download/${version}"
         dir="$(mktemp -d)"
         curl -fsSL --retry 3 -o "${dir}/${archive}" "${base}/${archive}"
         curl -fsSL --retry 3 -o "${dir}/checksums.txt" "${base}/checksums.txt"
         (cd "${dir}" && shasum -a 256 --check --ignore-missing --strict checksums.txt)
         tar -xzf "${dir}/${archive}" -C "${dir}"
         echo "${dir}" >> "${GITHUB_PATH}"
-        echo "installed assay ${version} (${os}/${arch})"
+        echo "installed eyebrow ${version} (${os}/${arch})"
 
-    - name: assay verify --ci
+    - name: eyebrow verify --ci
       shell: bash
       env:
         INPUT_PATH: ${{ inputs.path }}
@@ -74,7 +74,7 @@ runs:
         INPUT_TRUSTED_KEYS: ${{ inputs['trusted-keys'] }}
       run: |
         set -uo pipefail
-        out="$(assay verify --ci \
+        out="$(eyebrow verify --ci \
           --path "${INPUT_PATH}" \
           --lockfile "${INPUT_LOCKFILE}" \
           --policy "${INPUT_POLICY}" \
@@ -82,12 +82,12 @@ runs:
         code=$?
         echo "${out}"
         {
-          echo "### assay verify --ci (exit ${code})"
+          echo "### eyebrow verify --ci (exit ${code})"
           echo '```'
           echo "${out}"
           echo '```'
         } >> "${GITHUB_STEP_SUMMARY}"
         if [ "${code}" -ne 0 ]; then
-          echo "::error::assay verify --ci failed (exit ${code}) — drift or policy violation; see the step summary"
+          echo "::error::eyebrow verify --ci failed (exit ${code}) — drift or policy violation; see the step summary"
         fi
         exit "${code}"

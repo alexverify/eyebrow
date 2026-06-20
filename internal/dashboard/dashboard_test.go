@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/adapters/auditlog"
-	"github.com/alexverify/assay/internal/dashboard"
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/posture"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/adapters/auditlog"
+	"github.com/alexverify/eyebrow/internal/dashboard"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 func testServer(t *testing.T) *dashboard.Server {
@@ -31,10 +31,10 @@ func testServer(t *testing.T) *dashboard.Server {
 	current := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeMCPServer, Name: "github", ContentHash: "sha256-new",
 			Findings: []finding.Finding{{RuleID: "RCE-PIPE-EXEC", Severity: finding.SeverityCritical}}},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 	locked := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeMCPServer, Name: "github", ContentHash: "sha256-old"},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 
 	return dashboard.New(dashboard.Deps{
 		Inventory: func(context.Context) (lockfile.Lockfile, error) { return current, nil },
@@ -169,7 +169,7 @@ func TestActivationSurfacesUsageForNonMCP(t *testing.T) {
 	// wrapped server's tool calls.
 	skill := lockfile.Build([]artifact.Artifact{
 		{ID: "s1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "pdf-skill", ContentHash: "h"},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 	srv := dashboard.New(dashboard.Deps{
 		Inventory: func(context.Context) (lockfile.Lockfile, error) { return skill, nil },
 		Locked:    func(context.Context) (lockfile.Lockfile, error) { return skill, nil },
@@ -210,11 +210,11 @@ func TestScanServesLineDiffsFromBlobs(t *testing.T) {
 	locked := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "feed", ContentHash: "h-old",
 			Files: []artifact.FileRef{{Path: "run.py", Hash: "f-old"}}},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 	current := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "feed", ContentHash: "h-new",
 			Files: []artifact.FileRef{{Path: "run.py", Hash: "f-new"}}},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 
 	blobs := map[string]map[string][]byte{
 		"h-old": {"run.py": []byte("print('hi')\n")},
@@ -270,7 +270,7 @@ func TestScanSurfacesReputationForInventoryHashes(t *testing.T) {
 	// live-lookup seam); its result must surface on the matching artifact.
 	inv := lockfile.Build([]artifact.Artifact{
 		{ID: "a1", Tool: "claude-code", Type: artifact.TypeSkill, Name: "feed", ContentHash: "sha256-aaa"},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 	var gotHashes []string
 	srv := dashboard.New(dashboard.Deps{
 		Inventory: func(context.Context) (lockfile.Lockfile, error) { return inv, nil },
@@ -414,7 +414,7 @@ func TestWriteEndpointTokenGuard(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113/api/quarantine",
 			strings.NewReader(`{"id":"a1","on":true}`))
 		if token != "" {
-			req.Header.Set("X-Assay-Token", token)
+			req.Header.Set("X-Eyebrow-Token", token)
 		}
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -442,7 +442,7 @@ func TestWriteEndpointReadOnlyWhenNoMutate(t *testing.T) {
 	srv := testServer(t) // no Mutate dep
 	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113/api/freeze",
 		strings.NewReader(`{"id":"a1","on":true}`))
-	req.Header.Set("X-Assay-Token", srv.Token())
+	req.Header.Set("X-Eyebrow-Token", srv.Token())
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -471,7 +471,7 @@ func postJSON(t *testing.T, h http.Handler, path, token, body string) *httptest.
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7113"+path, strings.NewReader(body))
 	if token != "" {
-		req.Header.Set("X-Assay-Token", token)
+		req.Header.Set("X-Eyebrow-Token", token)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -735,11 +735,11 @@ func newAccountServer(t *testing.T, signer func(lockfile.Entry) (string, error))
 			ContentHash: "sha256-s1", Source: artifact.Source{Kind: artifact.SourceLocal}},
 		{ID: "shadow2", Tool: "claude-code", Type: artifact.TypeSkill, Name: "local-skill",
 			ContentHash: "sha256-s2", Source: artifact.Source{Kind: artifact.SourceLocal}},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 	locked := lockfile.Build([]artifact.Artifact{
 		{ID: "locked", Tool: "claude-code", Type: artifact.TypeMCPServer, Name: "github",
 			ContentHash: "sha256-locked", Source: artifact.Source{Kind: artifact.SourceNPM}},
-	}, time.Unix(0, 0).UTC(), "assay/test")
+	}, time.Unix(0, 0).UTC(), "eyebrow/test")
 	srv := dashboard.New(dashboard.Deps{
 		Inventory: func(context.Context) (lockfile.Lockfile, error) { return current, nil },
 		Locked:    func(context.Context) (lockfile.Lockfile, error) { return locked, nil },

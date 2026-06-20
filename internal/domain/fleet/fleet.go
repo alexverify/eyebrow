@@ -14,7 +14,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 // Artifact is the content-free record of one installed artifact: identity and

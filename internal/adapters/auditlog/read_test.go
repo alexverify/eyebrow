@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
 )
 
 func seed(t *testing.T) string {

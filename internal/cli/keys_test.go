@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/cli"
+	"github.com/alexverify/eyebrow/internal/cli"
 )
 
 func TestKeyShowPrintsPublicKey(t *testing.T) {
@@ -66,13 +66,13 @@ func TestKeyTrustRejectsMalformed(t *testing.T) {
 // from a key in the committed registry passes verify --ci, one from an
 // untrusted key fails.
 func TestVerifyCITeamTrustFlow(t *testing.T) {
-	setHome(t, t.TempDir()) // hermetic: no real ~/.assay key or registry
+	setHome(t, t.TempDir()) // hermetic: no real ~/.eyebrow key or registry
 	ctx := context.Background()
 	dir, lock := fixtureProject(t)
 
-	policyPath := filepath.Join(dir, "assay.policy.json")
+	policyPath := filepath.Join(dir, "eyebrow.policy.json")
 	mustWriteJSON(t, policyPath, map[string]any{"requireSignature": true})
-	registry := filepath.Join(dir, "assay.trustedkeys")
+	registry := filepath.Join(dir, "eyebrow.trustedkeys")
 	keyA := filepath.Join(t.TempDir(), "keyA")
 
 	ciArgs := []string{"verify", "--ci", "--path", dir, "--lockfile", lock,
@@ -127,13 +127,13 @@ func TestVerifyCISelfTrustFallback(t *testing.T) {
 	ctx := context.Background()
 	dir, lock := fixtureProject(t)
 
-	policyPath := filepath.Join(dir, "assay.policy.json")
+	policyPath := filepath.Join(dir, "eyebrow.policy.json")
 	mustWriteJSON(t, policyPath, map[string]any{"requireSignature": true})
 
 	app, _, _ := newApp()
 	app.Execute(ctx, []string{"scan", "--path", dir, "--lockfile", lock})
 
-	localKey := filepath.Join(home, ".assay", "key")
+	localKey := filepath.Join(home, ".eyebrow", "key")
 	app, _, _ = newApp()
 	if code := app.Execute(ctx, []string{"sign", "--lockfile", lock, "--key", localKey}); code != cli.ExitOK {
 		t.Fatal("sign failed")
@@ -141,7 +141,7 @@ func TestVerifyCISelfTrustFallback(t *testing.T) {
 
 	app, out, errBuf := newApp()
 	code := app.Execute(ctx, []string{"verify", "--ci", "--path", dir, "--lockfile", lock,
-		"--policy", policyPath, "--trusted-keys", filepath.Join(dir, "assay.trustedkeys")})
+		"--policy", policyPath, "--trusted-keys", filepath.Join(dir, "eyebrow.trustedkeys")})
 	if code != cli.ExitOK {
 		t.Fatalf("self-signed verify --ci: exit = %d\nstdout=%s stderr=%s", code, out.String(), errBuf.String())
 	}

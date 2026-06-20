@@ -1,6 +1,6 @@
-# Contributing to assay
+# Contributing to eyebrow
 
-Thanks for considering a contribution. assay is a security tool, so we
+Thanks for considering a contribution. eyebrow is a security tool, so we
 value clarity, determinism, and a small dependency surface over cleverness.
 
 ## Ground rules

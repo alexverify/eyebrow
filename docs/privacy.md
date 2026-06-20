@@ -1,16 +1,16 @@
-# assay privacy contract
+# eyebrow privacy contract
 
-assay is **offline-first**. Every core command — `scan`, `verify`, `wrap`,
+eyebrow is **offline-first**. Every core command — `scan`, `verify`, `wrap`,
 `audit`, `dashboard`, `fleet` — works with no network and sends nothing off your
 machine. This document states exactly what leaves a machine, and only ever does
 so when **you opt in** by pointing the CLI at a control plane (`--server` /
-`ASSAY_SERVER`). With no server configured, none of the following applies.
+`EYEBROW_SERVER`). With no server configured, none of the following applies.
 
 ## What never leaves your machine
 
-- **File contents and source code.** assay hashes files locally; only hashes are
+- **File contents and source code.** eyebrow hashes files locally; only hashes are
   ever recorded. The line-level drift diff (H1b) is computed from a **local**,
-  gitignored cache (`.assay/snapshots`) and is never uploaded.
+  gitignored cache (`.eyebrow/snapshots`) and is never uploaded.
 - **Secrets and raw tool arguments.** The MCP shim records tool-call arguments
   only as a SHA-256 **digest**, and redacts secrets from egress bodies before
   they are sent. Raw values are never stored, so they can never be uploaded.
@@ -26,10 +26,10 @@ so when **you opt in** by pointing the CLI at a control plane (`--server` /
 
 | You run | What is sent | Shape |
 |---|---|---|
-| `assay fleet push` | a **content-free snapshot**: per-artifact id, name, kind, content hash, source ref, and your local drift/verdict | no code, no secrets, no file bytes — exactly what `fleet export` writes to a committed file |
-| `assay audit push` | your **audit events**: tool and server names, egress **hostnames**, HTTP methods, byte counts, redaction counts, statuses, timestamps, and argument **digests** | no raw arguments, no secrets, no response bodies |
-| `assay verify --server`, `assay fleet verify --server` | nothing is uploaded — these **pull** org policy and trusted keys (reads) | — |
-| `assay reputation`, dashboard `--reputation-server` | the **content hashes** you want to look up | a SHA-256 hash reveals nothing about content you do not already hold; the server replies only with matches |
+| `eyebrow fleet push` | a **content-free snapshot**: per-artifact id, name, kind, content hash, source ref, and your local drift/verdict | no code, no secrets, no file bytes — exactly what `fleet export` writes to a committed file |
+| `eyebrow audit push` | your **audit events**: tool and server names, egress **hostnames**, HTTP methods, byte counts, redaction counts, statuses, timestamps, and argument **digests** | no raw arguments, no secrets, no response bodies |
+| `eyebrow verify --server`, `eyebrow fleet verify --server` | nothing is uploaded — these **pull** org policy and trusted keys (reads) | — |
+| `eyebrow reputation`, dashboard `--reputation-server` | the **content hashes** you want to look up | a SHA-256 hash reveals nothing about content you do not already hold; the server replies only with matches |
 
 Two honesty notes about `audit push`:
 
@@ -48,13 +48,13 @@ token for one org can never read or write another's.
 
 ## Self-hosting
 
-The control plane is a **self-hostable** single binary (`assay serve`) with a
+The control plane is a **self-hostable** single binary (`eyebrow serve`) with a
 zero-dependency file store by default. A team that runs it themselves keeps all
-of the above on their own infrastructure — assay operates no hosted service.
+of the above on their own infrastructure — eyebrow operates no hosted service.
 
 ## Degrade, never surprise
 
 If a server is unreachable or has no policy for your org, the CLI **falls back to
-local** (the committed `assay.policy.json`, the local trusted-keys registry).
+local** (the committed `eyebrow.policy.json`, the local trusted-keys registry).
 Adopting a server never silently changes a gate you did not configure, and an
 unreachable server never blocks CI.

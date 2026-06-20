@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 // TestDiscoverySeesThroughShimmedServers: a wrapped config entry must yield
-// the SAME artifact as its unwrapped form, otherwise `assay wrap` would
+// the SAME artifact as its unwrapped form, otherwise `eyebrow wrap` would
 // make every server look rug-pulled on the next verify.
 func TestDiscoverySeesThroughShimmedServers(t *testing.T) {
 	plain := t.TempDir()
@@ -25,7 +25,7 @@ func TestDiscoverySeesThroughShimmedServers(t *testing.T) {
 	writeFile(t, filepath.Join(wrapped, ".mcp.json"), `{
   "mcpServers": {
     "local-tool": {
-      "command": "/usr/local/bin/assay",
+      "command": "/usr/local/bin/eyebrow",
       "args": ["mcp-shim", "--server", "local-tool", "--", "./server.sh"]
     }
   }

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/cli"
+	"github.com/alexverify/eyebrow/internal/cli"
 )
 
 func TestInstallHooksRoundTrip(t *testing.T) {

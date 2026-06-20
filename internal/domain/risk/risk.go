@@ -12,8 +12,8 @@ package risk
 import (
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/usage"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/usage"
 )
 
 // Liveness is how exercised an artifact is, by runtime evidence.

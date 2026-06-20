@@ -184,7 +184,7 @@ export function Dashboard() {
         </div>
         <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 font-mono text-xs text-muted-foreground">
           <Terminal className="h-3.5 w-3.5 text-primary" />
-          <span className="text-foreground">npx assay scan</span>
+          <span className="text-foreground">npx eyebrow scan</span>
         </div>
       </div>
 
@@ -675,7 +675,7 @@ function ChangesPanel({
       <div className="rounded-lg border border-border bg-card p-10 text-center">
         <p className="font-mono text-sm text-ok">Nothing changed since you last looked</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          No new, updated, or drifted artifacts. Run <span className="font-mono">assay digest</span> for
+          No new, updated, or drifted artifacts. Run <span className="font-mono">eyebrow digest</span> for
           the same summary in your terminal or CI.
         </p>
       </div>
@@ -807,8 +807,8 @@ function PolicyPanel({ live }: { live: boolean }) {
       <div className="rounded-lg border border-border bg-card p-10 text-center">
         <p className="font-mono text-sm text-muted-foreground">Policy editing needs a live backend</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Run <span className="font-mono">assay dashboard</span> to edit the committed{" "}
-          <span className="font-mono">assay.policy.json</span>.
+          Run <span className="font-mono">eyebrow dashboard</span> to edit the committed{" "}
+          <span className="font-mono">eyebrow.policy.json</span>.
         </p>
       </div>
     )
@@ -819,7 +819,7 @@ function PolicyPanel({ live }: { live: boolean }) {
     setSaving(true)
     setMsg(null)
     savePolicy(lists)
-      .then(() => setMsg("saved to assay.policy.json"))
+      .then(() => setMsg("saved to eyebrow.policy.json"))
       .catch((e) => setMsg(String(e instanceof Error ? e.message : e)))
       .finally(() => setSaving(false))
   }
@@ -832,7 +832,7 @@ function PolicyPanel({ live }: { live: boolean }) {
       <p className="text-sm text-muted-foreground">
         One entry per line. Publisher rules match against an artifact&rsquo;s source ref (a domain or
         org); artifact rules match the name. These gate <span className="font-mono">verify --ci</span>{" "}
-        and are committed to <span className="font-mono">assay.policy.json</span> for the whole team.
+        and are committed to <span className="font-mono">eyebrow.policy.json</span> for the whole team.
       </p>
       <PolicyList
         label="Allowed publishers (allowlist — if set, everything else fails)"
@@ -1000,7 +1000,7 @@ function EgressMap({ events }: { events: ActivityEvent[] }) {
 
 // AlertsPanel shows the team-level alerts from the control plane (4d): drift,
 // quarantine, blocked egress, denied tool calls. It is populated only when the
-// dashboard runs against a control plane (`assay dashboard --server`); locally
+// dashboard runs against a control plane (`eyebrow dashboard --server`); locally
 // it shows an explanatory empty state.
 function AlertsPanel() {
   const [alerts, setAlerts] = useState<Alert[] | null>(null)
@@ -1025,9 +1025,9 @@ function AlertsPanel() {
         <p className="text-sm text-muted-foreground">No team alerts.</p>
         <p className="mt-1 text-xs text-muted-foreground">
           Alerts come from a control plane. Run{" "}
-          <span className="font-mono">assay dashboard --server &lt;url&gt; --token &lt;tok&gt;</span> after machines
-          push snapshots and audit events (<span className="font-mono">assay fleet push</span>,{" "}
-          <span className="font-mono">assay audit push</span>).
+          <span className="font-mono">eyebrow dashboard --server &lt;url&gt; --token &lt;tok&gt;</span> after machines
+          push snapshots and audit events (<span className="font-mono">eyebrow fleet push</span>,{" "}
+          <span className="font-mono">eyebrow audit push</span>).
         </p>
       </div>
     )
@@ -1078,7 +1078,7 @@ function FleetPanel({ live }: { live: boolean }) {
       .then((d: FleetReport | null) => {
         if (cancelled) return
         // Live but no snapshots committed yet → still show the demo so the view
-        // is explorable; a real deployment fills it via `assay fleet export`.
+        // is explorable; a real deployment fills it via `eyebrow fleet export`.
         setReport(d && d.owners > 0 ? d : demoFleet)
       })
       .catch(() => !cancelled && setReport(demoFleet))
@@ -1104,7 +1104,7 @@ function FleetPanel({ live }: { live: boolean }) {
           </span>
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
-          {usingDemo ? "demo fleet" : "aggregated from committed snapshots"} · `assay fleet export`
+          {usingDemo ? "demo fleet" : "aggregated from committed snapshots"} · `eyebrow fleet export`
         </p>
       </div>
 
@@ -1112,8 +1112,8 @@ function FleetPanel({ live }: { live: boolean }) {
         <div className="rounded-lg border border-border bg-card p-10 text-center">
           <p className="font-mono text-sm text-muted-foreground">No fleet snapshots yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Run <span className="font-mono">assay fleet export</span> on each machine and commit the{" "}
-            <span className="font-mono">.assay/fleet</span> directory to see who is exposed.
+            Run <span className="font-mono">eyebrow fleet export</span> on each machine and commit the{" "}
+            <span className="font-mono">.eyebrow/fleet</span> directory to see who is exposed.
           </p>
         </div>
       ) : (
@@ -1354,7 +1354,7 @@ function ActivityPanel() {
       <div className="rounded-lg border border-border bg-card p-10 text-center">
         <p className="font-mono text-sm text-muted-foreground">No runtime activity recorded</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Wrap a tool's MCP servers with <span className="font-mono">assay wrap</span> to audit every tool
+          Wrap a tool's MCP servers with <span className="font-mono">eyebrow wrap</span> to audit every tool
           call and outbound connection here.
         </p>
       </div>

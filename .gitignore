@@ -1,7 +1,7 @@
 # Build output
 /bin/
 /dist/
-/assay
+/eyebrow
 
 # Go
 *.test
@@ -15,11 +15,11 @@ coverage.*
 *.swp
 
 # Local lockfiles produced during manual testing
-/assaylock.json
+/eyebrowlock.json
 
 # Content-addressed cache of approved file bytes (line-diff baselines, H1b);
 # a local cache, not part of the signed lockfile
-/.assay/snapshots/
+/.eyebrow/snapshots/
 
 # Local-only working docs (specs/plans); never committed
 docs/superpowers/

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/cli"
+	"github.com/alexverify/eyebrow/internal/cli"
 )
 
 // seedFleet writes one snapshot JSON file per owner into a fleet dir.
@@ -54,7 +54,7 @@ func TestFleetVerifyBlastRadiusFromPolicy(t *testing.T) {
 		"alice.json": `{"owner":"alice","artifacts":[{"id":"x","name":"feed","kind":"skill","hash":"h1","drift":"drifted","verdict":"review"}]}`,
 		"bob.json":   `{"owner":"bob","artifacts":[{"id":"x","name":"feed","kind":"skill","hash":"h2","drift":"drifted","verdict":"review"}]}`,
 	})
-	policyPath := filepath.Join(dir, "assay.policy.json")
+	policyPath := filepath.Join(dir, "eyebrow.policy.json")
 	if err := os.WriteFile(policyPath, []byte(`{"fleet":{"maxBlastRadius":1}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

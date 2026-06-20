@@ -13,7 +13,7 @@ func TestInstallCreatesHooksThenIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	added, err := c.Install("/usr/local/bin/assay")
+	added, err := c.Install("/usr/local/bin/eyebrow")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestInstallCreatesHooksThenIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := c2.Install("/usr/local/bin/assay")
+	again, err := c2.Install("/usr/local/bin/eyebrow")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestInstallPreservesOtherSettingsAndHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _ := Load(path)
-	if _, err := c.Install("assay"); err != nil {
+	if _, err := c.Install("eyebrow"); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.Save(); err != nil {
@@ -104,7 +104,7 @@ func TestUninstallRemovesOnlyManaged(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _ := Load(path)
-	c.Install("assay")
+	c.Install("eyebrow")
 	removed, err := c.Uninstall()
 	if err != nil {
 		t.Fatal(err)

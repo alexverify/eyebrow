@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/alexverify/assay/internal/adapters/auditlog"
-	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/adapters/auditlog"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
 )
 
 // runRecordUse appends a single activation event to the audit log: the

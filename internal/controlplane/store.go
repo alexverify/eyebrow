@@ -16,8 +16,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
 )
 
 // Store persists each org's fleet snapshots (one per owner; a re-submission

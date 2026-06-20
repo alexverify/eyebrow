@@ -9,13 +9,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/platform/run"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
 // Semgrep is an optional static-analysis accelerator that shells out to the
-// `semgrep` binary with assay's curated rules pack (see rules/). It is a
+// `semgrep` binary with eyebrow's curated rules pack (see rules/). It is a
 // soft layer by contract: when semgrep is not installed, the rules dir is
 // absent, or the run/parse fails, it contributes nothing and never errors —
 // `scan` always works on the native matchers alone, which stay authoritative.

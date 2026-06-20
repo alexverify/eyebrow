@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/trust"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/trust"
 )
 
 // Posture is a counts-only snapshot of an inventory's trust standing.

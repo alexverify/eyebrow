@@ -7,8 +7,8 @@ package policy
 import (
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 // Policy is the team-configurable gate applied by `verify --ci`.
@@ -41,7 +41,7 @@ type Policy struct {
 	// MCP constrains tool calls at runtime, enforced by the mcp-shim
 	// (see DecideTool in mcp.go). Not used by verify.
 	MCP MCPPolicy `json:"mcp,omitempty"`
-	// Fleet configures the team-wide CI gate (`assay fleet verify`). Not used by
+	// Fleet configures the team-wide CI gate (`eyebrow fleet verify`). Not used by
 	// the single-machine verify.
 	Fleet FleetPolicy `json:"fleet,omitempty"`
 }

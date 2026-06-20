@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexverify/assay/internal/controlplane"
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/controlplane"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // Client talks to a control-plane server. A zero base disables it; callers
@@ -27,7 +27,7 @@ type Client struct {
 	http  *http.Client
 }
 
-// New returns a client for a server base URL (e.g. https://assay.acme.internal)
+// New returns a client for a server base URL (e.g. https://eyebrow.acme.internal)
 // and a machine token. A trailing slash on base is trimmed.
 func New(base, token string) *Client {
 	return &Client{

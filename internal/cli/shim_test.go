@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/cli"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/sandbox"
+	"github.com/alexverify/eyebrow/internal/cli"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/sandbox"
 )
 
 // shell resolves a POSIX sh for the shim integration tests (which drive fake
@@ -92,7 +92,7 @@ func TestMcpShimEnforcesPolicy(t *testing.T) {
 	if err := os.WriteFile(server, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	policyPath := filepath.Join(dir, "assay.policy.json")
+	policyPath := filepath.Join(dir, "eyebrow.policy.json")
 	pol := `{"mcp": {"servers": {"demo": {"denyTools": ["delete_*"]}}}}`
 	if err := os.WriteFile(policyPath, []byte(pol), 0o644); err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestMcpShimEnforcesPolicy(t *testing.T) {
 		t.Fatalf("exit = %d, stderr=%s", code, errBuf.String())
 	}
 
-	if !strings.Contains(out.String(), `"id":42`) || !strings.Contains(out.String(), "assay policy") {
+	if !strings.Contains(out.String(), `"id":42`) || !strings.Contains(out.String(), "eyebrow policy") {
 		t.Errorf("client must receive the denial for its id: %q", out.String())
 	}
 	if b, _ := os.ReadFile(received); strings.Contains(string(b), "delete_repo") {
@@ -128,7 +128,7 @@ func TestMcpShimEnforcesPolicy(t *testing.T) {
 
 func TestMcpShimRejectsBrokenPolicy(t *testing.T) {
 	dir := t.TempDir()
-	policyPath := filepath.Join(dir, "assay.policy.json")
+	policyPath := filepath.Join(dir, "eyebrow.policy.json")
 	if err := os.WriteFile(policyPath, []byte("{broken"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -144,21 +144,21 @@ func TestMcpShimRejectsBrokenPolicy(t *testing.T) {
 }
 
 // TestMcpShimInjectsEgressProxy: the wrapped server must see HTTP(S)_PROXY
-// pointing at a live assay proxy.
+// pointing at a live eyebrow proxy.
 func TestMcpShimInjectsEgressProxy(t *testing.T) {
 	dir := t.TempDir()
 	server := filepath.Join(dir, "server.sh")
-	// ASSAY_CONTROL is injected below as a control: it proves the child
+	// EYEBROW_CONTROL is injected below as a control: it proves the child
 	// receives our custom environment at all, isolating proxy-var issues from
 	// shell env-passthrough issues.
 	script := `#!/bin/sh
 read line
-printf '{"jsonrpc":"2.0","id":1,"result":{"proxy":"%s","ctrl":"%s"}}\n' "$HTTP_PROXY" "$ASSAY_CONTROL"
+printf '{"jsonrpc":"2.0","id":1,"result":{"proxy":"%s","ctrl":"%s"}}\n' "$HTTP_PROXY" "$EYEBROW_CONTROL"
 `
 	if err := os.WriteFile(server, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("ASSAY_CONTROL", "present")
+	t.Setenv("EYEBROW_CONTROL", "present")
 
 	app, out, errBuf := newApp()
 	app.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
@@ -210,7 +210,7 @@ func TestMcpShimSandboxConfinesWrites(t *testing.T) {
 	if err != nil {
 		t.Skip("no home dir")
 	}
-	outside := filepath.Join(home, fmt.Sprintf(".assay_escape_%d.txt", os.Getpid()))
+	outside := filepath.Join(home, fmt.Sprintf(".eyebrow_escape_%d.txt", os.Getpid()))
 	t.Cleanup(func() { os.Remove(outside) })
 	server := filepath.Join(work, "server.sh")
 	script := "#!/bin/sh\nread line\n" +

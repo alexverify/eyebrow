@@ -10,7 +10,7 @@ type Line = {
 }
 
 const AUDIT_LINES: Line[] = [
-  { text: "$ npx assay audit", tone: "muted" },
+  { text: "$ npx eyebrow audit", tone: "muted" },
   { text: "scanning 14 installed extensions across 4 agents...", tone: "muted" },
   { text: "" },
   { text: "ok   git-flow-helper@2.1.0          sha256:9f3a…c012", tone: "default" },
@@ -63,7 +63,7 @@ function AuditTerminal() {
         <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" aria-hidden="true" />
         <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" aria-hidden="true" />
         <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" aria-hidden="true" />
-        <span className="ml-2 font-mono text-xs text-muted-foreground">assay — audit</span>
+        <span className="ml-2 font-mono text-xs text-muted-foreground">eyebrow — audit</span>
       </div>
       <pre className="overflow-x-auto px-4 py-4 font-mono text-[13px] leading-6">
         <code>
@@ -97,14 +97,14 @@ export function Hero() {
               The skill you installed yesterday may be reading your seed phrase right now.
             </h1>
             <p className="mt-6 max-w-xl text-pretty leading-relaxed text-muted-foreground">
-              Assay is npm audit + lockfile + permission firewall for the skills, MCP servers, and plugins you
+              Eyebrow is npm audit + lockfile + permission firewall for the skills, MCP servers, and plugins you
               install into Claude Code, Cursor, Codex, and other AI coding agents. Open source. No account. Audit in
               seconds.
             </p>
             <div className="mt-8 flex flex-col items-start gap-4">
               <CopyCommand />
               <a
-                href="https://github.com/alexverify/assay"
+                href="https://github.com/alexverify/eyebrow"
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-md border border-border bg-transparent px-4 py-2.5 font-mono text-sm text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"

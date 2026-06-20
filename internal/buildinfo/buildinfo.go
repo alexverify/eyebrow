@@ -8,7 +8,7 @@ var Version = "dev"
 
 // Name is the canonical tool name, used in generated artifacts (e.g. the
 // lockfile "generator" field) and user-facing output.
-const Name = "assay"
+const Name = "eyebrow"
 
 // UserAgent returns the value used to identify the tool to external
 // services (e.g. the future control-plane client and egress proxy).

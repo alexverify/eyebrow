@@ -7,7 +7,7 @@
 // timestamped facts (install mtime, approval time, first/last use from the
 // audit log, when drift was detected) and Build orders and labels them. It
 // fabricates nothing — an event with no known time is simply omitted, so the
-// ribbon never implies precision assay does not have.
+// ribbon never implies precision eyebrow does not have.
 package timeline
 
 import (

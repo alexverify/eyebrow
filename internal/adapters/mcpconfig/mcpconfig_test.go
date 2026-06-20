@@ -41,7 +41,7 @@ func TestWrapRewritesStdioServers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if n := cfg.Wrap("/usr/local/bin/assay"); n != 2 {
+	if n := cfg.Wrap("/usr/local/bin/eyebrow"); n != 2 {
 		t.Fatalf("Wrap changed %d servers, want 2 (remote must be skipped)", n)
 	}
 	if err := cfg.Save(); err != nil {
@@ -73,7 +73,7 @@ func TestWrapRewritesStdioServers(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := raw["mcpServers"].(map[string]any)["github"].(map[string]any)
-	if entry["command"] != "/usr/local/bin/assay" {
+	if entry["command"] != "/usr/local/bin/eyebrow" {
 		t.Errorf("command = %v", entry["command"])
 	}
 	wantArgs := []any{"mcp-shim", "--server", "github", "--", "npx", "-y", "@modelcontextprotocol/server-github"}
@@ -91,8 +91,8 @@ func TestWrapRewritesStdioServers(t *testing.T) {
 func TestWrapIsIdempotent(t *testing.T) {
 	path := writeFixture(t)
 	cfg, _ := Load(path)
-	cfg.Wrap("/bin/assay")
-	if n := cfg.Wrap("/bin/assay"); n != 0 {
+	cfg.Wrap("/bin/eyebrow")
+	if n := cfg.Wrap("/bin/eyebrow"); n != 0 {
 		t.Fatalf("second Wrap changed %d servers, want 0", n)
 	}
 	gh := serversByName(cfg)["github"]
@@ -108,7 +108,7 @@ func TestUnwrapRestoresOriginal(t *testing.T) {
 	_ = json.Unmarshal(b, &before)
 
 	cfg, _ := Load(path)
-	cfg.Wrap("/bin/assay")
+	cfg.Wrap("/bin/eyebrow")
 	if err := cfg.Save(); err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestClaudeProjectWrapUnwrapRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := cfg.Wrap("/usr/local/bin/assay"); n != 1 {
+	if n := cfg.Wrap("/usr/local/bin/eyebrow"); n != 1 {
 		t.Fatalf("wrap should change the one stdio server, got %d", n)
 	}
 	if err := cfg.Save(); err != nil {
@@ -202,7 +202,7 @@ func TestClaudeProjectMissingEntryIsNoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := cfg.Wrap("/usr/local/bin/assay"); n != 0 {
+	if n := cfg.Wrap("/usr/local/bin/eyebrow"); n != 0 {
 		t.Fatalf("a project with no entry should wrap 0, got %d", n)
 	}
 }

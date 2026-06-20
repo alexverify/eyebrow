@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/textdiff"
+	"github.com/alexverify/eyebrow/internal/domain/textdiff"
 )
 
 const manifestName = "files.json"
@@ -31,7 +31,7 @@ const manifestName = "files.json"
 // is skipped (the diff degrades to the file-name list for it).
 const maxFileBytes = 256 * 1024
 
-// Store roots a blob store at a directory (e.g. .assay/snapshots).
+// Store roots a blob store at a directory (e.g. .eyebrow/snapshots).
 type Store struct{ dir string }
 
 // New returns a Store rooted at dir (created on first Put).

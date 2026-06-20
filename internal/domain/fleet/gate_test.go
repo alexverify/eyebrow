@@ -3,7 +3,7 @@ package fleet
 import (
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 // gateFixture builds a report+conformance pair from a small fleet for gating.

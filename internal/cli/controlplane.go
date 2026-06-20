@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alexverify/assay/internal/adapters/policystore"
-	"github.com/alexverify/assay/internal/adapters/sign"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/client"
-	"github.com/alexverify/assay/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/adapters/policystore"
+	"github.com/alexverify/eyebrow/internal/adapters/sign"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/client"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
 // resolvePolicy returns the policy to enforce: the control plane's when a server

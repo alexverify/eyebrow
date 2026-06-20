@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/assay/internal/adapters/mcpconfig"
-	"github.com/alexverify/assay/internal/sandbox"
+	"github.com/alexverify/eyebrow/internal/adapters/mcpconfig"
+	"github.com/alexverify/eyebrow/internal/sandbox"
 )
 
 // runWrap installs (or reports) MCP interposition for a tool's stdio servers.
@@ -33,7 +33,7 @@ func (a *App) runWrap(ctx context.Context, args []string) int {
 
 	bin, err := os.Executable()
 	if err != nil || bin == "" {
-		bin = "assay" // fall back to PATH resolution by the AI tool
+		bin = "eyebrow" // fall back to PATH resolution by the AI tool
 	}
 	n := 0
 	for _, cfg := range cfgs {

@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexverify/assay/internal/adapters/parse"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/adapters/parse"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 // ClaudeCode discovers Claude Code MCP servers and skills.

@@ -3,8 +3,8 @@ package controlplane
 import (
 	"sync"
 
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // TrustedKey is one publisher signing key the org trusts, mirroring the local

@@ -1,11 +1,11 @@
 // Package hookconfig installs (and removes) the host-tool hooks that feed
-// assay's usage telemetry. A PreToolUse hook on the Skill and Task tools shells
-// out to `assay record-use`, so activation of skills and subagents lands in the
+// eyebrow's usage telemetry. A PreToolUse hook on the Skill and Task tools shells
+// out to `eyebrow record-use`, so activation of skills and subagents lands in the
 // same audit log the MCP shim writes — extending usage telemetry (F1–F4) to
 // artifact kinds that have no runtime interposition surface.
 //
 // It rewrites Claude Code's settings.json the same way mcpconfig rewrites
-// .mcp.json: only the hooks assay manages are touched (identified by their
+// .mcp.json: only the hooks eyebrow manages are touched (identified by their
 // `record-use` command), every other setting and hook is preserved, and the
 // operation is idempotent — re-running install never duplicates an entry.
 package hookconfig
@@ -30,7 +30,7 @@ type Matcher struct {
 	Hooks   []Hook `json:"hooks"`
 }
 
-// managed is one hook assay owns: a PreToolUse matcher on a tool, recording
+// managed is one hook eyebrow owns: a PreToolUse matcher on a tool, recording
 // activations of a given artifact kind.
 type managed struct {
 	event   string
@@ -38,7 +38,7 @@ type managed struct {
 	kind    string
 }
 
-// managedEntries are the hooks assay installs. Adding a tool here is the only
+// managedEntries are the hooks eyebrow installs. Adding a tool here is the only
 // change needed to cover another activation surface.
 var managedEntries = []managed{
 	{event: "PreToolUse", matcher: "Skill", kind: "skill"},
@@ -114,12 +114,12 @@ func (c *Config) setHooks(h map[string][]Matcher) {
 }
 
 // commandFor is the record-use invocation for an artifact kind. bin is the
-// resolved assay executable (or "assay" to fall back to PATH).
+// resolved eyebrow executable (or "eyebrow" to fall back to PATH).
 func commandFor(bin, kind string) string {
 	return fmt.Sprintf("%s record-use --kind %s --stdin", bin, kind)
 }
 
-// isManaged reports whether a hook command is one assay owns.
+// isManaged reports whether a hook command is one eyebrow owns.
 func isManaged(cmd string) bool { return strings.Contains(cmd, "record-use") }
 
 // Install ensures every managed hook is present with the current command,

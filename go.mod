@@ -1,4 +1,4 @@
-module github.com/alexverify/assay
+module github.com/alexverify/eyebrow
 
 go 1.25
 

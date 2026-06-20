@@ -25,7 +25,7 @@ export function Solution() {
             </p>
             <CodeBlock>
               <span className="text-muted-foreground">$ </span>
-              <span className="text-card-foreground">npx assay audit</span>
+              <span className="text-card-foreground">npx eyebrow audit</span>
             </CodeBlock>
           </div>
 
@@ -33,10 +33,10 @@ export function Solution() {
             <h3 className="font-mono text-base font-semibold text-foreground">Lockfile &amp; rug-pull detection</h3>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               A committed lockfile pins content hashes for everything installed. If a skill changes on disk after you
-              audited it, Assay tells you before your agent runs it.
+              audited it, Eyebrow tells you before your agent runs it.
             </p>
             <CodeBlock>
-              <span className="text-muted-foreground">{"# assay.lock"}</span>
+              <span className="text-muted-foreground">{"# eyebrow.lock"}</span>
               {"\n"}
               <span className="text-card-foreground">{'web-fetch-pro = "3.2.1"'}</span>
               {"\n"}

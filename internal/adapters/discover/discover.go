@@ -9,8 +9,8 @@ package discover
 import (
 	"context"
 
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 // ToolDiscoverer discovers artifacts for a single tool.

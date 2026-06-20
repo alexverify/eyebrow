@@ -1,4 +1,4 @@
-# Using assay
+# Using eyebrow
 
 Two workflows: solo (you, your machine) and team (committed lockfile, policy
 gate in CI). Both revolve around the same three files, all committed next to
@@ -6,16 +6,16 @@ each other:
 
 | File | What it is | Written by |
 |---|---|---|
-| `assaylock.json` | The locked inventory: every artifact, hashed and pinned | `assay scan` |
-| `assay.policy.json` | What `verify --ci` fails on | you, by hand |
-| `assay.trustedkeys` | Whose lockfile signatures count | `assay key trust` |
+| `eyebrowlock.json` | The locked inventory: every artifact, hashed and pinned | `eyebrow scan` |
+| `eyebrow.policy.json` | What `verify --ci` fails on | you, by hand |
+| `eyebrow.trustedkeys` | Whose lockfile signatures count | `eyebrow key trust` |
 
 ## Solo: catch rug pulls
 
 ```sh
 cd your-project
-assay scan            # inventory + hash everything → assaylock.json
-assay verify          # later: did anything change since I looked?
+eyebrow scan            # inventory + hash everything → eyebrowlock.json
+eyebrow verify          # later: did anything change since I looked?
 ```
 
 `scan` discovers skills, MCP servers, hooks, subagents, and rules across Claude
@@ -27,23 +27,23 @@ you. `diff` is the same comparison without the failing exit code; `list` is the
 inventory without writing anything.
 
 When a change is expected (you updated a skill on purpose), re-run
-`assay scan` to re-lock, review the diff in version control, and move on.
+`eyebrow scan` to re-lock, review the diff in version control, and move on.
 
 ## Team: gate CI on "approved, unmodified, signed"
 
 One-time setup, committed to the repo:
 
 ```sh
-assay scan
-assay approve --all --sign           # review first, then bless the inventory (signed)
-echo '{ "requireApproval": true, "requireSignature": true }' > assay.policy.json
-assay key show                       # each teammate shares this output…
-assay key trust <key> --name alice --file assay.trustedkeys   # …and registers the others
-assay sign                           # sign the lockfile with your key
-git add assaylock.json assay.policy.json assay.trustedkeys
+eyebrow scan
+eyebrow approve --all --sign           # review first, then bless the inventory (signed)
+echo '{ "requireApproval": true, "requireSignature": true }' > eyebrow.policy.json
+eyebrow key show                       # each teammate shares this output…
+eyebrow key trust <key> --name alice --file eyebrow.trustedkeys   # …and registers the others
+eyebrow sign                           # sign the lockfile with your key
+git add eyebrowlock.json eyebrow.policy.json eyebrow.trustedkeys
 ```
 
-CI runs `assay verify --ci` (or the [GitHub Action](../action/README.md)).
+CI runs `eyebrow verify --ci` (or the [GitHub Action](../action/README.md)).
 The build fails on:
 
 - **drift** — any artifact whose content hash, pinned version, npm integrity,
@@ -51,13 +51,13 @@ The build fails on:
 - **new findings** at/above `failOnSeverity` (default `high`) that weren't in
   the locked snapshot — pre-existing accepted findings don't re-fire;
 - **unapproved artifacts**, when `requireApproval` is set — anything added
-  without an `assay approve`;
+  without an `eyebrow approve`;
 - **unsigned or forged approvals**, when `requireSignedApproval` is set — each
-  approval must carry a signature (`assay approve --sign`) from a trusted
+  approval must carry a signature (`eyebrow approve --sign`) from a trusted
   key over the artifact's content, so an approval can't be hand-added to the
   lockfile or kept across a content change;
 - **a missing or untrusted signature**, when `requireSignature` is set — the
-  lockfile must be signed by a key in `assay.trustedkeys`.
+  lockfile must be signed by a key in `eyebrow.trustedkeys`.
 
 The day-to-day loop: someone adds or updates an extension → `scan`, review,
 `approve <id>`, `sign`, commit. Until they do, every other machine's CI is red
@@ -72,9 +72,9 @@ threshold:
 
 ## Key handling
 
-`assay sign` and `key show` use (and create on first use) a persistent
-ed25519 key at `~/.assay/key` — per person, per machine; it never leaves
-your home directory. Only **public** keys go in `assay.trustedkeys` (one
+`eyebrow sign` and `key show` use (and create on first use) a persistent
+ed25519 key at `~/.eyebrow/key` — per person, per machine; it never leaves
+your home directory. Only **public** keys go in `eyebrow.trustedkeys` (one
 base64 key per line, optional label, `#` comments). When no registry declares
 any key, your own key is implicitly trusted so the solo flow needs no setup;
 once a registry exists it is authoritative, locally and in CI alike.
@@ -93,16 +93,16 @@ Static analysis tells you what an MCP server *could* do; the shim records what
 it *actually does*:
 
 ```sh
-assay wrap              # route this project's stdio MCP servers through the shim
-assay wrap --global     # same for your user-level ~/.claude.json servers
-assay wrap --status     # what's wrapped, and what really runs underneath
-assay unwrap            # restore the original config (--global for the user-level one)
+eyebrow wrap              # route this project's stdio MCP servers through the shim
+eyebrow wrap --global     # same for your user-level ~/.claude.json servers
+eyebrow wrap --status     # what's wrapped, and what really runs underneath
+eyebrow unwrap            # restore the original config (--global for the user-level one)
 ```
 
 `wrap` rewrites `.mcp.json` so each stdio server launches via
-`assay mcp-shim`, which relays the protocol byte-for-byte (the tool can't
+`eyebrow mcp-shim`, which relays the protocol byte-for-byte (the tool can't
 tell the difference) and appends one line per tool call to
-`~/.assay/audit/<date>.jsonl`:
+`~/.eyebrow/audit/<date>.jsonl`:
 
 ```json
 {"ts":"…","session":"3f2a…","server":"github","kind":"tool_call","tool":"create_issue","argsDigest":"sha256-…","durationMs":412,"status":"ok"}
@@ -118,7 +118,7 @@ projects only for now.
 
 ### Blocking calls, not just watching them
 
-Add an `mcp` section to the same committed `assay.policy.json` and the
+Add an `mcp` section to the same committed `eyebrow.policy.json` and the
 shim enforces it live:
 
 ```jsonc
@@ -191,14 +191,14 @@ to write.
 
 ### Reading the audit log
 
-`assay audit` queries what the shim recorded:
+`eyebrow audit` queries what the shim recorded:
 
 ```sh
-assay audit                          # summary: counts by server, denials, redactions
-assay audit --list                   # every event, newest filters applied
-assay audit --status denied --list   # just what got blocked
-assay audit --server github --since 2026-06-01 --list
-assay audit --list --json            # machine-readable
+eyebrow audit                          # summary: counts by server, denials, redactions
+eyebrow audit --list                   # every event, newest filters applied
+eyebrow audit --status denied --list   # just what got blocked
+eyebrow audit --server github --since 2026-06-01 --list
+eyebrow audit --list --json            # machine-readable
 ```
 
 Filters (`--server`, `--tool`, `--status`, `--kind`, `--since`) compose. The
@@ -211,13 +211,13 @@ The shim gives MCP servers a usage signal for free. Skills, subagents, and the
 other artifact kinds have no shim, so they get one from a host-tool hook:
 
 ```sh
-assay install-hooks                  # add the hooks to ~/.claude/settings.json
-assay install-hooks --status         # show what's installed
-assay install-hooks --uninstall      # remove them
+eyebrow install-hooks                  # add the hooks to ~/.claude/settings.json
+eyebrow install-hooks --status         # show what's installed
+eyebrow install-hooks --uninstall      # remove them
 ```
 
 This writes a `PreToolUse` hook on Claude Code's **Skill** and **Task** tools
-that calls `assay record-use` on every activation, appending an `activation`
+that calls `eyebrow record-use` on every activation, appending an `activation`
 event to the same audit log the shim writes. With it in place, the dashboard's
 last/first-used, dormant-then-active sleeper, live-finding ranking, and timeline
 light up for skills and subagents too — not just wrapped MCP servers.
@@ -227,23 +227,23 @@ show "no usage signal" (never a false "unused"). The hook never breaks your
 tool — a missing field or any error degrades to a no-op. And like the shim, an
 activation records only *that* an artifact ran and when, never its arguments.
 
-`assay record-use` is the command the hook invokes; you rarely run it by hand:
+`eyebrow record-use` is the command the hook invokes; you rarely run it by hand:
 
 ```sh
-assay record-use --kind skill --name pdf-skill    # record one activation
-echo "$HOOK_JSON" | assay record-use --kind skill --stdin   # extract name from a hook payload
+eyebrow record-use --kind skill --name pdf-skill    # record one activation
+echo "$HOOK_JSON" | eyebrow record-use --kind skill --stdin   # extract name from a hook payload
 ```
 
 ## Dashboard
 
-`assay dashboard` serves a local, read-only web view of what assay
+`eyebrow dashboard` serves a local, read-only web view of what eyebrow
 sees on this machine — the live inventory, drift against the committed
 lockfile, findings, and the MCP shim's audit timeline:
 
 ```sh
-assay dashboard                 # http://127.0.0.1:7113
-assay dashboard --addr 127.0.0.1:9000 --path . --audit-dir ~/.assay/audit
-assay dashboard --fleet-dir .assay/fleet --reputation assay.reputation.json
+eyebrow dashboard                 # http://127.0.0.1:7113
+eyebrow dashboard --addr 127.0.0.1:9000 --path . --audit-dir ~/.eyebrow/audit
+eyebrow dashboard --fleet-dir .eyebrow/fleet --reputation eyebrow.reputation.json
 ```
 
 It binds loopback only and rejects any request whose `Host` header isn't a
@@ -256,14 +256,14 @@ Click any artifact in the inventory to open its **security profile**:
 
 - **Trust verdict** — trusted / review / quarantine with a hand-recomputable
   score breakdown, plus an opt-in **community reputation** line ("trusted by N
-  other assay users") when the artifact's exact hash is in your reputation
+  other eyebrow users") when the artifact's exact hash is in your reputation
   corpus (see below).
 - **Provenance** — source, launch command, env *keys* only (values are never
   shown), and a provenance ladder.
 - **Integrity** — on-disk vs locked hash, signature/approval state verified
   against your trusted keys, and — on a drift — a **changed-files** view naming
-  exactly which files moved. When `assay scan` has captured the approved bytes
-  (a local, gitignored `.assay/snapshots` cache), each changed file expands to
+  exactly which files moved. When `eyebrow scan` has captured the approved bytes
+  (a local, gitignored `.eyebrow/snapshots` cache), each changed file expands to
   its literal **line-level diff** — the actual `+`/`-` lines, the rug-pull made
   visible. Without a captured baseline it degrades to the content-free file-name
   list. Binary and oversized files always stay at the name level.
@@ -286,7 +286,7 @@ servers; the **Fleet** tab is described next.
 ## Fleet: who is exposed (team blast-radius)
 
 The dashboard above renders one machine. For a team, the question is *who has
-what, and where the blast radius is* the moment an advisory lands. assay answers
+what, and where the blast radius is* the moment an advisory lands. eyebrow answers
 it the offline-first way — by aggregating **committed snapshots**, not by
 uploading live telemetry.
 
@@ -294,11 +294,11 @@ Each developer exports a snapshot and commits it; the dashboard (or the CLI)
 aggregates whatever it finds:
 
 ```sh
-assay fleet export                 # write .assay/fleet/<hostname>.json
-assay fleet export --owner alice   # or label it yourself
-git add .assay/fleet && git commit # "git is the backend" — same as approvals
-assay fleet                        # blast-radius + policy conformance, as text
-assay fleet verify                 # CI gate: exit 1 if any machine is out of policy
+eyebrow fleet export                 # write .eyebrow/fleet/<hostname>.json
+eyebrow fleet export --owner alice   # or label it yourself
+git add .eyebrow/fleet && git commit # "git is the backend" — same as approvals
+eyebrow fleet                        # blast-radius + policy conformance, as text
+eyebrow fleet verify                 # CI gate: exit 1 if any machine is out of policy
 ```
 
 A snapshot is **content-free** — only each artifact's id, name, kind, content
@@ -315,26 +315,26 @@ The dashboard's **Fleet** tab turns the aggregated snapshots into three views:
   verdict, flagging **monoculture** (everyone runs the same thing) and
   **outliers** (one machine has an extension nobody else does).
 - **Policy conformance** — every machine evaluated against the committed
-  `assay.policy.json`: who is running blocked publishers, unapproved, or
+  `eyebrow.policy.json`: who is running blocked publishers, unapproved, or
   quarantined artifacts. It turns the policy from advisory into a measured
   "N of M machines in policy."
 
-`assay fleet verify` is the same conformance rollup as an **enforced CI gate**:
+`eyebrow fleet verify` is the same conformance rollup as an **enforced CI gate**:
 it exits `1` (the stable drift/policy code) when any machine is out of policy, or
 when a drifted/quarantined artifact's reach exceeds the committed threshold:
 
 ```jsonc
-// assay.policy.json
+// eyebrow.policy.json
 { "fleet": { "maxBlastRadius": 2 } }  // fail if a drift/quarantine spans >2 machines
 ```
 
 Run it in the same CI job that already commits snapshots, after a step that
 collects each machine's `fleet export`. It reuses the exact pure functions the
-dashboard renders, so a CI failure matches what a teammate sees in `assay fleet`.
+dashboard renders, so a CI failure matches what a teammate sees in `eyebrow fleet`.
 With no `fleet` block in the policy, only machine conformance gates (the reach
 check is off). An empty fleet directory is nothing to gate — exit `0`.
 
-The reputation signal (`--reputation <file>`, default `assay.reputation.json`)
+The reputation signal (`--reputation <file>`, default `eyebrow.reputation.json`)
 is **opt-in and hash-only**: a content-hash → trust-count corpus you choose to
 trust. A lookup is a local map lookup, so no hash ever leaves your machine; an
 absent corpus is a silent no-op and a miss is "unknown," never a negative claim.
@@ -349,13 +349,13 @@ CLI works fully offline, and a client error falls back to the local path.
 ```sh
 # on the server (a machine your team can reach)
 echo '{"sek-alice":"acme","sek-bob":"acme"}' > tokens.json   # machine token → org
-assay serve --addr 0.0.0.0:7140 --tokens tokens.json         # file-backed store under ~/.assay/controlplane
+eyebrow serve --addr 0.0.0.0:7140 --tokens tokens.json         # file-backed store under ~/.eyebrow/controlplane
 
 # on each developer's machine (or in CI)
-export ASSAY_SERVER=https://assay.acme.internal:7140
-export ASSAY_TOKEN=sek-alice
-assay fleet push            # submit this machine's snapshot
-assay fleet --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # read the org blast-radius
+export EYEBROW_SERVER=https://eyebrow.acme.internal:7140
+export EYEBROW_TOKEN=sek-alice
+eyebrow fleet push            # submit this machine's snapshot
+eyebrow fleet --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN"   # read the org blast-radius
 ```
 
 A bearer token scopes every request to one org (row-level isolation). The
@@ -371,32 +371,32 @@ files and **falling back to local** if the server has none or is unreachable:
 
 ```sh
 # single-machine verify pulls the org policy + trusted keys when a server is set
-assay verify --ci --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"
+eyebrow verify --ci --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN"
 ```
 
 A server with no policy for the org returns 404, which the CLI treats as "use the
-local `assay.policy.json`" — so adopting a server never silently changes a gate
+local `eyebrow.policy.json`" — so adopting a server never silently changes a gate
 you didn't configure.
 
-**Hosted CI gate.** With a server set, `assay fleet verify` gates the fleet that
+**Hosted CI gate.** With a server set, `eyebrow fleet verify` gates the fleet that
 machines have **pushed to the server** — the server runs `fleet.Gate` over the
 submitted snapshots and the org policy, so CI needs no local snapshot directory:
 
 ```sh
-assay fleet push                                              # each machine, e.g. from its own CI
-assay fleet verify --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # one CI job gates the whole fleet → exit 1 on breach
+eyebrow fleet push                                              # each machine, e.g. from its own CI
+eyebrow fleet verify --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN"   # one CI job gates the whole fleet → exit 1 on breach
 ```
 
-Without a server, `fleet verify` still gates the local `.assay/fleet` directory.
+Without a server, `fleet verify` still gates the local `.eyebrow/fleet` directory.
 Either way the gate is the same pure `fleet.Gate`, so a CI failure matches what a
-teammate sees in `assay fleet`.
+teammate sees in `eyebrow fleet`.
 
 **Audit ingest and team alerts.** Each machine can upload its runtime audit log,
 and anyone can read the org's derived alerts:
 
 ```sh
-assay audit push --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # upload this machine's events
-assay alerts     --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"   # drift / quarantine / blocked egress / denied tools
+eyebrow audit push --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN"   # upload this machine's events
+eyebrow alerts     --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN"   # drift / quarantine / blocked egress / denied tools
 ```
 
 Alerts are derived server-side from the aggregated fleet (drifted or quarantined
@@ -412,13 +412,13 @@ full contract of what leaves a machine.
 up against it instead of a local file:
 
 ```sh
-assay reputation --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN" <content-hash>...
-assay dashboard --reputation-server "$ASSAY_SERVER" --reputation-token "$ASSAY_TOKEN"
+eyebrow reputation --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN" <content-hash>...
+eyebrow dashboard --reputation-server "$EYEBROW_SERVER" --reputation-token "$EYEBROW_TOKEN"
 ```
 
 A lookup sends only the content hashes you already hold — a hash discloses
 nothing about content you don't — and the server replies with matches only. With
-no `--reputation-server`, the dashboard uses the local `assay.reputation.json`
+no `--reputation-server`, the dashboard uses the local `eyebrow.reputation.json`
 corpus as before.
 
 **Dashboard on hosted data.** Point the local dashboard at a control plane and
@@ -426,8 +426,8 @@ its **Fleet Blast Radius** and **Team Alerts** tabs read the org's hosted data
 instead of local snapshots:
 
 ```sh
-ASSAY_SERVER=https://assay.acme.internal:7140 ASSAY_TOKEN=sek-alice assay dashboard
-# or: assay dashboard --server "$ASSAY_SERVER" --token "$ASSAY_TOKEN"
+EYEBROW_SERVER=https://eyebrow.acme.internal:7140 EYEBROW_TOKEN=sek-alice eyebrow dashboard
+# or: eyebrow dashboard --server "$EYEBROW_SERVER" --token "$EYEBROW_TOKEN"
 ```
 
 The dashboard stays **loopback-only** — it never exposes a network UI; the
@@ -453,7 +453,7 @@ unconfined and the egress proxy is cooperative (a server could bypass it) —
 tool-policy enforcement and auditing still apply, and `wrap` prints a warning
 to make the gap explicit.
 
-**Line endings (cross-OS lockfiles).** assay hashes file bytes exactly as
+**Line endings (cross-OS lockfiles).** eyebrow hashes file bytes exactly as
 they are on disk, so if Git rewrites text files to CRLF on Windows checkout, a
 text artifact hashes differently than on Linux/macOS and `verify` reports false
 drift. If you commit a lockfile that a mixed-OS team verifies, normalize line

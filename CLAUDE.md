@@ -1,10 +1,10 @@
-# assay — project guide for Claude
+# eyebrow — project guide for Claude
 
 Supply-chain integrity for AI coding tools: a single static Go binary that
 discovers every skill, MCP server, plugin, hook, and rule installed across AI
 coding tools, hashes them into a committable lockfile, statically analyzes them,
 detects post-audit modification ("rug pulls"), and at runtime can interpose,
-sandbox, and audit MCP servers. Repo: `github.com/alexverify/assay`.
+sandbox, and audit MCP servers. Repo: `github.com/alexverify/eyebrow`.
 
 ## Architecture
 
@@ -42,7 +42,7 @@ npm deps but they are build-time only — the binary embeds the static export.
 ## Build & dev
 
 ```sh
-make build          # → ./bin/assay (CGO_ENABLED=0, version stamped)
+make build          # → ./bin/eyebrow (CGO_ENABLED=0, version stamped)
 make check          # gofmt + vet + tests — the local CI gate
 make dashboard-web  # npm ci && next build, sync export → internal/dashboard/assets
 ```
@@ -57,18 +57,18 @@ changes. Releases via GoReleaser on `v*` tags (darwin/linux/windows, amd64/arm64
 - **Component 1** (scan/verify/lockfile/sign) — complete. Tools: Claude Code,
   Cursor, Gemini, OpenCode, Codex, Windsurf, Copilot CLI. Linux/macOS/Windows.
 - **Component 2** (runtime MCP firewall) — complete: `wrap`/`unwrap` rewrite
-  `.mcp.json` to route stdio servers through `assay mcp-shim`, which relays
+  `.mcp.json` to route stdio servers through `eyebrow mcp-shim`, which relays
   JSON-RPC byte-for-byte, enforces per-server tool policy (deny → JSON-RPC error),
   injects a redacting egress proxy, and confines via OS sandbox. Audit log at
-  `~/.assay/audit/<date>.jsonl`; query with `assay audit`.
-- **Component 3** — local **dashboard** shipped (`assay dashboard`, loopback,
+  `~/.eyebrow/audit/<date>.jsonl`; query with `eyebrow audit`.
+- **Component 3** — local **dashboard** shipped (`eyebrow dashboard`, loopback,
   embedded Next.js UI on live data via `/api/scan`, with a per-artifact detail
   drawer). Hosted team control plane (Postgres/multi-tenant API) still designed.
 
 ## Hard-won gotchas (don't relearn these)
 
-- **`.gitignore` patterns must be root-anchored** (`/assay`, not
-  `assay`) or they hide directories like `cmd/assay/`.
+- **`.gitignore` patterns must be root-anchored** (`/eyebrow`, not
+  `eyebrow`) or they hide directories like `cmd/eyebrow/`.
 - **CRLF**: a `.gitattributes` forces `* text=auto eol=lf`. Required so gofmt
   passes on Windows AND so content hashes are stable cross-OS (a CRLF flip
   reads as drift).

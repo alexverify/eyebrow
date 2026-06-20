@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 )
 
 func art(id, tool, name, hash string, src artifact.Source, fs ...finding.Finding) artifact.Artifact {
@@ -14,7 +14,7 @@ func art(id, tool, name, hash string, src artifact.Source, fs ...finding.Finding
 }
 
 func lf(arts ...artifact.Artifact) lockfile.Lockfile {
-	return lockfile.Build(arts, time.Unix(1000, 0).UTC(), "assay/test")
+	return lockfile.Build(arts, time.Unix(1000, 0).UTC(), "eyebrow/test")
 }
 
 func TestSummarizeCountsVerdictsAndTools(t *testing.T) {

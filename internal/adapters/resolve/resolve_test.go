@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 func TestNewRouterWiresRealResolvers(t *testing.T) {

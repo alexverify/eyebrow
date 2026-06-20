@@ -5,17 +5,17 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/provenance"
-	"github.com/alexverify/assay/internal/domain/reach"
-	"github.com/alexverify/assay/internal/domain/reputation"
-	"github.com/alexverify/assay/internal/domain/risk"
-	"github.com/alexverify/assay/internal/domain/textdiff"
-	"github.com/alexverify/assay/internal/domain/timeline"
-	"github.com/alexverify/assay/internal/domain/trust"
-	"github.com/alexverify/assay/internal/domain/usage"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/provenance"
+	"github.com/alexverify/eyebrow/internal/domain/reach"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/domain/risk"
+	"github.com/alexverify/eyebrow/internal/domain/textdiff"
+	"github.com/alexverify/eyebrow/internal/domain/timeline"
+	"github.com/alexverify/eyebrow/internal/domain/trust"
+	"github.com/alexverify/eyebrow/internal/domain/usage"
 )
 
 // DashArtifact is the artifact shape the dashboard UI consumes (mirrors the

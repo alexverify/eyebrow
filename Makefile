@@ -1,9 +1,9 @@
-# assay — developer tasks
+# eyebrow — developer tasks
 # Zero external build dependencies; everything here uses the Go toolchain only.
 
-BINARY      := assay
-PKG         := github.com/alexverify/assay
-CMD         := ./cmd/assay
+BINARY      := eyebrow
+PKG         := github.com/alexverify/eyebrow
+CMD         := ./cmd/eyebrow
 BIN_DIR     := bin
 VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS     := -s -w -X '$(PKG)/internal/buildinfo.Version=$(VERSION)'
@@ -27,14 +27,14 @@ build: ## Build the static binary into ./bin
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) $(CMD)
 
 .PHONY: install
-install: ## Build and install `assay` onto your PATH (defaults to your Go bin)
+install: ## Build and install `eyebrow` onto your PATH (defaults to your Go bin)
 	@mkdir -p "$(INSTALL_DIR)"
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(INSTALL_DIR)/$(BINARY)" $(CMD)
 	@echo "installed → $(INSTALL_DIR)/$(BINARY)"
 	@command -v $(BINARY) >/dev/null 2>&1 || echo "note: $(INSTALL_DIR) is not on your PATH — add it (e.g. 'export PATH=\"$(INSTALL_DIR):\$$PATH\"')"
 
 .PHONY: uninstall
-uninstall: ## Remove the installed `assay` binary
+uninstall: ## Remove the installed `eyebrow` binary
 	rm -f "$(INSTALL_DIR)/$(BINARY)"
 	@echo "removed $(INSTALL_DIR)/$(BINARY)"
 

@@ -1,10 +1,10 @@
-# assay architecture
+# eyebrow architecture
 
 How the codebase is organized, how a scan actually runs, and where to add code.
 Start here if you're contributing. For *why* things are built this way, see
 [decisions.md](decisions.md); for what the tool does, see the [README](../../README.md).
 
-## What assay is
+## What eyebrow is
 
 A single static binary that brings supply-chain integrity to AI coding tools.
 It discovers every skill, MCP server, plugin, hook, and rule installed across
@@ -73,14 +73,14 @@ interface that can be faked, swapped, or degraded without touching the core.
 | `internal/adapters/resolve` | adapter | Source → concrete pinned code: local, inline, npm, git, url. |
 | `internal/adapters/hash` | adapter | Filesystem walk feeding the domain digest. |
 | `internal/adapters/analyze` | adapter | Native high-signal matchers + optional Semgrep accelerator. |
-| `internal/adapters/lockstore` | adapter | Atomic, deterministic `assaylock.json` read/write. |
-| `internal/adapters/policystore` | adapter | Loads `assay.policy.json` (optional; defaults if absent). |
+| `internal/adapters/lockstore` | adapter | Atomic, deterministic `eyebrowlock.json` read/write. |
+| `internal/adapters/policystore` | adapter | Loads `eyebrow.policy.json` (optional; defaults if absent). |
 | `internal/adapters/sign` | adapter | ed25519 detached signatures. |
 | `internal/adapters/report` | adapter | Text and JSON reporters. |
 | `internal/cli` | adapter (driving) | Argument parsing, composition root, exit-code mapping. |
 | `internal/platform/run` | shared | Command-runner abstraction for shelling out (npm/git), with a fake. |
 | `internal/buildinfo` | shared | Build-time version metadata. |
-| `cmd/assay` | entrypoint | Thin `main`: signal handling, hand off to the CLI. |
+| `cmd/eyebrow` | entrypoint | Thin `main`: signal handling, hand off to the CLI. |
 
 ## Data flow
 
@@ -158,8 +158,8 @@ The seams are deliberate. Common extensions:
 
 ## Component 2 — the MCP shim (observe-only slice built)
 
-`assay wrap` routes a tool's stdio MCP servers through
-`assay mcp-shim`, which relays JSON-RPC byte-for-byte and audits every
+`eyebrow wrap` routes a tool's stdio MCP servers through
+`eyebrow mcp-shim`, which relays JSON-RPC byte-for-byte and audits every
 `tools/call`. The slice follows the same hexagon:
 
 - **`internal/domain/jsonrpc`** — pure message classification and the
@@ -170,7 +170,7 @@ The seams are deliberate. Common extensions:
   readers/writers, inspection on a parsed copy, forwarding untouched. Tested
   entirely with in-memory pipes.
 - **`internal/adapters/auditlog`** — JSONL sink, one file per UTC day under
-  `~/.assay/audit/`.
+  `~/.eyebrow/audit/`.
 - **`internal/adapters/mcpconfig`** — the `.mcp.json` rewrite. The wrapped
   form embeds the original argv after a `--`, so unwrap and `wrap --status`
   are derived from the config itself, no side-channel state. Discovery reuses
@@ -195,7 +195,7 @@ The seams are deliberate. Common extensions:
 
 ## Component 3 — dashboard & team intelligence (built)
 
-`assay dashboard` serves a local, loopback-only web view: a Go `/api/*` backend
+`eyebrow dashboard` serves a local, loopback-only web view: a Go `/api/*` backend
 and an embedded Next.js export (`controlplane/web` → `internal/dashboard/assets`
 via `go:embed`). `internal/dashboard` assembles the UI shape in `BuildScan`
 (pure: inventory joined with the locked snapshot, drift class, findings) and
@@ -227,21 +227,21 @@ joins in — same discipline as `Compare` and trust scoring:
 
 Driven adapters for the above: **`internal/adapters/auditlog`** (read the JSONL
 audit log), **`historystore`** (posture trend), **`policystore`** (policy read/
-write), **`fleetstore`** (one JSON snapshot per owner under `.assay/fleet/`),
+write), **`fleetstore`** (one JSON snapshot per owner under `.eyebrow/fleet/`),
 **`repstore`** (the opt-in reputation corpus), **`hookconfig`** (install/
 remove the host-tool usage hooks in Claude Code's `settings.json`, idempotently,
 the same rewrite discipline as `mcpconfig`), and **`snapshotstore`** (the
 content-addressed cache of approved file bytes that feeds the H1b line diff,
-captured at scan via the optional `ports.SnapshotSink`). The **`assay fleet`** command
+captured at scan via the optional `ports.SnapshotSink`). The **`eyebrow fleet`** command
 (`internal/cli/fleetcmd.go`) writes this machine's snapshot and prints the
 aggregated report; the dashboard reads the same directory.
 
 Usage telemetry has two feeds, both keyed by artifact name and folded by
 `internal/domain/usage` (MCP tool calls on the bare name, activations under
 `usage.ActivationKey` so same-named kinds never conflate): the MCP shim's
-`tool_call` events, and `activation` events written by `assay record-use`
+`tool_call` events, and `activation` events written by `eyebrow record-use`
 (`internal/cli/recordusecmd.go`) — which a `PreToolUse` hook installed by
-`assay install-hooks` (`internal/cli/installhookscmd.go`) calls on every skill
+`eyebrow install-hooks` (`internal/cli/installhookscmd.go`) calls on every skill
 and subagent invocation. This extends usage, the sleeper signal, the
 live-finding ranking, and the timeline to non-MCP kinds without any new join.
 
@@ -272,10 +272,10 @@ exact pure functions the local dashboard uses.
 - **`internal/client`** — the opt-in CLI client (`Submit`/`Fleet`/`Policy`/
   `TrustedKeys`/`Health`); any error is the caller's signal to fall back to the
   local path, and a 404 on policy means "keep the local policy."
-- CLI: `assay serve` runs the server; `assay fleet push` / `assay audit push`
-  submit this machine's snapshot and audit events; `assay fleet --server …` reads
-  the org report and `assay alerts` its alerts; `verify` pulls the org policy and
-  trusted keys (server-preferred, local fallback); `assay fleet verify --server …`
+- CLI: `eyebrow serve` runs the server; `eyebrow fleet push` / `eyebrow audit push`
+  submit this machine's snapshot and audit events; `eyebrow fleet --server …` reads
+  the org report and `eyebrow alerts` its alerts; `verify` pulls the org policy and
+  trusted keys (server-preferred, local fallback); `eyebrow fleet verify --server …`
   gates the fleet on the server over submitted snapshots.
 
 The live hash-only reputation lookup (H3b) reuses the existing `reputation.Source`
@@ -284,7 +284,7 @@ content hashes, served either from a local file or — when a server is configur
 — from `POST /v1/reputation`, which returns matches only.
 
 The dashboard on hosted data (4e) keeps the **loopback-only** UI and swaps its
-data source: `assay dashboard --server` wires the `Fleet`, `Conformance`,
+data source: `eyebrow dashboard --server` wires the `Fleet`, `Conformance`,
 `Alerts`, and `Reputation` deps to the control-plane client instead of local
 stores, with a new `/api/alerts` endpoint. No network UI and no SSO — the machine
 token authenticates the CLI's calls; the per-artifact scan view stays local

@@ -1,6 +1,6 @@
 // Package fleetstore reads and writes fleet snapshots as one JSON file per
 // owner under a shared directory (the "git is the backend" path, e.g.
-// .assay/fleet/). Each file is a counts-and-hashes Snapshot — no code, no
+// .eyebrow/fleet/). Each file is a counts-and-hashes Snapshot — no code, no
 // secrets — so the directory is safe to commit and share. The dashboard reads
 // every snapshot it finds and aggregates them; no server required.
 package fleetstore
@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
 )
 
 // Read loads every *.json snapshot under dir, sorted by file name for a stable

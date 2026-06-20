@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/platform/run"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
 func TestParseGitRef(t *testing.T) {

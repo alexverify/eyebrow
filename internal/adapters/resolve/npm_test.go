@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/platform/run"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
 // stubFetcher lets npm tests bypass the real npm-pack download.

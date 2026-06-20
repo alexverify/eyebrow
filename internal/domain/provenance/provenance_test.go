@@ -3,7 +3,7 @@ package provenance
 import (
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 func TestAssessNpmPinnedSignedReachesLevel3(t *testing.T) {

@@ -1,11 +1,11 @@
 // Package mcpconfig rewrites MCP server configs (Claude Code's .mcp.json) so
-// stdio servers launch through the assay shim, and restores them.
+// stdio servers launch through the eyebrow shim, and restores them.
 //
 // The wrapped form is self-describing — the original argv lives after a "--"
 // in the shim's arguments — so unwrap and status need no side-channel state:
 //
 //	{"command": "npx", "args": ["-y", "pkg"]}
-//	→ {"command": "<assay>", "args": ["mcp-shim", "--server", "<name>", "--", "npx", "-y", "pkg"]}
+//	→ {"command": "<eyebrow>", "args": ["mcp-shim", "--server", "<name>", "--", "npx", "-y", "pkg"]}
 //
 // Everything else in the file (env, unknown fields, remote/SSE entries) is
 // preserved untouched. Entries that cannot be restored faithfully are never

@@ -6,7 +6,7 @@
 //     (first used, last used, how many times).
 //   - Assess applies the dormant-then-active ("sleeper") rule (F2): an
 //     artifact installed long ago, never invoked, that then drifts and fires
-//     for the first time — the highest-signal supply-chain event assay can see
+//     for the first time — the highest-signal supply-chain event eyebrow can see
 //     that a pure static SCA tool cannot.
 //
 // Like the rest of the domain core it is IO-free: the caller reads the audit
@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
 )
 
 // Stat is the invocation summary for one artifact (keyed by MCP server name,

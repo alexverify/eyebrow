@@ -3,8 +3,8 @@ package alert
 import (
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
 )
 
 func report(exps ...fleet.Exposure) fleet.Report {

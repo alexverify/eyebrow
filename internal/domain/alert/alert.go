@@ -6,7 +6,7 @@
 //
 // It deliberately does NOT invent finding-level alerts: fleet snapshots are
 // content-free (no findings), so a "new critical finding across the fleet" alert
-// would require richer snapshots than assay ships today. We alert on what we can
+// would require richer snapshots than eyebrow ships today. We alert on what we can
 // prove from the data on hand, and name the gap rather than fake it — the same
 // honesty discipline as reachability and the MCP-name usage join.
 package alert
@@ -15,8 +15,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
 )
 
 // Kind is the alert category.

@@ -1,5 +1,5 @@
 // Package reputation models an opt-in, privacy-preserving community trust signal
-// (theme H3): "this exact artifact hash is trusted by N other assay users, first
+// (theme H3): "this exact artifact hash is trusted by N other eyebrow users, first
 // seen 2026-04." It is the one signal a purely local tool cannot build alone — a
 // network effect that sharpens as adoption grows.
 //

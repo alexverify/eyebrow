@@ -1,5 +1,5 @@
 // Package historystore appends and reads counts-only posture snapshots to a
-// local JSONL file (~/.assay/history.jsonl), the data behind the posture trend.
+// local JSONL file (~/.eyebrow/history.jsonl), the data behind the posture trend.
 // It never stores artifact content — only the aggregate verdict counts.
 package historystore
 
@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexverify/assay/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
 )
 
 // Append adds one snapshot as a JSON line, creating the file and its parent

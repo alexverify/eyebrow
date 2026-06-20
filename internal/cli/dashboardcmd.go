@@ -7,24 +7,24 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/alexverify/assay/internal/adapters/auditlog"
-	"github.com/alexverify/assay/internal/adapters/fleetstore"
-	"github.com/alexverify/assay/internal/adapters/historystore"
-	"github.com/alexverify/assay/internal/adapters/lockstore"
-	"github.com/alexverify/assay/internal/adapters/policystore"
-	"github.com/alexverify/assay/internal/adapters/repstore"
-	"github.com/alexverify/assay/internal/adapters/sign"
-	"github.com/alexverify/assay/internal/adapters/snapshotstore"
-	"github.com/alexverify/assay/internal/app/ports"
-	"github.com/alexverify/assay/internal/client"
-	"github.com/alexverify/assay/internal/dashboard"
-	"github.com/alexverify/assay/internal/domain/alert"
-	"github.com/alexverify/assay/internal/domain/audit"
-	"github.com/alexverify/assay/internal/domain/fleet"
-	"github.com/alexverify/assay/internal/domain/lockfile"
-	"github.com/alexverify/assay/internal/domain/policy"
-	"github.com/alexverify/assay/internal/domain/posture"
-	"github.com/alexverify/assay/internal/domain/reputation"
+	"github.com/alexverify/eyebrow/internal/adapters/auditlog"
+	"github.com/alexverify/eyebrow/internal/adapters/fleetstore"
+	"github.com/alexverify/eyebrow/internal/adapters/historystore"
+	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
+	"github.com/alexverify/eyebrow/internal/adapters/policystore"
+	"github.com/alexverify/eyebrow/internal/adapters/repstore"
+	"github.com/alexverify/eyebrow/internal/adapters/sign"
+	"github.com/alexverify/eyebrow/internal/adapters/snapshotstore"
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/client"
+	"github.com/alexverify/eyebrow/internal/dashboard"
+	"github.com/alexverify/eyebrow/internal/domain/alert"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/domain/fleet"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
+	"github.com/alexverify/eyebrow/internal/domain/policy"
+	"github.com/alexverify/eyebrow/internal/domain/posture"
+	"github.com/alexverify/eyebrow/internal/domain/reputation"
 )
 
 // runDashboard serves the local, read-only web dashboard on loopback. It reads
@@ -35,15 +35,15 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	c := bindCommon(fs)
 	addr := fs.String("addr", "127.0.0.1:7113", "loopback address to listen on")
 	auditDir := fs.String("audit-dir", a.auditDir(), "audit log directory")
-	policyPath := fs.String("policy", "assay.policy.json", "policy file the editor reads and writes")
+	policyPath := fs.String("policy", "eyebrow.policy.json", "policy file the editor reads and writes")
 	historyPath := fs.String("history", a.historyPath(), "posture-trend history file")
 	fleetDir := fs.String("fleet-dir", a.fleetDir(), "shared fleet-snapshot directory (blast radius)")
-	reputationPath := fs.String("reputation", "assay.reputation.json", "opt-in community reputation corpus (hash-keyed; absent = no signal)")
-	server := fs.String("server", envOr("ASSAY_SERVER", ""), "control-plane URL (opt-in: the Fleet and Alerts tabs read hosted org data)")
-	token := fs.String("token", envOr("ASSAY_TOKEN", ""), "machine token for the control plane")
+	reputationPath := fs.String("reputation", "eyebrow.reputation.json", "opt-in community reputation corpus (hash-keyed; absent = no signal)")
+	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL (opt-in: the Fleet and Alerts tabs read hosted org data)")
+	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
 	reputationServer := fs.String("reputation-server", "", "control-plane URL for a live hash-only reputation lookup (defaults to --server)")
 	reputationToken := fs.String("reputation-token", "", "machine token for the reputation lookup (defaults to --token)")
-	snapshotDir := fs.String("snapshot-dir", "", "content-addressed store of approved file bytes (line-level drift diff); default <path>/.assay/snapshots")
+	snapshotDir := fs.String("snapshot-dir", "", "content-addressed store of approved file bytes (line-level drift diff); default <path>/.eyebrow/snapshots")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -59,12 +59,12 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 	store := lockstore.New()
 	// The keyring (committed trusted-keys + personal) verifies approval
 	// signatures so the dashboard's "verified" status is cryptographically real.
-	verifier, _ := a.lockfileVerifier("assay.trustedkeys")
+	verifier, _ := a.lockfileVerifier("eyebrow.trustedkeys")
 	// Team mode: a trusted-keys registry declares at least one key (checked
 	// before the local-key self-trust fallback). Solo users (no registry) get the
 	// simplified Approved / Not-approved view with no signing vocabulary.
 	teamMode := false
-	if reg, err := sign.LoadKeyring("assay.trustedkeys", a.trustedKeysPath()); err == nil {
+	if reg, err := sign.LoadKeyring("eyebrow.trustedkeys", a.trustedKeysPath()); err == nil {
 		teamMode = reg.Len() > 0
 	}
 
@@ -99,7 +99,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		SignApproval: func(e lockfile.Entry) (string, error) {
 			// Sign with the local key (minting it on first approve) so dashboard
 			// approvals are Verified, not just Unsigned — the same act as
-			// `assay approve --sign`, on a loopback surface the user already owns.
+			// `eyebrow approve --sign`, on a loopback surface the user already owns.
 			signer, err := sign.LoadOrCreate(a.keyPath())
 			if err != nil {
 				return "", err
@@ -173,7 +173,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		fmt.Fprintf(a.Stderr, "dashboard: %v\n", err)
 		return ExitError
 	}
-	fmt.Fprintf(a.Stdout, "assay dashboard on http://%s  (ctrl-c to stop)\n", ln.Addr())
+	fmt.Fprintf(a.Stdout, "eyebrow dashboard on http://%s  (ctrl-c to stop)\n", ln.Addr())
 	fmt.Fprintf(a.Stdout, "write token: %s\n", srv.Token())
 
 	httpSrv := &http.Server{Handler: srv.Handler()}

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexverify/assay/internal/domain/artifact"
-	"github.com/alexverify/assay/internal/domain/finding"
-	"github.com/alexverify/assay/internal/platform/run"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
 // fakeSemgrep returns a Semgrep wired to a scripted runner, with a real rules

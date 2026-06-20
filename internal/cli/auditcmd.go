@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/alexverify/assay/internal/adapters/auditlog"
-	"github.com/alexverify/assay/internal/client"
-	"github.com/alexverify/assay/internal/domain/audit"
+	"github.com/alexverify/eyebrow/internal/adapters/auditlog"
+	"github.com/alexverify/eyebrow/internal/client"
+	"github.com/alexverify/eyebrow/internal/domain/audit"
 )
 
 // runAudit queries the shim's audit log: a summary by default, or a filtered
@@ -63,14 +63,14 @@ func (a *App) runAudit(ctx context.Context, args []string) int {
 func (a *App) auditPush(ctx context.Context, args []string) int {
 	fs := a.flagSet("audit push")
 	dir := fs.String("audit-dir", a.auditDir(), "audit log directory")
-	server := fs.String("server", envOr("ASSAY_SERVER", ""), "control-plane URL")
-	token := fs.String("token", envOr("ASSAY_TOKEN", ""), "machine token for the control plane")
+	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL")
+	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
 	since := fs.String("since", "", "only push events on/after this date (YYYY-MM-DD)")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
 	if *server == "" {
-		fmt.Fprintln(a.Stderr, "audit push: set --server (or ASSAY_SERVER) to a control-plane URL")
+		fmt.Fprintln(a.Stderr, "audit push: set --server (or EYEBROW_SERVER) to a control-plane URL")
 		return ExitUsage
 	}
 
