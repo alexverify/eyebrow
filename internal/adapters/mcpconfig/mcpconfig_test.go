@@ -142,6 +142,71 @@ func TestLoadMissingFile(t *testing.T) {
 	}
 }
 
+const claudeJSON = `{
+  "mcpServers": { "atlassian": { "url": "https://mcp.atlassian.com/v1/mcp" } },
+  "numStartups": 42,
+  "projects": {
+    "/home/dev/proj": {
+      "allowedTools": [],
+      "mcpServers": {
+        "coolify": { "type": "stdio", "command": "npx", "args": ["@masonator/coolify-mcp@latest"], "env": {"COOLIFY_ACCESS_TOKEN": "secret"} }
+      }
+    }
+  }
+}`
+
+func writeClaude(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), ".claude.json")
+	if err := os.WriteFile(p, []byte(claudeJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestClaudeProjectWrapUnwrapRoundTrips(t *testing.T) {
+	p := writeClaude(t)
+	cfg, err := LoadClaudeProject(p, "/home/dev/proj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := cfg.Wrap("/usr/local/bin/assay"); n != 1 {
+		t.Fatalf("wrap should change the one stdio server, got %d", n)
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	re, _ := LoadClaudeProject(p, "/home/dev/proj")
+	if got := serversByName(re)["coolify"]; !got.Wrapped || got.Command != "npx" {
+		t.Fatalf("coolify should be wrapped (underlying npx), got %+v", got)
+	}
+	var raw map[string]any
+	b, _ := os.ReadFile(p)
+	json.Unmarshal(b, &raw)
+	if _, ok := raw["mcpServers"].(map[string]any)["atlassian"]; !ok {
+		t.Fatal("top-level atlassian server must be preserved")
+	}
+	if raw["numStartups"] != float64(42) {
+		t.Fatalf("unrelated fields must be preserved, got numStartups=%v", raw["numStartups"])
+	}
+	if n := re.Unwrap(); n != 1 {
+		t.Fatalf("unwrap should restore one server, got %d", n)
+	}
+	if got := serversByName(re)["coolify"]; got.Wrapped {
+		t.Fatal("coolify should be unwrapped after Unwrap")
+	}
+}
+
+func TestClaudeProjectMissingEntryIsNoOp(t *testing.T) {
+	cfg, err := LoadClaudeProject(writeClaude(t), "/no/such/project")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := cfg.Wrap("/usr/local/bin/assay"); n != 0 {
+		t.Fatalf("a project with no entry should wrap 0, got %d", n)
+	}
+}
+
 func serversByName(c *Config) map[string]Server {
 	out := map[string]Server{}
 	for _, s := range c.Servers() {

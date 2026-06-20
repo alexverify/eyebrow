@@ -30,13 +30,16 @@ type Server struct {
 	Remote  bool     // url/SSE entries: not wrappable by the stdio shim
 }
 
-// Config is a loaded MCP config file.
+// Config is a loaded MCP config file. scope is the key path within raw that
+// leads to the mcpServers map — ["mcpServers"] for a normal config, or
+// ["projects", "<abs path>", "mcpServers"] for Claude Code's per-project store.
 type Config struct {
-	path string
-	raw  map[string]any
+	path  string
+	raw   map[string]any
+	scope []string
 }
 
-// Load reads an MCP config file.
+// Load reads an MCP config file (top-level mcpServers).
 func Load(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -46,7 +49,23 @@ func Load(path string) (*Config, error) {
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &Config{path: path, raw: raw}, nil
+	return &Config{path: path, raw: raw, scope: []string{"mcpServers"}}, nil
+}
+
+// LoadClaudeProject reads Claude Code's per-project MCP store from claudeJSONPath
+// (~/.claude.json), targeting projects[projectPath].mcpServers — where servers
+// added at "local" scope live, rather than in a committable .mcp.json. A project
+// with no entry yields an empty config whose Wrap/Unwrap are no-ops.
+func LoadClaudeProject(claudeJSONPath, projectPath string) (*Config, error) {
+	b, err := os.ReadFile(claudeJSONPath)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return nil, fmt.Errorf("%s: %w", claudeJSONPath, err)
+	}
+	return &Config{path: claudeJSONPath, raw: raw, scope: []string{"projects", projectPath, "mcpServers"}}, nil
 }
 
 // Save writes the config back, indented for human diffing.
@@ -58,10 +77,17 @@ func (c *Config) Save() error {
 	return os.WriteFile(c.path, append(b, '\n'), 0o644)
 }
 
-// servers returns the mcpServers map, or nil when absent.
+// servers returns the mcpServers map at the config's scope, or nil when absent.
 func (c *Config) servers() map[string]any {
-	m, _ := c.raw["mcpServers"].(map[string]any)
-	return m
+	cur := c.raw
+	for _, k := range c.scope {
+		m, ok := cur[k].(map[string]any)
+		if !ok {
+			return nil
+		}
+		cur = m
+	}
+	return cur
 }
 
 // inspect classifies one entry without modifying it.
