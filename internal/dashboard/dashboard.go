@@ -246,8 +246,9 @@ func (s *Server) handleSource(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, struct {
 		Path    string `json:"path"`
+		AbsPath string `json:"absPath"`
 		Content string `json:"content"`
-	}{Path: file, Content: string(b)})
+	}{Path: file, AbsPath: target, Content: string(b)})
 }
 
 // artifactRoot returns the on-disk directory that an artifact's relative file

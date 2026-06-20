@@ -609,6 +609,7 @@ func TestSourceServesFileContent(t *testing.T) {
 	}
 	var body struct {
 		Path    string `json:"path"`
+		AbsPath string `json:"absPath"`
 		Content string `json:"content"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
@@ -616,6 +617,9 @@ func TestSourceServesFileContent(t *testing.T) {
 	}
 	if body.Path != "SKILL.md" || !strings.Contains(body.Content, "sk_live") {
 		t.Fatalf("unexpected body: %+v", body)
+	}
+	if !strings.HasSuffix(body.AbsPath, "SKILL.md") || !filepath.IsAbs(body.AbsPath) {
+		t.Fatalf("absPath should be the absolute file path, got %q", body.AbsPath)
 	}
 }
 
