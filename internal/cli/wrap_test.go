@@ -198,17 +198,30 @@ func TestWrapPerProjectStore(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	proj := t.TempDir() // no .mcp.json here
-	claudeJSON := `{
-  "mcpServers": { "atlassian": { "url": "https://mcp.atlassian.com/v1/mcp" } },
-  "projects": {
-    "` + proj + `": {
-      "mcpServers": {
-        "coolify": { "type": "stdio", "command": "npx", "args": ["@masonator/coolify-mcp@latest"] }
-      }
-    }
-  }
-}`
-	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(claudeJSON), 0o644); err != nil {
+	// The per-project key is the absolute project path; marshal via encoding/json
+	// so a Windows path's backslashes are escaped (string concatenation would
+	// produce invalid JSON like "C:\Users").
+	abs, err := filepath.Abs(proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claude := map[string]any{
+		"mcpServers": map[string]any{"atlassian": map[string]any{"url": "https://mcp.atlassian.com/v1/mcp"}},
+		"projects": map[string]any{
+			abs: map[string]any{
+				"mcpServers": map[string]any{
+					"coolify": map[string]any{
+						"type": "stdio", "command": "npx", "args": []any{"@masonator/coolify-mcp@latest"},
+					},
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(claude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), b, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
