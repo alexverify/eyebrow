@@ -1,6 +1,9 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 import { SEVERITY_STYLES, DRIFT_STYLES, VERDICT_STYLES } from "@/lib/scan-utils"
 import type { Severity, DriftStatus, Verdict, Finding, Artifact } from "@/lib/scan-data"
+import { useTeamMode } from "@/components/dashboard/team-mode"
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
   const s = SEVERITY_STYLES[severity]
@@ -37,12 +40,43 @@ export function SafeBadge({ stale }: { stale?: boolean }) {
 }
 
 export function DriftBadge({ status, approved }: { status: DriftStatus; approved?: boolean }) {
+  const teamMode = useTeamMode()
   const d = DRIFT_STYLES[status]
-  // An approved-but-unsigned artifact is a softer state than a never-approved
-  // one: the approve succeeded, only the signature is missing. Relabel it so it
-  // doesn't read as a problem, and drop the urgent palette down to "updated".
+
+  // Solo mode hides the signing vocabulary: an approved artifact is just
+  // "Approved", an unapproved-but-locked one is "Not approved".
+  if (!teamMode) {
+    if (status === "verified") {
+      return <Pill style={DRIFT_STYLES.verified} label="Approved" />
+    }
+    if (status === "unsigned") {
+      return <Pill style={DRIFT_STYLES.updated} label="Not approved" />
+    }
+    return <Pill style={d} label={d.label} />
+  }
+
+  // Team mode keeps the full vocabulary. An approved-but-unsigned artifact is a
+  // softer state than a never-approved one: the approve succeeded, only the
+  // signature is missing — relabel and drop the urgent palette to "updated".
   const approvedUnsigned = status === "unsigned" && approved
-  const style = approvedUnsigned ? DRIFT_STYLES.updated : d
+  return (
+    <Pill
+      style={approvedUnsigned ? DRIFT_STYLES.updated : d}
+      label={approvedUnsigned ? "Approved · unsigned" : d.label}
+      title={approvedUnsigned ? "Approved from the dashboard but not yet signed by a trusted key." : undefined}
+    />
+  )
+}
+
+function Pill({
+  style,
+  label,
+  title,
+}: {
+  style: { bg: string; border: string; text: string }
+  label: string
+  title?: string
+}) {
   return (
     <span
       className={cn(
@@ -51,9 +85,9 @@ export function DriftBadge({ status, approved }: { status: DriftStatus; approved
         style.border,
         style.text,
       )}
-      title={approvedUnsigned ? "Approved from the dashboard but not yet signed by a trusted key." : undefined}
+      title={title}
     >
-      {approvedUnsigned ? "Approved · unsigned" : d.label}
+      {label}
     </span>
   )
 }

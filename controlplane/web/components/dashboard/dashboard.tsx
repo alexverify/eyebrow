@@ -46,10 +46,12 @@ import {
   savePolicy,
   isPolicyWritable,
   isWritable,
+  isTeamMode,
   accountAll,
   type PolicyLists,
   type PolicyMute,
 } from "@/lib/actions"
+import { TeamModeContext } from "@/components/dashboard/team-mode"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge, SafeBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
@@ -77,10 +79,12 @@ export function Dashboard() {
   const [selected, setSelected] = useState<Artifact | null>(null)
   const [codeTarget, setCodeTarget] = useState<CodeTarget | null>(null)
   const [writable, setWritable] = useState(false)
+  const [teamMode, setTeamMode] = useState(false)
   const [accounting, setAccounting] = useState(false)
 
   useEffect(() => {
     isWritable().then(setWritable).catch(() => setWritable(false))
+    isTeamMode().then(setTeamMode).catch(() => setTeamMode(false))
   }, [])
 
   const drift = useMemo(() => driftCounts(artifacts), [artifacts])
@@ -162,6 +166,7 @@ export function Dashboard() {
   const driftedCount = drift.drifted + drift.unsigned
 
   return (
+    <TeamModeContext.Provider value={teamMode}>
     <div className="mx-auto max-w-[1200px] px-6 py-8">
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -325,6 +330,7 @@ export function Dashboard() {
 
       <CodeView target={codeTarget} onClose={() => setCodeTarget(null)} onChanged={reload} />
     </div>
+    </TeamModeContext.Provider>
   )
 }
 

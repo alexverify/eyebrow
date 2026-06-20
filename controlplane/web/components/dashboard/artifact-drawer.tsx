@@ -7,6 +7,7 @@ import { KIND_LABELS, PATTERN_LABELS, type Artifact, type LineDiff } from "@/lib
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge, ReputationBadge, SafeBadge } from "@/components/dashboard/badges"
 import { runAction, muteFinding, allowEgress, type ActionKind } from "@/lib/actions"
 import { type CodeTarget } from "@/components/dashboard/code-view"
+import { useTeamMode } from "@/components/dashboard/team-mode"
 
 interface AuditEvent {
   ts: string
@@ -341,6 +342,7 @@ function Provenance({ a }: { a: Artifact }) {
 }
 
 function Integrity({ a }: { a: Artifact }) {
+  const teamMode = useTeamMode()
   const moved = a.lockedHash && a.hash && a.lockedHash !== a.hash
   return (
     <Section icon={ShieldCheck} title="Integrity">
@@ -367,8 +369,17 @@ function Integrity({ a }: { a: Artifact }) {
       {a.approval ? (
         <p className="mt-2 text-xs text-muted-foreground">
           Approved by <span className="text-foreground">{a.approval.by ?? "—"}</span>
-          {a.approval.at ? ` on ${a.approval.at}` : ""} ·{" "}
-          {a.approval.signed ? <span className="text-ok">signed</span> : <span className="text-sev-high">unsigned</span>}
+          {a.approval.at ? ` on ${a.approval.at}` : ""}
+          {teamMode ? (
+            <>
+              {" · "}
+              {a.approval.signed ? (
+                <span className="text-ok">signed</span>
+              ) : (
+                <span className="text-sev-high">unsigned</span>
+              )}
+            </>
+          ) : null}
         </p>
       ) : null}
     </Section>
@@ -587,14 +598,15 @@ function DiffHunks({ diff }: { diff: LineDiff }) {
 // engineer skimming the inventory gets the verdict without reading every section.
 // Risky traits are tinted; reassuring negatives are muted.
 function CapabilitySummary({ a }: { a: Artifact }) {
+  const teamMode = useTeamMode()
   const c = a.capabilities
   const network = c?.network ?? []
   const filesystem = c?.filesystem ?? []
   const sensitive = filesystem.some((p) => /\.ssh|\.aws|\.env|credential|secret|\.npmrc|id_rsa/i.test(p))
 
   const POSTURE: Record<string, { label: string; tone: Tone }> = {
-    verified: { label: "verified", tone: "ok" },
-    unsigned: { label: "unsigned", tone: "warn" },
+    verified: { label: teamMode ? "verified" : "approved", tone: "ok" },
+    unsigned: { label: teamMode ? "unsigned" : "not approved", tone: "warn" },
     new: { label: "unaudited", tone: "warn" },
     updated: { label: "updated", tone: "warn" },
     drifted: { label: "drifted", tone: "bad" },

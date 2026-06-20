@@ -9,16 +9,33 @@
 let tokenCache: string | null = null
 let writableCache = false
 let policyWritableCache = false
+let teamModeCache = false
 
 async function getToken(): Promise<string> {
   if (tokenCache !== null) return tokenCache
   const r = await fetch("/api/token")
   if (!r.ok) throw new Error("write token unavailable")
-  const d = (await r.json()) as { token: string; writable: boolean; policyWritable?: boolean }
+  const d = (await r.json()) as {
+    token: string
+    writable: boolean
+    policyWritable?: boolean
+    teamMode?: boolean
+  }
   tokenCache = d.token
   writableCache = d.writable
   policyWritableCache = d.policyWritable ?? false
+  teamModeCache = d.teamMode ?? false
   return tokenCache
+}
+
+/** isTeamMode reports whether a trusted-keys registry exists (team trust on). */
+export async function isTeamMode(): Promise<boolean> {
+  try {
+    await getToken()
+    return teamModeCache
+  } catch {
+    return false
+  }
 }
 
 /** isWritable reports whether the backend exposes the lockfile write endpoints. */
