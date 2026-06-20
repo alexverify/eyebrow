@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { KIND_LABELS, PATTERN_LABELS, type Artifact, type LineDiff } from "@/lib/scan-data"
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge, ReputationBadge } from "@/components/dashboard/badges"
 import { runAction, muteFinding, allowEgress, type ActionKind } from "@/lib/actions"
+import { type CodeTarget } from "@/components/dashboard/code-view"
 
 interface AuditEvent {
   ts: string
@@ -27,11 +28,13 @@ export function ArtifactDrawer({
   onClose,
   live = false,
   onChanged,
+  onViewSource,
 }: {
   artifact: Artifact | null
   onClose: () => void
   live?: boolean
   onChanged?: () => void
+  onViewSource?: (t: CodeTarget) => void
 }) {
   const open = artifact !== null
 
@@ -60,7 +63,15 @@ export function ArtifactDrawer({
         )}
         aria-hidden={!open}
       >
-        {artifact && <DrawerBody artifact={artifact} onClose={onClose} live={live} onChanged={onChanged} />}
+        {artifact && (
+          <DrawerBody
+            artifact={artifact}
+            onClose={onClose}
+            live={live}
+            onChanged={onChanged}
+            onViewSource={onViewSource}
+          />
+        )}
       </aside>
     </>
   )
@@ -71,11 +82,13 @@ function DrawerBody({
   onClose,
   live,
   onChanged,
+  onViewSource,
 }: {
   artifact: Artifact
   onClose: () => void
   live: boolean
   onChanged?: () => void
+  onViewSource?: (t: CodeTarget) => void
 }) {
   return (
     <>
@@ -118,7 +131,7 @@ function DrawerBody({
         <Usage a={a} />
         <ChangedFiles a={a} />
         <Capabilities a={a} />
-        <Findings a={a} live={live} onChanged={onChanged} />
+        <Findings a={a} live={live} onChanged={onChanged} onViewSource={onViewSource} />
         <FileManifest a={a} />
         {a.kind === "mcp" && <Activity name={a.name} live={live} />}
       </div>
@@ -583,7 +596,22 @@ function Capabilities({ a }: { a: Artifact }) {
   )
 }
 
-function Findings({ a, live, onChanged }: { a: Artifact; live: boolean; onChanged?: () => void }) {
+function Findings({
+  a,
+  live,
+  onChanged,
+  onViewSource,
+}: {
+  a: Artifact
+  live: boolean
+  onChanged?: () => void
+  onViewSource?: (t: CodeTarget) => void
+}) {
+  // All findings on the same file, so the code view can mark every flagged line.
+  const highlightsFor = (file: string) =>
+    a.findings
+      .filter((f) => f.file === file)
+      .map((f) => ({ line: f.line ?? 0, title: f.title, severity: f.severity }))
   if (a.findings.length === 0) {
     return (
       <Section title="Findings">
@@ -610,7 +638,29 @@ function Findings({ a, live, onChanged }: { a: Artifact; live: boolean; onChange
             ) : null}
             <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
               {PATTERN_LABELS[f.pattern] ?? f.pattern}
-              {f.location ? ` · ${f.location}` : ""}
+              {f.file && onViewSource ? (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onViewSource({
+                        artifactId: a.id,
+                        file: f.file!,
+                        focusLine: f.line,
+                        highlights: highlightsFor(f.file!),
+                      })
+                    }
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    {f.location} ↗
+                  </button>
+                </>
+              ) : f.location ? (
+                ` · ${f.location}`
+              ) : (
+                ""
+              )}
               {f.owasp ? ` · ${f.owasp}` : ""}
             </p>
             {live && f.ruleId ? <MuteControl ruleId={f.ruleId} onChanged={onChanged} /> : null}

@@ -42,6 +42,8 @@ export interface Finding {
   detail: string
   evidence: string // a code/line snippet
   location: string // file + line
+  file?: string // POSIX-relative path within the artifact, for the code view
+  line?: number // 1-based line of the flagged code
   ruleId?: string
   owasp?: string
 

@@ -53,6 +53,7 @@ import {
 import { StatCard } from "@/components/dashboard/stat-card"
 import { SeverityBadge, DriftBadge, VerdictBadge, LivenessBadge, ReachBadge } from "@/components/dashboard/badges"
 import { ArtifactDrawer } from "@/components/dashboard/artifact-drawer"
+import { CodeView, type CodeTarget } from "@/components/dashboard/code-view"
 
 type TabId = "changes" | "inventory" | "findings" | "drift" | "activity" | "fleet" | "alerts" | "policy"
 
@@ -74,6 +75,7 @@ export function Dashboard() {
   const [agentFilter, setAgentFilter] = useState<Agent | "all">("all")
   const [kindFilter, setKindFilter] = useState<ArtifactKind | "all">("all")
   const [selected, setSelected] = useState<Artifact | null>(null)
+  const [codeTarget, setCodeTarget] = useState<CodeTarget | null>(null)
   const [writable, setWritable] = useState(false)
   const [accounting, setAccounting] = useState(false)
 
@@ -303,7 +305,7 @@ export function Dashboard() {
             onSelect={setSelected}
           />
         )}
-        {tab === "findings" && <FindingsPanel findings={findings} />}
+        {tab === "findings" && <FindingsPanel findings={findings} onViewSource={setCodeTarget} />}
         {tab === "drift" && <DriftPanel drifted={driftedArtifacts} updated={updatedArtifacts} />}
         {tab === "fleet" && <FleetPanel live={live} />}
         {tab === "alerts" && <AlertsPanel />}
@@ -314,11 +316,14 @@ export function Dashboard() {
         artifact={selected}
         live={live}
         onClose={() => setSelected(null)}
+        onViewSource={setCodeTarget}
         onChanged={() => {
           reload()
           setSelected(null)
         }}
       />
+
+      <CodeView target={codeTarget} onClose={() => setCodeTarget(null)} />
     </div>
   )
 }
@@ -459,7 +464,13 @@ function FilterSelect({
 
 /* ----------------------------- Findings ----------------------------- */
 
-function FindingsPanel({ findings }: { findings: ReturnType<typeof getAllFindings> }) {
+function FindingsPanel({
+  findings,
+  onViewSource,
+}: {
+  findings: ReturnType<typeof getAllFindings>
+  onViewSource: (t: CodeTarget) => void
+}) {
   const [open, setOpen] = useState<string | null>(findings[0]?.id ?? null)
   const inert = findings.filter((f) => f.reach === "inert").length
 
@@ -516,7 +527,24 @@ function FindingsPanel({ findings }: { findings: ReturnType<typeof getAllFinding
                 <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background p-3">
                   <code className="font-mono text-xs text-sev-high">{f.evidence}</code>
                 </div>
-                <p className="mt-2 font-mono text-[11px] text-muted-foreground">{f.location}</p>
+                {f.file ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onViewSource({
+                        artifactId: f.artifactId,
+                        file: f.file!,
+                        focusLine: f.line,
+                        highlights: [{ line: f.line ?? 0, title: f.title, severity: f.severity }],
+                      })
+                    }
+                    className="mt-2 font-mono text-[11px] text-primary underline-offset-2 hover:underline"
+                  >
+                    {f.location} ↗
+                  </button>
+                ) : (
+                  <p className="mt-2 font-mono text-[11px] text-muted-foreground">{f.location}</p>
+                )}
               </div>
             )}
           </div>
