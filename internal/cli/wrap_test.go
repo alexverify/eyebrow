@@ -179,9 +179,59 @@ func TestWrapUnsupportedTool(t *testing.T) {
 }
 
 func TestWrapWithoutConfig(t *testing.T) {
+	// Isolate HOME so there is no ~/.claude.json either: with no config source
+	// anywhere, wrap reports an error.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	app, _, _ := newApp()
 	if code := app.Execute(context.Background(), []string{"wrap", "--path", t.TempDir()}); code != cli.ExitError {
-		t.Fatalf("wrap with no .mcp.json: exit = %d, want %d", code, cli.ExitError)
+		t.Fatalf("wrap with no config anywhere: exit = %d, want %d", code, cli.ExitError)
+	}
+}
+
+// TestWrapPerProjectStore covers a server registered in Claude Code's per-project
+// store inside ~/.claude.json (the "local" scope), with no committable .mcp.json.
+func TestWrapPerProjectStore(t *testing.T) {
+	ctx := context.Background()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	proj := t.TempDir() // no .mcp.json here
+	claudeJSON := `{
+  "mcpServers": { "atlassian": { "url": "https://mcp.atlassian.com/v1/mcp" } },
+  "projects": {
+    "` + proj + `": {
+      "mcpServers": {
+        "coolify": { "type": "stdio", "command": "npx", "args": ["@masonator/coolify-mcp@latest"] }
+      }
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(claudeJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app, out, _ := newApp()
+	if code := app.Execute(ctx, []string{"wrap", "--path", proj}); code != cli.ExitOK {
+		t.Fatalf("wrap = %d", code)
+	}
+	if !strings.Contains(out.String(), "wrapped 1 server") {
+		t.Fatalf("expected to wrap the per-project coolify server, got %q", out.String())
+	}
+
+	app, out, _ = newApp()
+	app.Execute(ctx, []string{"wrap", "--status", "--path", proj})
+	if !strings.Contains(out.String(), "coolify") || !strings.Contains(out.String(), "wrapped") {
+		t.Fatalf("status should list coolify as wrapped, got %q", out.String())
+	}
+
+	app, out, _ = newApp()
+	if code := app.Execute(ctx, []string{"unwrap", "--path", proj}); code != cli.ExitOK {
+		t.Fatalf("unwrap = %d", code)
+	}
+	if !strings.Contains(out.String(), "unwrapped 1 server") {
+		t.Fatalf("expected to unwrap coolify, got %q", out.String())
 	}
 }
 

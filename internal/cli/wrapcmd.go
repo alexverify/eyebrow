@@ -23,23 +23,27 @@ func (a *App) runWrap(ctx context.Context, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
-	cfg, code := a.loadMCPConfig(*tool, *path, *global, "wrap")
-	if cfg == nil {
+	cfgs, code := a.mcpConfigs(*tool, *path, *global, "wrap")
+	if cfgs == nil {
 		return code
 	}
 	if *status {
-		return a.printWrapStatus(cfg)
+		return a.printWrapStatus(cfgs)
 	}
 
 	bin, err := os.Executable()
 	if err != nil || bin == "" {
 		bin = "assay" // fall back to PATH resolution by the AI tool
 	}
-	n := cfg.Wrap(bin)
-	if n > 0 {
-		if err := cfg.Save(); err != nil {
-			fmt.Fprintf(a.Stderr, "wrap: %v\n", err)
-			return ExitError
+	n := 0
+	for _, cfg := range cfgs {
+		c := cfg.Wrap(bin)
+		if c > 0 {
+			if err := cfg.Save(); err != nil {
+				fmt.Fprintf(a.Stderr, "wrap: %v\n", err)
+				return ExitError
+			}
+			n += c
 		}
 	}
 	fmt.Fprintf(a.Stdout, "wrapped %d server(s); tool calls will be audited to %s\n", n, a.auditDir())
@@ -60,55 +64,89 @@ func (a *App) runUnwrap(ctx context.Context, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
-	cfg, code := a.loadMCPConfig(*tool, *path, *global, "unwrap")
-	if cfg == nil {
+	cfgs, code := a.mcpConfigs(*tool, *path, *global, "unwrap")
+	if cfgs == nil {
 		return code
 	}
-	n := cfg.Unwrap()
-	if n > 0 {
-		if err := cfg.Save(); err != nil {
-			fmt.Fprintf(a.Stderr, "unwrap: %v\n", err)
-			return ExitError
+	n := 0
+	for _, cfg := range cfgs {
+		c := cfg.Unwrap()
+		if c > 0 {
+			if err := cfg.Save(); err != nil {
+				fmt.Fprintf(a.Stderr, "unwrap: %v\n", err)
+				return ExitError
+			}
+			n += c
 		}
 	}
 	fmt.Fprintf(a.Stdout, "unwrapped %d server(s)\n", n)
 	return ExitOK
 }
 
-// loadMCPConfig validates the tool and loads its MCP config — the user-level
-// ~/.claude.json when global, else the project's .mcp.json. On failure it
-// reports and returns a nil config with the exit code to use.
-func (a *App) loadMCPConfig(tool, path string, global bool, cmd string) (*mcpconfig.Config, int) {
+// mcpConfigs validates the tool and returns the MCP config sources to operate
+// on. In global mode that is the user-level ~/.claude.json (top-level servers).
+// In project mode it is the project's .mcp.json (when present) plus the project's
+// per-project entry inside ~/.claude.json — where Claude Code keeps servers added
+// at "local" scope. A missing .mcp.json is not an error as long as some source
+// exists. On failure it reports and returns nil with the exit code to use.
+func (a *App) mcpConfigs(tool, path string, global bool, cmd string) ([]*mcpconfig.Config, int) {
 	if tool != "claude-code" {
 		fmt.Fprintf(a.Stderr, "%s: tool %q not supported yet (only claude-code)\n", cmd, tool)
 		return nil, ExitUsage
 	}
-	cfgPath := filepath.Join(path, ".mcp.json")
-	if global {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
-			return nil, ExitError
-		}
-		cfgPath = filepath.Join(home, ".claude.json")
-	}
-	cfg, err := mcpconfig.Load(cfgPath)
+	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
 		return nil, ExitError
 	}
-	return cfg, ExitOK
+	claudeJSON := filepath.Join(home, ".claude.json")
+
+	if global {
+		cfg, err := mcpconfig.Load(claudeJSON)
+		if err != nil {
+			fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
+			return nil, ExitError
+		}
+		return []*mcpconfig.Config{cfg}, ExitOK
+	}
+
+	var out []*mcpconfig.Config
+	// The project's committable .mcp.json — optional (absent is fine).
+	if cfg, err := mcpconfig.Load(filepath.Join(path, ".mcp.json")); err == nil {
+		out = append(out, cfg)
+	} else if !os.IsNotExist(err) {
+		fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
+		return nil, ExitError
+	}
+	// Claude Code's per-project store, keyed by absolute project path — optional.
+	if abs, err := filepath.Abs(path); err == nil {
+		if cfg, err := mcpconfig.LoadClaudeProject(claudeJSON, abs); err == nil {
+			out = append(out, cfg)
+		}
+	}
+	if len(out) == 0 {
+		fmt.Fprintf(a.Stderr, "%s: no MCP config found (.mcp.json or ~/.claude.json)\n", cmd)
+		return nil, ExitError
+	}
+	return out, ExitOK
 }
 
-func (a *App) printWrapStatus(cfg *mcpconfig.Config) int {
-	for _, s := range cfg.Servers() {
-		switch {
-		case s.Remote:
-			fmt.Fprintf(a.Stdout, "  %-20s remote (not wrappable yet)\n", s.Name)
-		case s.Wrapped:
-			fmt.Fprintf(a.Stdout, "  %-20s wrapped → %s\n", s.Name, strings.Join(append([]string{s.Command}, s.Args...), " "))
-		default:
-			fmt.Fprintf(a.Stdout, "  %-20s not wrapped (%s)\n", s.Name, s.Command)
+func (a *App) printWrapStatus(cfgs []*mcpconfig.Config) int {
+	seen := map[string]bool{}
+	for _, cfg := range cfgs {
+		for _, s := range cfg.Servers() {
+			if seen[s.Name] {
+				continue // the same server can appear in both sources
+			}
+			seen[s.Name] = true
+			switch {
+			case s.Remote:
+				fmt.Fprintf(a.Stdout, "  %-20s remote (not wrappable yet)\n", s.Name)
+			case s.Wrapped:
+				fmt.Fprintf(a.Stdout, "  %-20s wrapped → %s\n", s.Name, strings.Join(append([]string{s.Command}, s.Args...), " "))
+			default:
+				fmt.Fprintf(a.Stdout, "  %-20s not wrapped (%s)\n", s.Name, s.Command)
+			}
 		}
 	}
 	return ExitOK
