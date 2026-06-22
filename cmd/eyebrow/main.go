@@ -14,9 +14,15 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+// run holds the real entrypoint so deferred cleanup (signal-handler teardown)
+// runs before the process exits — os.Exit in main would skip it.
+func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	app := cli.New(os.Stdout, os.Stderr)
-	os.Exit(app.Execute(ctx, os.Args[1:]))
+	return app.Execute(ctx, os.Args[1:])
 }

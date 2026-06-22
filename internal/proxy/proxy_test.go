@@ -124,6 +124,7 @@ func dialCONNECT(t *testing.T, proxyAddr, target string) net.Conn {
 	if err != nil {
 		t.Fatalf("CONNECT response: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		conn.Close()
 		t.Skipf("tunnel refused: %d", resp.StatusCode) // callers asserting denial handle this themselves
@@ -196,6 +197,7 @@ func TestConnectDeniedHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", resp.StatusCode)
 	}
