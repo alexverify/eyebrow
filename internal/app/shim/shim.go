@@ -131,7 +131,7 @@ func pump(src io.Reader, dst io.Writer, inspect func(line []byte) bool) error {
 			}
 		}
 		if err != nil {
-			return nil // EOF or closed pipe: the session is simply over
+			return nil //nolint:nilerr // EOF or closed pipe: the session is simply over
 		}
 	}
 }

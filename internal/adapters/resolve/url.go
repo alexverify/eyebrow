@@ -41,6 +41,7 @@ func (u URL) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 			RuleID: "TLS-PIN-FAILED", Severity: finding.SeverityHigh, OWASP: "ASK-02",
 			Explanation: "could not obtain a TLS certificate pin: " + err.Error(),
 		})
+		//nolint:nilerr // pin failure is surfaced as a warning finding, not a hard error
 		return ports.Resolution{PinnedRef: src.Ref, Warnings: warnings}, nil
 	}
 	return ports.Resolution{PinnedRef: src.Ref, CertSPKI: pin, Warnings: warnings}, nil
