@@ -31,8 +31,7 @@ func (a *App) runReputation(ctx context.Context, args []string) int {
 
 	src, err := client.New(*server, *token).Reputation(ctx, hashes)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "reputation: %v\n", err)
-		return ExitError
+		return a.fail("reputation", err)
 	}
 	if *jsonOut {
 		return a.emitJSON(src)

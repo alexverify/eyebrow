@@ -43,8 +43,7 @@ func (a *App) runServe(ctx context.Context, args []string) int {
 
 	fmt.Fprintf(a.Stdout, "eyebrow control plane on http://%s  (store: %s)\n", *addr, *storeDir)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintf(a.Stderr, "serve: %v\n", err)
-		return ExitError
+		return a.fail("serve", err)
 	}
 	return ExitOK
 }

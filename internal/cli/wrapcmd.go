@@ -40,8 +40,7 @@ func (a *App) runWrap(ctx context.Context, args []string) int {
 		c := cfg.Wrap(bin)
 		if c > 0 {
 			if err := cfg.Save(); err != nil {
-				fmt.Fprintf(a.Stderr, "wrap: %v\n", err)
-				return ExitError
+				return a.fail("wrap", err)
 			}
 			n += c
 		}
@@ -73,8 +72,7 @@ func (a *App) runUnwrap(ctx context.Context, args []string) int {
 		c := cfg.Unwrap()
 		if c > 0 {
 			if err := cfg.Save(); err != nil {
-				fmt.Fprintf(a.Stderr, "unwrap: %v\n", err)
-				return ExitError
+				return a.fail("unwrap", err)
 			}
 			n += c
 		}

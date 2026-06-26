@@ -25,8 +25,7 @@ func (a *App) runAlerts(ctx context.Context, args []string) int {
 
 	alerts, err := client.New(*server, *token).Alerts(ctx)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "alerts: %v\n", err)
-		return ExitError
+		return a.fail("alerts", err)
 	}
 	if *jsonOut {
 		return a.emitJSON(alerts)

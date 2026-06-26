@@ -65,8 +65,7 @@ func (a *App) runScan(ctx context.Context, args []string) int {
 		LockfilePath: *c.lockfile,
 	}, a.Stdout)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "scan: %v\n", err)
-		return ExitError
+		return a.fail("scan", err)
 	}
 
 	// The single-verdict summary (E2): the first-run "are we OK?" line, and a
@@ -96,13 +95,11 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 
 	pol, err := a.resolvePolicy(ctx, *server, *token, *policyPath)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
-		return ExitError
+		return a.fail("verify", err)
 	}
 	verifier, err := a.lockfileVerifierWithServer(ctx, *trustedKeys, *server, *token)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
-		return ExitError
+		return a.fail("verify", err)
 	}
 
 	svc := a.verifyService(*c.json, *c.rules, verifier)
@@ -113,12 +110,7 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 		Policy:       pol,
 	}, a.Stdout)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "verify: no lockfile found; run 'eyebrow scan' first")
-			return ExitError
-		}
-		fmt.Fprintf(a.Stderr, "verify: %v\n", err)
-		return ExitError
+		return a.fail("verify", err)
 	}
 	for _, v := range res.Policy.Violations {
 		switch v.Kind {
@@ -161,12 +153,7 @@ func (a *App) runDiff(ctx context.Context, args []string) int {
 		LockfilePath: *c.lockfile,
 	}, a.Stdout)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "diff: no lockfile found; run 'eyebrow scan' first")
-			return ExitError
-		}
-		fmt.Fprintf(a.Stderr, "diff: %v\n", err)
-		return ExitError
+		return a.fail("diff", err)
 	}
 	return ExitOK
 }
@@ -185,13 +172,11 @@ func (a *App) runDigest(ctx context.Context, args []string) int {
 
 	current, err := a.scanService(*c.json, *c.rules).Build(ctx, a.scopes(*c.path, *c.global))
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "digest: %v\n", err)
-		return ExitError
+		return a.fail("digest", err)
 	}
 	locked, err := lockstore.New().Read(ctx, *c.lockfile)
 	if err != nil && !errors.Is(err, ports.ErrNoLockfile) {
-		fmt.Fprintf(a.Stderr, "digest: %v\n", err)
-		return ExitError
+		return a.fail("digest", err)
 	}
 
 	// Append a counts-only posture snapshot so the dashboard trend gains a data
@@ -277,24 +262,17 @@ func (a *App) runSBOM(ctx context.Context, args []string) int {
 	}
 	lf, err := lockstore.New().Read(ctx, *lock)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "sbom: no lockfile found; run 'eyebrow scan' first")
-			return ExitError
-		}
-		fmt.Fprintf(a.Stderr, "sbom: %v\n", err)
-		return ExitError
+		return a.fail("sbom", err)
 	}
 	bom := sbom.Build(lf, a.Clock.Now().UTC().Format(time.RFC3339))
 	b, err := json.MarshalIndent(bom, "", "  ")
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "sbom: %v\n", err)
-		return ExitError
+		return a.fail("sbom", err)
 	}
 	b = append(b, '\n')
 	if *outPath != "" {
 		if err := os.WriteFile(*outPath, b, 0o644); err != nil {
-			fmt.Fprintf(a.Stderr, "sbom: %v\n", err)
-			return ExitError
+			return a.fail("sbom", err)
 		}
 		fmt.Fprintf(a.Stdout, "wrote %s (%d component(s))\n", *outPath, len(bom.Components))
 		return ExitOK
@@ -312,12 +290,10 @@ func (a *App) runList(ctx context.Context, args []string) int {
 	svc := a.scanService(*c.json, *c.rules)
 	lf, err := svc.Build(ctx, a.scopes(*c.path, *c.global))
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "list: %v\n", err)
-		return ExitError
+		return a.fail("list", err)
 	}
 	if err := reporter(*c.json).List(a.Stdout, lf); err != nil {
-		fmt.Fprintf(a.Stderr, "list: %v\n", err)
-		return ExitError
+		return a.fail("list", err)
 	}
 	return ExitOK
 }
@@ -344,20 +320,14 @@ func (a *App) runApprove(ctx context.Context, args []string) int {
 	store := lockstore.New()
 	lf, err := store.Read(ctx, *lock)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "approve: no lockfile found; run 'eyebrow scan' first")
-			return ExitError
-		}
-		fmt.Fprintf(a.Stderr, "approve: %v\n", err)
-		return ExitError
+		return a.fail("approve", err)
 	}
 
 	var signer *sign.Signer
 	if *signApproval {
 		signer, err = sign.LoadOrCreate(*key)
 		if err != nil {
-			fmt.Fprintf(a.Stderr, "approve: %v\n", err)
-			return ExitError
+			return a.fail("approve", err)
 		}
 	}
 
@@ -370,8 +340,7 @@ func (a *App) runApprove(ctx context.Context, args []string) int {
 			if signer != nil {
 				sig, serr := signer.SignApproval(lf.Artifacts[i])
 				if serr != nil {
-					fmt.Fprintf(a.Stderr, "approve: %v\n", serr)
-					return ExitError
+					return a.fail("approve", serr)
 				}
 				lf.Artifacts[i].Approval.Sig = sig
 			}
@@ -383,8 +352,7 @@ func (a *App) runApprove(ctx context.Context, args []string) int {
 		return ExitError
 	}
 	if err := store.Write(ctx, *lock, lf); err != nil {
-		fmt.Fprintf(a.Stderr, "approve: %v\n", err)
-		return ExitError
+		return a.fail("approve", err)
 	}
 	fmt.Fprintf(a.Stdout, "approved %d artifact(s)\n", matched)
 	return ExitOK
@@ -425,12 +393,7 @@ func (a *App) runMark(ctx context.Context, name string, args []string, set func(
 	store := lockstore.New()
 	lf, err := store.Read(ctx, *lock)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintf(a.Stderr, "%s: no lockfile found; run 'eyebrow scan' first\n", name)
-			return ExitError
-		}
-		fmt.Fprintf(a.Stderr, "%s: %v\n", name, err)
-		return ExitError
+		return a.fail(name, err)
 	}
 
 	matched := 0
@@ -445,8 +408,7 @@ func (a *App) runMark(ctx context.Context, name string, args []string, set func(
 		return ExitError
 	}
 	if err := store.Write(ctx, *lock, lf); err != nil {
-		fmt.Fprintf(a.Stderr, "%s: %v\n", name, err)
-		return ExitError
+		return a.fail(name, err)
 	}
 	action := name
 	if *remove {
@@ -466,27 +428,19 @@ func (a *App) runSign(ctx context.Context, args []string) int {
 
 	signer, err := sign.LoadOrCreate(*key)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
-		return ExitError
+		return a.fail("sign", err)
 	}
 	store := lockstore.New()
 	lf, err := store.Read(ctx, *lock)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoLockfile) {
-			fmt.Fprintln(a.Stderr, "sign: no lockfile found; run 'eyebrow scan' first")
-			return ExitError
-		}
-		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
-		return ExitError
+		return a.fail("sign", err)
 	}
 	signed, err := signer.SignLockfile(lf)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
-		return ExitError
+		return a.fail("sign", err)
 	}
 	if err := store.Write(ctx, *lock, signed); err != nil {
-		fmt.Fprintf(a.Stderr, "sign: %v\n", err)
-		return ExitError
+		return a.fail("sign", err)
 	}
 	fmt.Fprintf(a.Stdout, "signed %s with key %s\n", *lock, signer.PublicKeyBase64())
 	return ExitOK
@@ -520,8 +474,7 @@ func (a *App) runKeyShow(args []string) int {
 	}
 	signer, err := sign.LoadOrCreate(*key)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "key show: %v\n", err)
-		return ExitError
+		return a.fail("key show", err)
 	}
 	fmt.Fprintln(a.Stdout, signer.PublicKeyBase64())
 	return ExitOK
@@ -539,8 +492,7 @@ func (a *App) runKeyTrust(args []string) int {
 		return ExitUsage
 	}
 	if err := sign.AppendTrustedKey(*file, fs.Arg(0), *name); err != nil {
-		fmt.Fprintf(a.Stderr, "key trust: %v\n", err)
-		return ExitError
+		return a.fail("key trust", err)
 	}
 	fmt.Fprintf(a.Stdout, "trusted key added to %s\n", *file)
 	return ExitOK

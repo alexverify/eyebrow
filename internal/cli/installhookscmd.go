@@ -32,23 +32,20 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-			return ExitError
+			return a.fail("install-hooks", err)
 		}
 		path = filepath.Join(home, ".claude", "settings.json")
 	}
 
 	cfg, err := hookconfig.Load(path)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-		return ExitError
+		return a.fail("install-hooks", err)
 	}
 
 	if *status {
 		cmds, err := cfg.Status()
 		if err != nil {
-			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-			return ExitError
+			return a.fail("install-hooks", err)
 		}
 		if len(cmds) == 0 {
 			fmt.Fprintf(a.Stdout, "no eyebrow hooks installed in %s\n", path)
@@ -64,13 +61,11 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 	if *uninstall {
 		n, err := cfg.Uninstall()
 		if err != nil {
-			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-			return ExitError
+			return a.fail("install-hooks", err)
 		}
 		if n > 0 {
 			if err := cfg.Save(); err != nil {
-				fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-				return ExitError
+				return a.fail("install-hooks", err)
 			}
 		}
 		fmt.Fprintf(a.Stdout, "removed %d eyebrow hook(s) from %s\n", n, path)
@@ -83,13 +78,11 @@ func (a *App) runInstallHooks(_ context.Context, args []string) int {
 	}
 	added, err := cfg.Install(bin)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-		return ExitError
+		return a.fail("install-hooks", err)
 	}
 	if added > 0 {
 		if err := cfg.Save(); err != nil {
-			fmt.Fprintf(a.Stderr, "install-hooks: %v\n", err)
-			return ExitError
+			return a.fail("install-hooks", err)
 		}
 	}
 	fmt.Fprintf(a.Stdout, "installed eyebrow usage hooks in %s (%d new); "+

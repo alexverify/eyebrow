@@ -50,8 +50,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 	// team's rules would be worse than refusing to start.
 	pol, _, err := policystore.Load(*policyPath)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "mcp-shim: %v\n", err)
-		return ExitError
+		return a.fail("mcp-shim", err)
 	}
 
 	sink := auditlog.New(*auditDir)
@@ -96,8 +95,7 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 		sandboxName = backend.Name()
 		wrapped, werr := backend.Wrap(argv)
 		if werr != nil {
-			fmt.Fprintf(a.Stderr, "mcp-shim: %v\n", werr)
-			return ExitError
+			return a.fail("mcp-shim", werr)
 		}
 		argv = wrapped
 	}
@@ -108,13 +106,11 @@ func (a *App) runMCPShim(ctx context.Context, args []string) int {
 
 	serverIn, err := child.StdinPipe()
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "mcp-shim: %v\n", err)
-		return ExitError
+		return a.fail("mcp-shim", err)
 	}
 	serverOut, err := child.StdoutPipe()
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "mcp-shim: %v\n", err)
-		return ExitError
+		return a.fail("mcp-shim", err)
 	}
 	if err := child.Start(); err != nil {
 		fmt.Fprintf(a.Stderr, "mcp-shim: start %s: %v\n", argv[0], err)

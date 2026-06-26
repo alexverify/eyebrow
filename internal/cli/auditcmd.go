@@ -45,8 +45,7 @@ func (a *App) runAudit(ctx context.Context, args []string) int {
 
 	events, err := auditlog.Read(*dir, filter)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "audit: %v\n", err)
-		return ExitError
+		return a.fail("audit", err)
 	}
 
 	if *list {
@@ -85,16 +84,14 @@ func (a *App) auditPush(ctx context.Context, args []string) int {
 	}
 	events, err := auditlog.Read(*dir, filter)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "audit push: %v\n", err)
-		return ExitError
+		return a.fail("audit push", err)
 	}
 	if len(events) == 0 {
 		fmt.Fprintf(a.Stdout, "audit push: no events in %s — nothing to send\n", *dir)
 		return ExitOK
 	}
 	if err := client.New(*server, *token).IngestAudit(ctx, events); err != nil {
-		fmt.Fprintf(a.Stderr, "audit push: %v\n", err)
-		return ExitError
+		return a.fail("audit push", err)
 	}
 	fmt.Fprintf(a.Stdout, "pushed %d audit event(s) → %s\n", len(events), *server)
 	return ExitOK
@@ -163,8 +160,7 @@ func (a *App) emitJSON(v any) int {
 	enc := json.NewEncoder(a.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(v); err != nil {
-		fmt.Fprintf(a.Stderr, "audit: %v\n", err)
-		return ExitError
+		return a.fail("audit", err)
 	}
 	return ExitOK
 }

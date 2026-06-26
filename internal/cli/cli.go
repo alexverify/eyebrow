@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -145,6 +146,19 @@ Commands:
 
 Run "eyebrow <command> -h" for command-specific flags.
 `, buildinfo.Name)
+}
+
+// fail prints a command-scoped error to stderr and returns the internal-error
+// exit code, so every command reports failures the same way ("<cmd>: <err>").
+// The "no lockfile yet" case maps to the actionable hint the read commands
+// share, replacing the per-command copy of that branch.
+func (a *App) fail(cmd string, err error) int {
+	if errors.Is(err, ports.ErrNoLockfile) {
+		fmt.Fprintf(a.Stderr, "%s: no lockfile found; run 'eyebrow scan' first\n", cmd)
+	} else {
+		fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
+	}
+	return ExitError
 }
 
 // scopes builds the scan scopes from the common flags.

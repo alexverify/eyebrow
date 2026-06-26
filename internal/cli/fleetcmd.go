@@ -71,8 +71,7 @@ func (a *App) fleetVerify(ctx context.Context, dir, policyPath, server, token st
 
 	snaps, err := fleetstore.Read(dir)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	if len(snaps) == 0 {
 		fmt.Fprintf(a.Stdout, "fleet verify: no snapshots in %s — nothing to gate\n", dir)
@@ -81,8 +80,7 @@ func (a *App) fleetVerify(ctx context.Context, dir, policyPath, server, token st
 
 	pol, err := a.resolvePolicy(ctx, server, token, policyPath)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 
 	res := fleet.Gate(fleet.Aggregate(snaps), fleet.CheckConformance(pol, snaps), pol.Fleet.MaxBlastRadius)
@@ -99,8 +97,7 @@ func (a *App) fleetVerify(ctx context.Context, dir, policyPath, server, token st
 func (a *App) fleetVerifyRemote(ctx context.Context, server, token string) int {
 	res, err := client.New(server, token).Gate(ctx)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	if res.OK {
 		fmt.Fprintln(a.Stdout, "fleet verify: control plane reports the fleet in policy — clear")
@@ -152,12 +149,10 @@ func (a *App) buildSnapshot(ctx context.Context, c commonFlags, owner string) (f
 func (a *App) fleetExport(ctx context.Context, c commonFlags, dir, owner string) int {
 	snap, err := a.buildSnapshot(ctx, c, owner)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	if err := fleetstore.Write(dir, snap); err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	fmt.Fprintf(a.Stdout, "wrote fleet snapshot for %q: %d artifacts → %s\n", snap.Owner, len(snap.Artifacts), dir)
 	return ExitOK
@@ -172,12 +167,10 @@ func (a *App) fleetPush(ctx context.Context, c commonFlags, server, token, owner
 	}
 	snap, err := a.buildSnapshot(ctx, c, owner)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	if err := client.New(server, token).Submit(ctx, snap); err != nil {
-		fmt.Fprintf(a.Stderr, "fleet push: %v\n", err)
-		return ExitError
+		return a.fail("fleet push", err)
 	}
 	fmt.Fprintf(a.Stdout, "pushed fleet snapshot for %q: %d artifacts → %s\n", snap.Owner, len(snap.Artifacts), server)
 	return ExitOK
@@ -188,8 +181,7 @@ func (a *App) fleetPush(ctx context.Context, c commonFlags, server, token, owner
 func (a *App) fleetShowRemote(ctx context.Context, server, token string) int {
 	rep, err := client.New(server, token).Fleet(ctx)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	a.printFleetReport(rep)
 	return ExitOK
@@ -200,8 +192,7 @@ func (a *App) fleetShowRemote(ctx context.Context, server, token string) int {
 func (a *App) fleetShow(dir, policyPath string) int {
 	snaps, err := fleetstore.Read(dir)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "fleet: %v\n", err)
-		return ExitError
+		return a.fail("fleet", err)
 	}
 	if len(snaps) == 0 {
 		fmt.Fprintf(a.Stdout, "no fleet snapshots in %s — run `eyebrow fleet export` on each machine\n", dir)

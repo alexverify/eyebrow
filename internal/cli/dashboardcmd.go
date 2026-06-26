@@ -170,8 +170,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "dashboard: %v\n", err)
-		return ExitError
+		return a.fail("dashboard", err)
 	}
 	fmt.Fprintf(a.Stdout, "eyebrow dashboard on http://%s  (ctrl-c to stop)\n", ln.Addr())
 	fmt.Fprintf(a.Stdout, "write token: %s\n", srv.Token())
@@ -182,8 +181,7 @@ func (a *App) runDashboard(ctx context.Context, args []string) int {
 		httpSrv.Close()
 	}()
 	if err := httpSrv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		fmt.Fprintf(a.Stderr, "dashboard: %v\n", err)
-		return ExitError
+		return a.fail("dashboard", err)
 	}
 	return ExitOK
 }
