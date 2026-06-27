@@ -1,0 +1,36 @@
+# Keep dependencies and pinned GitHub Actions current — the same supply-chain
+# hygiene eyebrow enforces, applied to eyebrow's own tree. Grouped so each
+# ecosystem opens one PR per week instead of many.
+version: 2
+updates:
+  # Go modules (root). The binary aims for a minimal dependency set, so this is
+  # mostly the BurntSushi/toml pin and test/tooling deps.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gomod:
+        patterns:
+          - "*"
+
+  # GitHub Actions are pinned by commit SHA; this keeps those pins fresh.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # The dashboard frontend (build-time only; the binary embeds the static
+  # export). Keeping it current backs the "0 npm-audit vulns" invariant.
+  - package-ecosystem: npm
+    directory: /controlplane/web
+    schedule:
+      interval: weekly
+    groups:
+      web:
+        patterns:
+          - "*"
