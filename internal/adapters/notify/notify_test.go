@@ -39,3 +39,30 @@ func TestPostErrorsOnNon2xx(t *testing.T) {
 		t.Fatal("expected an error on a 500 response")
 	}
 }
+
+// A zero-value Sender has a nil Client and must fall back to http.DefaultClient.
+func TestPostZeroValueSenderUsesDefaultClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	var s Sender // Client is nil
+	if err := s.Post(context.Background(), srv.URL, "hi"); err != nil {
+		t.Fatalf("zero-value Sender should post via the default client: %v", err)
+	}
+}
+
+// A transport failure (here: a cancelled context) is returned, not swallowed.
+func TestPostTransportError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := New().Post(ctx, srv.URL, "x"); err == nil {
+		t.Error("expected a transport error from a cancelled context")
+	}
+}
