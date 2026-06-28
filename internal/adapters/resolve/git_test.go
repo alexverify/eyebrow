@@ -9,6 +9,43 @@ import (
 	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
+func TestFirstField(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"abc123 refs/heads/main", "abc123"},
+		{"  leading\ttab", "leading"},
+		{"", ""},
+		{"   ", ""},
+		{"single", "single"},
+	}
+	for _, tt := range tests {
+		if got := firstField([]byte(tt.in)); got != tt.want {
+			t.Errorf("firstField(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestLooksLikeSHA(t *testing.T) {
+	tests := []struct {
+		s    string
+		want bool
+	}{
+		{"a1b2c3d", true}, // 7 chars, min
+		{"deadbeefDEADBEEF1234567890abcdef12345678", true}, // 40 chars, max, mixed case
+		{"abc12", false},   // too short
+		{"g123456", false}, // non-hex
+		{"", false},
+		{"1234567890abcdef1234567890abcdef123456789", false}, // 41 chars, too long
+	}
+	for _, tt := range tests {
+		if got := looksLikeSHA(tt.s); got != tt.want {
+			t.Errorf("looksLikeSHA(%q) = %v, want %v", tt.s, got, tt.want)
+		}
+	}
+}
+
 func TestParseGitRef(t *testing.T) {
 	cases := []struct{ ref, url, gitRef string }{
 		{"git+https://github.com/a/b#main", "https://github.com/a/b", "main"},
