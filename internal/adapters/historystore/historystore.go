@@ -16,7 +16,7 @@ import (
 
 // Append adds one snapshot as a JSON line, creating the file and its parent
 // directory as needed. Append-only keeps writes cheap and the history immutable.
-func Append(path string, p posture.Posture) error {
+func Append(path string, p posture.Posture) (err error) {
 	if dir := filepath.Dir(path); dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
@@ -30,7 +30,13 @@ func Append(path string, p posture.Posture) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	// Close can flush a buffered write; report its error if the write itself
+	// succeeded, so a failed flush never looks like a successful append.
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 	_, err = f.Write(append(b, '\n'))
 	return err
 }

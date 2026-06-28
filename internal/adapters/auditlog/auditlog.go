@@ -23,7 +23,7 @@ type Sink struct {
 func New(dir string) *Sink { return &Sink{dir: dir} }
 
 // Emit appends one event to the day file matching e.At (UTC).
-func (s *Sink) Emit(_ context.Context, e audit.Event) error {
+func (s *Sink) Emit(_ context.Context, e audit.Event) (err error) {
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return err
 	}
@@ -36,7 +36,13 @@ func (s *Sink) Emit(_ context.Context, e audit.Event) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	// Surface a Close (flush) error when the write itself succeeded, so a
+	// dropped audit line never reports success.
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 	_, err = f.Write(append(line, '\n'))
 	return err
 }

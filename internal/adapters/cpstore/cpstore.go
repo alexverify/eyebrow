@@ -88,7 +88,7 @@ func (s *Store) Snapshots(org string) ([]fleet.Snapshot, error) {
 
 // AppendAudit appends ingested audit events to the org's JSONL log, one event
 // per line (matching the local audit-log format).
-func (s *Store) AppendAudit(org string, events []audit.Event) error {
+func (s *Store) AppendAudit(org string, events []audit.Event) (err error) {
 	if len(events) == 0 {
 		return nil
 	}
@@ -100,7 +100,13 @@ func (s *Store) AppendAudit(org string, events []audit.Event) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	// Surface a Close (flush) error when every write succeeded, so a dropped
+	// tail event never reports success.
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 	for _, e := range events {
 		line, err := json.Marshal(e)
 		if err != nil {
