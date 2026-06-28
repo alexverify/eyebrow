@@ -53,3 +53,28 @@ func TestAssessVerifiedPublisherReachesLevel4(t *testing.T) {
 		t.Errorf("publisher-verified rung should be satisfied when Source.Provenance is set")
 	}
 }
+
+func TestAnchoredPerSourceKind(t *testing.T) {
+	tests := []struct {
+		name string
+		src  artifact.Source
+		want bool
+	}{
+		{"npm with integrity", artifact.Source{Kind: artifact.SourceNPM, Integrity: "sha512-A"}, true},
+		{"npm without integrity", artifact.Source{Kind: artifact.SourceNPM}, false},
+		{"url with cert pin", artifact.Source{Kind: artifact.SourceURL, CertSPKI: "pin"}, true},
+		{"url without cert pin", artifact.Source{Kind: artifact.SourceURL}, false},
+		{"git with ref", artifact.Source{Kind: artifact.SourceGit, Ref: "abc123"}, true},
+		{"git without ref", artifact.Source{Kind: artifact.SourceGit}, false},
+		{"container with ref", artifact.Source{Kind: artifact.SourceContainer, Ref: "img@sha256:x"}, true},
+		{"container without ref", artifact.Source{Kind: artifact.SourceContainer}, false},
+		{"local always anchored", artifact.Source{Kind: artifact.SourceLocal}, true},
+		{"inline always anchored", artifact.Source{Kind: artifact.SourceInline}, true},
+		{"unknown kind", artifact.Source{Kind: artifact.SourceKind("mystery")}, false},
+	}
+	for _, tt := range tests {
+		if got := anchored(tt.src); got != tt.want {
+			t.Errorf("%s: anchored = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
