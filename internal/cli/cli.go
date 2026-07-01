@@ -100,6 +100,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 		return a.runReputation(ctx, rest)
 	case "mcp-shim":
 		return a.runMCPShim(ctx, rest)
+	case "completion":
+		return a.runCompletion(rest)
 	case "version", "-v", "--version":
 		fmt.Fprintln(a.Stdout, buildinfo.UserAgent())
 		return ExitOK
@@ -141,6 +143,7 @@ Commands:
   dashboard Serve a local read-only web dashboard (loopback)
   fleet     Export/push this machine's snapshot, print the team blast-radius, or verify (CI gate)
   serve     Run the self-hostable team control plane (opt-in; ingests snapshots)
+  completion Print a shell completion script (bash|zsh|fish)
   version   Print the version
   help      Show this help
 
