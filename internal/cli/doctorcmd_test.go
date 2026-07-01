@@ -78,3 +78,28 @@ func TestDoctorReportsHooks(t *testing.T) {
 		t.Errorf("expected doctor to report installed hooks:\n%s", out.String())
 	}
 }
+
+func TestDoctorControlPlaneCheck(t *testing.T) {
+	ctx := context.Background()
+	dir, lock := fixtureProject(t)
+	t.Setenv("EYEBROW_SERVER", "")
+	t.Setenv("EYEBROW_TOKEN", "")
+
+	// Unconfigured: an offline-first note, and doctor exits 0.
+	app, out, _ := newApp()
+	if code := app.Execute(ctx, []string{"doctor", "--path", dir, "--lockfile", lock}); code != cli.ExitOK {
+		t.Fatalf("doctor exit = %d", code)
+	}
+	if !strings.Contains(out.String(), "control-plane") || !strings.Contains(out.String(), "not configured") {
+		t.Errorf("expected an unconfigured control-plane note:\n%s", out.String())
+	}
+
+	// Configured but unreachable: a warning, still exit 0 (degrades to local).
+	app, out, _ = newApp()
+	if code := app.Execute(ctx, []string{"doctor", "--path", dir, "--lockfile", lock, "--server", "http://127.0.0.1:1"}); code != cli.ExitOK {
+		t.Fatalf("doctor exit = %d, want 0 even when the server is down", code)
+	}
+	if !strings.Contains(out.String(), "unreachable") {
+		t.Errorf("expected an unreachable control-plane warning:\n%s", out.String())
+	}
+}

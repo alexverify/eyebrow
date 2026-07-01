@@ -12,6 +12,7 @@ import (
 	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/buildinfo"
+	"github.com/alexverify/eyebrow/internal/client"
 	"github.com/alexverify/eyebrow/internal/domain/doctor"
 	"github.com/alexverify/eyebrow/internal/sandbox"
 )
@@ -25,6 +26,8 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	global := fs.Bool("global", false, "also check machine-wide (global) tool configs")
 	lock := fs.String("lockfile", "eyebrowlock.json", "lockfile path")
 	settings := fs.String("settings", "", "host-tool settings file to check for hooks (default: ~/.claude/settings.json)")
+	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL to probe (opt-in)")
+	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -33,6 +36,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	r = a.doctorLockfile(ctx, *lock, r)
 	r = a.doctorSandbox(r)
 	r = a.doctorHooks(*settings, r)
+	r = a.doctorServer(ctx, *server, *token, r)
 	fmt.Fprintf(a.Stdout, "%s doctor\n\n", buildinfo.Name)
 	fmt.Fprint(a.Stdout, r.Render())
 	return ExitOK
@@ -55,6 +59,19 @@ func (a *App) doctorTools(ctx context.Context, path string, global bool, r docto
 	}
 	return r.Add("tools", doctor.StatusOK,
 		fmt.Sprintf("discovered %d artifact(s) across %d tool(s)", len(arts), len(tools)))
+}
+
+// doctorServer probes the control plane only when one is configured. Unset is
+// informational (offline-first is the default); a configured-but-unreachable
+// server is a warning, though every command still degrades to local.
+func (a *App) doctorServer(ctx context.Context, server, token string, r doctor.Report) doctor.Report {
+	if server == "" {
+		return r.Add("control-plane", doctor.StatusInfo, "not configured (offline-first; set --server to enable team features)")
+	}
+	if err := client.New(server, token).Health(ctx); err != nil {
+		return r.Add("control-plane", doctor.StatusWarn, fmt.Sprintf("unreachable at %s: %v", server, err))
+	}
+	return r.Add("control-plane", doctor.StatusOK, "reachable at "+server)
 }
 
 // doctorHooks reports whether the usage-telemetry hooks (F1b) are installed in
