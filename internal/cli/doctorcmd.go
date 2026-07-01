@@ -10,6 +10,7 @@ import (
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/buildinfo"
 	"github.com/alexverify/eyebrow/internal/domain/doctor"
+	"github.com/alexverify/eyebrow/internal/sandbox"
 )
 
 // runDoctor prints an environment self-check: a rollup of the signals a user
@@ -26,6 +27,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	var r doctor.Report
 	r = a.doctorTools(ctx, *path, *global, r)
 	r = a.doctorLockfile(ctx, *lock, r)
+	r = a.doctorSandbox(r)
 	fmt.Fprintf(a.Stdout, "%s doctor\n\n", buildinfo.Name)
 	fmt.Fprint(a.Stdout, r.Render())
 	return ExitOK
@@ -48,6 +50,17 @@ func (a *App) doctorTools(ctx context.Context, path string, global bool, r docto
 	}
 	return r.Add("tools", doctor.StatusOK,
 		fmt.Sprintf("discovered %d artifact(s) across %d tool(s)", len(arts), len(tools)))
+}
+
+// doctorSandbox reports whether this host can confine wrapped MCP servers.
+// An absent sandbox is informational, not a warning: it is expected on Windows
+// (Unix-only confinement), and wrap already degrades to observe-only there.
+func (a *App) doctorSandbox(r doctor.Report) doctor.Report {
+	be := sandbox.Select(sandbox.Profile{})
+	if be.Available() {
+		return r.Add("sandbox", doctor.StatusOK, be.Name()+" available (runtime confinement active)")
+	}
+	return r.Add("sandbox", doctor.StatusInfo, "no OS sandbox on this host (wrap runs unconfined)")
 }
 
 // doctorLockfile reports whether an approved baseline exists and is signed.

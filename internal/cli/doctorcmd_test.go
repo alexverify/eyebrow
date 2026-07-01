@@ -44,3 +44,12 @@ func TestDoctorReportsToolsAndLockfile(t *testing.T) {
 		t.Errorf("expected the lockfile check to report it present:\n%s", out.String())
 	}
 }
+
+func TestDoctorReportsSandbox(t *testing.T) {
+	dir, lock := fixtureProject(t)
+	app, out, _ := newApp()
+	app.Execute(context.Background(), []string{"doctor", "--path", dir, "--lockfile", lock})
+	if !strings.Contains(out.String(), "sandbox") {
+		t.Errorf("doctor should include a sandbox check:\n%s", out.String())
+	}
+}
