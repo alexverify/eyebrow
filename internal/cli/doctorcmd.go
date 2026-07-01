@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/alexverify/eyebrow/internal/adapters/discover"
+	"github.com/alexverify/eyebrow/internal/adapters/hookconfig"
 	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/buildinfo"
@@ -21,6 +24,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	path := fs.String("path", ".", "project path to check")
 	global := fs.Bool("global", false, "also check machine-wide (global) tool configs")
 	lock := fs.String("lockfile", "eyebrowlock.json", "lockfile path")
+	settings := fs.String("settings", "", "host-tool settings file to check for hooks (default: ~/.claude/settings.json)")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -28,6 +32,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	r = a.doctorTools(ctx, *path, *global, r)
 	r = a.doctorLockfile(ctx, *lock, r)
 	r = a.doctorSandbox(r)
+	r = a.doctorHooks(*settings, r)
 	fmt.Fprintf(a.Stdout, "%s doctor\n\n", buildinfo.Name)
 	fmt.Fprint(a.Stdout, r.Render())
 	return ExitOK
@@ -50,6 +55,31 @@ func (a *App) doctorTools(ctx context.Context, path string, global bool, r docto
 	}
 	return r.Add("tools", doctor.StatusOK,
 		fmt.Sprintf("discovered %d artifact(s) across %d tool(s)", len(arts), len(tools)))
+}
+
+// doctorHooks reports whether the usage-telemetry hooks (F1b) are installed in
+// the host tool's settings. Not installed is informational — telemetry is an
+// opt-in feature, not a broken state.
+func (a *App) doctorHooks(settings string, r doctor.Report) doctor.Report {
+	if settings == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return r.Add("hooks", doctor.StatusInfo, "settings path unknown: "+err.Error())
+		}
+		settings = filepath.Join(home, ".claude", "settings.json")
+	}
+	cfg, err := hookconfig.Load(settings)
+	if err != nil {
+		return r.Add("hooks", doctor.StatusInfo, "settings unreadable: "+err.Error())
+	}
+	cmds, err := cfg.Status()
+	if err != nil {
+		return r.Add("hooks", doctor.StatusInfo, "hook status unavailable: "+err.Error())
+	}
+	if len(cmds) == 0 {
+		return r.Add("hooks", doctor.StatusInfo, "no usage-telemetry hooks installed (run '"+buildinfo.Name+" install-hooks')")
+	}
+	return r.Add("hooks", doctor.StatusOK, fmt.Sprintf("%d usage-telemetry hook(s) installed", len(cmds)))
 }
 
 // doctorSandbox reports whether this host can confine wrapped MCP servers.
