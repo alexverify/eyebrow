@@ -108,6 +108,36 @@ func TestHashSkipsGitMetadata(t *testing.T) {
 	}
 }
 
+// eyebrow's own state files must not count toward an artifact's digest. A
+// root-level skill hashes the repo root, and scan writes the lockfile into
+// that same root, so including it would change the digest on every
+// regeneration. Same doctrine as .git: verifier metadata, not shipped code.
+func TestHashSkipsEyebrowStateFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.txt"), "a")
+	clean, _, _, err := New().Hash(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "eyebrow.discover.json"), `{"version":1}`)
+	writeFile(t, filepath.Join(dir, "eyebrowlock.json"), `{"artifacts":[]}`)
+	writeFile(t, filepath.Join(dir, "eyebrow.policy.json"), `{}`)
+	writeFile(t, filepath.Join(dir, "eyebrow.trustedkeys"), "key")
+	writeFile(t, filepath.Join(dir, ".eyebrow", "snapshots", "sha256-x", "files.json"), `[]`)
+	got, files, _, err := New().Hash(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clean != got {
+		t.Error("eyebrow state files leaked into the digest")
+	}
+	for _, f := range files {
+		if strings.HasPrefix(f.Path, "eyebrow") || strings.HasPrefix(f.Path, ".eyebrow") {
+			t.Errorf("eyebrow state file listed: %q", f.Path)
+		}
+	}
+}
+
 func TestHashMissingRoot(t *testing.T) {
 	if _, _, _, err := New().Hash(context.Background(), filepath.Join(t.TempDir(), "nope")); err == nil {
 		t.Error("expected error for missing root")

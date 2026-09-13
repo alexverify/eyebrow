@@ -22,11 +22,26 @@ type Hasher struct {
 	// not shipped code. node_modules is deliberately NOT skipped: it is the
 	// code that actually runs and must be part of the integrity anchor.
 	skipDirs map[string]bool
+	// skipFiles are file names excluded from the digest: eyebrow's own state
+	// files. A root-level skill hashes the repo root, and scan writes the
+	// lockfile into that same root. Including it would change the digest it
+	// just recorded on every regeneration. Verifier metadata, like .git.
+	skipFiles map[string]bool
 }
 
 // New returns a Hasher with default exclusions.
 func New() *Hasher {
-	return &Hasher{skipDirs: map[string]bool{".git": true}}
+	return &Hasher{
+		// .eyebrow is eyebrow's own state dir (snapshots); scanning writes
+		// into it, so hashing it would churn the digest on every scan.
+		skipDirs: map[string]bool{".git": true, ".eyebrow": true},
+		skipFiles: map[string]bool{
+			"eyebrow.discover.json": true,
+			"eyebrowlock.json":      true,
+			"eyebrow.policy.json":   true,
+			"eyebrow.trustedkeys":   true,
+		},
+	}
 }
 
 // Hash walks root and returns the canonical content digest, per-file hashes
@@ -89,6 +104,9 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 		}
 		// Hash only regular files; skip symlinks, sockets, devices.
 		if !d.Type().IsRegular() {
+			return nil
+		}
+		if h.skipFiles[d.Name()] {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
