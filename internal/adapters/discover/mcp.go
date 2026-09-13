@@ -13,9 +13,15 @@ import (
 
 // frontmatterDescription reads the `description:` value from a Markdown file's
 // leading `---` YAML frontmatter, the stated purpose of a skill or subagent.
-// It is intentionally minimal (single-line scalar only, zero deps); a missing
-// frontmatter, missing key, or block scalar yields "".
 func frontmatterDescription(path string) string {
+	return frontmatterValue(path, "description")
+}
+
+// frontmatterValue reads a top-level key's value from a Markdown file's
+// leading `---` YAML frontmatter. It is intentionally minimal (single-line
+// scalar only, zero deps); a missing frontmatter, missing key, or block
+// scalar yields "".
+func frontmatterValue(path, key string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -36,12 +42,12 @@ func frontmatterDescription(path string) string {
 			continue
 		}
 		if t == "---" {
-			return "" // end of frontmatter, no description
+			return "" // end of frontmatter, key not found
 		}
-		if rest, ok := strings.CutPrefix(t, "description:"); ok {
+		if rest, ok := strings.CutPrefix(t, key+":"); ok {
 			v := strings.Trim(strings.TrimSpace(rest), `"'`)
 			if v == ">" || v == "|" {
-				return "" // block scalar — out of scope
+				return "" // block scalar, out of scope
 			}
 			return v
 		}
