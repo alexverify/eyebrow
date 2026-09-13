@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -270,5 +271,48 @@ func TestDeclaredNamedAeonKeepsAeonIDs(t *testing.T) {
 	}
 	if viaAeon[0].ID != viaManifest[0].ID {
 		t.Errorf("id via aeon = %s, via manifest = %s; must match", viaAeon[0].ID, viaManifest[0].ID)
+	}
+}
+
+// SKILL.md keeps the call-line rule: a host counts only on a line that
+// performs a call, so a doc link in prose stays out. Harvest files are opted
+// in by the author, so every host in them counts. This is what Azzle's
+// scripts/*.sh and Dexter DAO's references/endpoints.md need.
+func TestDeclaredHarvestsHostsFromDeclaredFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ManifestFile),
+		`{"version":1,"name":"x","skills":["skills/*"],"harvest":["scripts/*.sh","references/*.md"]}`)
+	writeFile(t, filepath.Join(dir, "skills", "pay", "SKILL.md"), strings.Join([]string{
+		"---", "name: pay", "---",
+		"See https://docs.example.com/guide for background.", // prose, must not count
+		"Run `curl https://api.example.com/v1/pay` to settle.",
+	}, "\n")+"\n")
+	writeFile(t, filepath.Join(dir, "skills", "pay", "scripts", "settle.sh"),
+		"#!/bin/sh\nURL=https://settle.example.net/x402\nwget \"$URL\"\n")
+	writeFile(t, filepath.Join(dir, "skills", "pay", "references", "endpoints.md"),
+		"### GET https://rpc.example.org/mainnet\n")
+	writeFile(t, filepath.Join(dir, "skills", "pay", "references", "notes.txt"),
+		"https://ignored.example.com not harvested, wrong extension\n")
+
+	got, err := NewDeclared().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"api.example.com", "rpc.example.org", "settle.example.net"}
+	if caps := byName(got)["pay"].Capabilities; !reflect.DeepEqual(caps.Network, want) {
+		t.Errorf("Network = %v, want %v", caps.Network, want)
+	}
+}
+
+func TestDeclaredNoHostsMeansEmptyCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"x","skills":["skills/*"],"harvest":["scripts/*.sh"]}`)
+	writeFile(t, filepath.Join(dir, "skills", "a", "SKILL.md"), "---\nname: a\n---\nprose only\n")
+	got, err := NewDeclared().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if caps := byName(got)["a"].Capabilities; !reflect.DeepEqual(caps, artifact.Capabilities{}) {
+		t.Errorf("Capabilities = %+v, want zero value", caps)
 	}
 }

@@ -1,10 +1,12 @@
 package discover
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -133,7 +135,7 @@ func (d *Declared) Discover(_ context.Context, scopes []ports.Scope) ([]artifact
 				Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: dir},
 				DiscoveredFrom: skillMd,
 				Description:    frontmatterDescription(skillMd),
-				Capabilities:   capabilitiesFromSkill(skillMd),
+				Capabilities:   m.capabilities(dir, skillMd),
 			}
 			a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
 			out = append(out, a)
@@ -186,4 +188,57 @@ func skillName(dir, root, skillMd string) string {
 		abs = dir
 	}
 	return filepath.Base(abs)
+}
+
+// capabilities merges the SKILL.md call-line fingerprint with every host in
+// the manifest's harvest files. SKILL.md keeps the call-line rule so a doc
+// link in prose stays out; harvest files are an explicit opt-in by the
+// author, so every host in them counts.
+func (m manifest) capabilities(dir, skillMd string) artifact.Capabilities {
+	hosts := map[string]bool{}
+	for _, h := range capabilitiesFromSkill(skillMd).Network {
+		hosts[h] = true
+	}
+	for _, g := range m.Harvest {
+		matches, _ := filepath.Glob(filepath.Join(dir, g)) // validated at load
+		for _, f := range matches {
+			for _, h := range hostsInFile(f) {
+				hosts[h] = true
+			}
+		}
+	}
+	if len(hosts) == 0 {
+		return artifact.Capabilities{}
+	}
+	out := make([]string, 0, len(hosts))
+	for h := range hosts {
+		out = append(out, h)
+	}
+	sort.Strings(out)
+	return artifact.Capabilities{Network: out}
+}
+
+// hostsInFile returns every URL host found on any line of a regular file.
+// Unreadable paths and directories yield nothing.
+func hostsInFile(path string) []string {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+	var hosts []string
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		for _, raw := range urlHost.FindAllString(sc.Text(), -1) {
+			if u, err := url.Parse(raw); err == nil && u.Host != "" {
+				hosts = append(hosts, u.Host)
+			}
+		}
+	}
+	return hosts
 }
