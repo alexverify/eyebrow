@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -84,14 +86,24 @@ func (m manifest) validate() error {
 	return validGlobs("harvest", m.Harvest)
 }
 
-// validGlobs rejects absolute, empty, and malformed patterns up front so
-// discovery never has to handle a glob error mid-walk.
+// validGlobs rejects an entry that escapes the repo root and a pattern with
+// bad syntax, so discovery never has to handle a glob error mid-walk.
+//
+// fs.ValidPath rejects "", a leading "/", a trailing "/", and any "." or
+// ".." path element (accepting the lone "." for the repo root itself), so a
+// manifest can never point discovery or harvest outside the project root it
+// was committed to. This also replaces filepath.IsAbs, which reports false
+// for "/abs" on Windows (no volume) and would have let that entry through.
+//
+// path.Match(g, "") is a syntax-only check: the empty name can never match
+// a non-empty pattern, so this only exercises pattern parsing to surface
+// path.ErrBadPattern.
 func validGlobs(field string, globs []string) error {
 	for _, g := range globs {
-		if g == "" || filepath.IsAbs(g) {
+		if !fs.ValidPath(g) {
 			return fmt.Errorf(`"%s" entry %q must be a relative glob`, field, g)
 		}
-		if _, err := filepath.Match(g, ""); err != nil {
+		if _, err := path.Match(g, ""); err != nil {
 			return fmt.Errorf(`"%s" entry %q: %w`, field, g, err)
 		}
 	}
@@ -148,14 +160,23 @@ func (d *Declared) Discover(_ context.Context, scopes []ports.Scope) ([]artifact
 // directories that hold a SKILL.md, in manifest order then lexical order,
 // each reported once. Symlinked directories are followed. Patterns were
 // validated at load, so a glob error here cannot happen.
+//
+// Matching goes through fs.Glob(os.DirFS(root), g) rather than
+// filepath.Glob(filepath.Join(root, g)): fs.Glob only ever matches g against
+// the tree inside root, so it can neither escape root (a validated pattern
+// cannot contain ".." anyway, but this keeps the walk itself confined) nor
+// have root's own path treated as part of the glob pattern, which is what
+// let filepath.Glob silently discover nothing for a root path containing a
+// metacharacter such as "[wip]".
 func (m manifest) skillDirs(root string) []string {
 	seen := map[string]bool{}
 	var dirs []string
+	fsys := os.DirFS(root)
 	for _, g := range m.Skills {
-		matches, _ := filepath.Glob(filepath.Join(root, g))
+		matches, _ := fs.Glob(fsys, g)
 		sort.Strings(matches)
 		for _, match := range matches {
-			dir := filepath.Clean(match)
+			dir := filepath.Join(root, filepath.FromSlash(match))
 			if seen[dir] {
 				continue
 			}
@@ -213,9 +234,11 @@ func (m manifest) capabilities(dir, skillMd string) artifact.Capabilities {
 	for _, h := range capabilitiesFromSkill(skillMd).Network {
 		hosts[h] = true
 	}
+	fsys := os.DirFS(dir)
 	for _, g := range m.Harvest {
-		matches, _ := filepath.Glob(filepath.Join(dir, g)) // validated at load
-		for _, f := range matches {
+		matches, _ := fs.Glob(fsys, g) // validated at load, confined to dir
+		for _, match := range matches {
+			f := filepath.Join(dir, filepath.FromSlash(match))
 			for _, h := range hostsInFile(f) {
 				hosts[h] = true
 			}

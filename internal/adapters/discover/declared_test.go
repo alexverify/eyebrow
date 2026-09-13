@@ -73,6 +73,9 @@ func TestLoadManifestRejectsBadFiles(t *testing.T) {
 		{"skills absolute", `{"version":1,"name":"x","skills":["/abs"]}`, `"skills" entry "/abs"`},
 		{"skills bad pattern", `{"version":1,"name":"x","skills":["skills/["]}`, `"skills" entry "skills/["`},
 		{"harvest bad pattern", `{"version":1,"name":"x","skills":["."],"harvest":["["]}`, `"harvest" entry "["`},
+		{"skills parent", `{"version":1,"name":"x","skills":["../x"]}`, `"skills" entry "../x"`},
+		{"skills dotdot inside", `{"version":1,"name":"x","skills":["skills/../../x"]}`, `"skills" entry "skills/../../x"`},
+		{"harvest parent", `{"version":1,"name":"x","skills":["."],"harvest":["../*.sh"]}`, `"harvest" entry "../*.sh"`},
 		{"unknown field", `{"version":1,"name":"x","skill":["skills/*"]}`, `unknown field "skill"`},
 		{"not json", `{`, ManifestFile},
 	}
@@ -236,6 +239,42 @@ func TestDeclaredFollowsSymlinkedSkillDir(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Name != "pay" {
 		t.Errorf("got %+v, want one skill named pay", got)
+	}
+}
+
+// A sibling directory outside the repo root must never be discovered, even
+// for an innocuous pattern like "skills/*": the glob is expanded against
+// fs.Glob(os.DirFS(root), g), which has no path back out of root.
+func TestDeclaredIgnoresDirOutsideRoot(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "repo")
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"x","skills":["skills/*"]}`)
+	writeFile(t, filepath.Join(parent, "outside", "skills", "s", "SKILL.md"), "---\nname: s\n---\n")
+	got, err := NewDeclared().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Errorf("discovered %d artifacts from outside the repo root, want 0: %+v", len(got), got)
+	}
+}
+
+// A project root whose own path contains glob metacharacters (a temp
+// checkout named "[wip]", say) must still discover its skills.
+// filepath.Glob(filepath.Join(root, g)) would fold the root path itself into
+// the pattern and silently match nothing; fs.Glob(os.DirFS(root), g) only
+// ever matches g against the tree inside root.
+func TestDeclaredRootPathWithGlobMetacharacterStillDiscovers(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "[wip]")
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"x","skills":["skills/*"]}`)
+	writeFile(t, filepath.Join(dir, "skills", "a", "SKILL.md"), "---\nname: a\n---\n")
+	got, err := NewDeclared().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Name != "a" {
+		t.Errorf("got %+v, want one skill named a even though the root path has glob metacharacters", got)
 	}
 }
 
