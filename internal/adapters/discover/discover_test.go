@@ -41,3 +41,30 @@ func TestDefaultDiscoversAcrossTools(t *testing.T) {
 		}
 	}
 }
+
+// A manifest owns its root: the same skills/ tree must not also be reported
+// by the AEON adapter, or every skill would appear twice under two tool ids.
+func TestDefaultReportsManifestCatalogOnce(t *testing.T) {
+	dir := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	writeFile(t, filepath.Join(dir, "aeon.yml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, "skills-lock.json"), "{\"version\":1,\"skills\":{}}\n")
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"my-catalog","skills":["skills/*"]}`)
+	writeFile(t, filepath.Join(dir, "skills", "a", "SKILL.md"), "---\nname: a\n---\n")
+
+	got, err := Default().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	var tools []string
+	for _, a := range got {
+		if a.Name == "a" {
+			tools = append(tools, a.Tool)
+		}
+	}
+	if len(tools) != 1 || tools[0] != "my-catalog" {
+		t.Errorf("skill a reported under tools %v, want exactly [my-catalog]", tools)
+	}
+}

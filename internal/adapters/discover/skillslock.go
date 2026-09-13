@@ -38,6 +38,9 @@ func (s *SkillsLock) Discover(_ context.Context, scopes []ports.Scope) ([]artifa
 		if _, err := os.Stat(filepath.Join(sc.Path, "skills-lock.json")); err != nil {
 			continue // not a skills-lock repo — stay inert
 		}
+		if _, err := os.Stat(filepath.Join(sc.Path, ManifestFile)); err == nil {
+			continue // a declared layout owns this root
+		}
 		if _, err := os.Stat(filepath.Join(sc.Path, "aeon.yml")); err == nil {
 			continue // AEON adapter owns this layout — avoid double-reporting
 		}

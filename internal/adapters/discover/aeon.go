@@ -37,6 +37,9 @@ func (a *Aeon) Discover(_ context.Context, scopes []ports.Scope) ([]artifact.Art
 		if _, err := os.Stat(filepath.Join(sc.Path, "aeon.yml")); err != nil {
 			continue // not an AEON repo — stay inert
 		}
+		if _, err := os.Stat(filepath.Join(sc.Path, ManifestFile)); err == nil {
+			continue // a declared layout owns this root
+		}
 		skills := skillsFromDir(a.Tool(), filepath.Join(sc.Path, "skills"), sc.String())
 		for i := range skills {
 			skills[i].Capabilities = capabilitiesFromSkill(skills[i].DiscoveredFrom)

@@ -90,3 +90,19 @@ func TestAeonInertWithoutMarker(t *testing.T) {
 		t.Fatalf("discovered %d artifacts without aeon.yml marker, want 0: %+v", len(got), got)
 	}
 }
+
+// When a root carries eyebrow.discover.json the declared adapter owns it,
+// and the AEON adapter stays inert even though aeon.yml is present.
+func TestAeonYieldsToManifest(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "aeon.yml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"x","skills":["skills/*"]}`)
+	writeFile(t, filepath.Join(dir, "skills", "a", "SKILL.md"), "---\nname: a\n---\n")
+	got, err := NewAeon().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Errorf("aeon reported %d skills next to a manifest, want 0", len(got))
+	}
+}

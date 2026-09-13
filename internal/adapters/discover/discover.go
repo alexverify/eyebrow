@@ -42,14 +42,15 @@ func (m *Multi) Discover(ctx context.Context, scopes []ports.Scope) ([]artifact.
 	return out, nil
 }
 
-// Default returns discoverers for every supported tool: Claude Code, Claude
-// Desktop, Cursor, Gemini, OpenCode, Codex, Windsurf, GitHub Copilot CLI,
-// Visual Studio Code, Zed, Kiro, Qwen Code, Kimi CLI, and Factory Droid — plus
-// AEON (inert unless a scanned project root carries an aeon.yml marker) and the
-// AgentOS registry, which is inert unless a "registry" scope is supplied, so
-// ordinary local scans stay offline.
+// Default returns discoverers for every supported tool, led by the declared-layout
+// adapter (eyebrow.discover.json), then Claude Code, Claude Desktop, Cursor,
+// Gemini, OpenCode, Codex, Windsurf, GitHub Copilot CLI, Visual Studio Code, Zed,
+// Kiro, Qwen Code, Kimi CLI, and Factory Droid — plus AEON (inert unless a scanned
+// project root carries an aeon.yml marker) and the AgentOS registry, which is inert
+// unless a "registry" scope is supplied, so ordinary local scans stay offline.
 func Default() *Multi {
 	return NewMulti(
+		NewDeclared(),
 		NewAgentOS(),
 		NewClaudeCode(),
 		NewClaudeDesktop(),

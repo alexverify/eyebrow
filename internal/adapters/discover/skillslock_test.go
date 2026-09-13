@@ -135,3 +135,18 @@ func TestSkillsLockYieldsToAeonMarker(t *testing.T) {
 		t.Fatalf("discovered %d artifacts despite aeon.yml marker, want 0 (AEON adapter owns the layout): %+v", len(got), got)
 	}
 }
+
+// Same rule as AEON: a manifest at the root owns the catalog.
+func TestSkillsLockYieldsToManifest(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "skills-lock.json"), "{\"version\":1,\"skills\":{}}\n")
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"x","skills":["skills/*"]}`)
+	writeFile(t, filepath.Join(dir, "skills", "a", "SKILL.md"), "---\nname: a\n---\n")
+	got, err := NewSkillsLock().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Errorf("skills-lock reported %d skills next to a manifest, want 0", len(got))
+	}
+}
