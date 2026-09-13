@@ -137,13 +137,19 @@ func (d *Declared) Discover(_ context.Context, scopes []ports.Scope) ([]artifact
 		if !present {
 			continue
 		}
+		dirByName := map[string]string{}
 		for _, dir := range m.skillDirs(sc.Path) {
 			skillMd := filepath.Join(dir, "SKILL.md")
+			name := skillName(dir, sc.Path, skillMd)
+			if prev, ok := dirByName[name]; ok {
+				return nil, fmt.Errorf(`%s: "skills" matches two directories named %q: %s, %s`, ManifestFile, name, prev, dir)
+			}
+			dirByName[name] = dir
 			a := artifact.Artifact{
 				Tool:           m.Name,
 				Scope:          sc.String(),
 				Type:           artifact.TypeSkill,
-				Name:           skillName(dir, sc.Path, skillMd),
+				Name:           name,
 				Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: dir},
 				DiscoveredFrom: skillMd,
 				Description:    frontmatterDescription(skillMd),

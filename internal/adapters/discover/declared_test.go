@@ -278,6 +278,25 @@ func TestDeclaredRootPathWithGlobMetacharacterStillDiscovers(t *testing.T) {
 	}
 }
 
+// Two globs that resolve to different directories sharing a base name must
+// fail discovery instead of silently collapsing to one artifact ID.
+func TestDeclaredDuplicateSkillNamesFailDiscover(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ManifestFile), `{"version":1,"name":"x","skills":["a/skills/*","b/skills/*"]}`)
+	writeFile(t, filepath.Join(dir, "a", "skills", "dup", "SKILL.md"), "---\nname: dup\n---\n")
+	writeFile(t, filepath.Join(dir, "b", "skills", "dup", "SKILL.md"), "---\nname: dup\n---\n")
+	_, err := NewDeclared().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err == nil {
+		t.Fatal("err = nil, want an error naming the duplicate")
+	}
+	if !strings.Contains(err.Error(), `"skills" matches two directories named "dup"`) {
+		t.Errorf("err = %v", err)
+	}
+	if !strings.Contains(err.Error(), ManifestFile) {
+		t.Errorf("err %q does not name %s", err, ManifestFile)
+	}
+}
+
 // A broken manifest is an error from Discover, so scan fails instead of
 // quietly reporting nothing.
 func TestDeclaredBrokenManifestFailsDiscover(t *testing.T) {
