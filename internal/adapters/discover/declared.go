@@ -1,12 +1,17 @@
 package discover
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+
+	"github.com/alexverify/eyebrow/internal/app/ports"
+	"github.com/alexverify/eyebrow/internal/domain/artifact"
 )
 
 // ManifestFile is the committed layout manifest a repo places at its root to
@@ -89,4 +94,96 @@ func validGlobs(field string, globs []string) error {
 		}
 	}
 	return nil
+}
+
+// Declared discovers skills from a repo's committed eyebrow.discover.json.
+// It is inert for any project root without the manifest, reports nothing
+// for global and registry scopes, and fails the scan when the manifest is
+// present but invalid.
+type Declared struct{}
+
+// NewDeclared constructs the declared-layout discoverer.
+func NewDeclared() *Declared { return &Declared{} }
+
+// Tool returns the adapter id. Artifacts carry the manifest's name as their
+// tool, not this value, so a lockfile shows the catalog's own name.
+func (d *Declared) Tool() string { return "declared" }
+
+// Discover satisfies ports.Discoverer.
+func (d *Declared) Discover(_ context.Context, scopes []ports.Scope) ([]artifact.Artifact, error) {
+	var out []artifact.Artifact
+	for _, sc := range scopes {
+		if sc.Kind != "project" || sc.Path == "" {
+			continue
+		}
+		m, present, err := loadManifest(sc.Path)
+		if err != nil {
+			return nil, err
+		}
+		if !present {
+			continue
+		}
+		for _, dir := range m.skillDirs(sc.Path) {
+			skillMd := filepath.Join(dir, "SKILL.md")
+			a := artifact.Artifact{
+				Tool:           m.Name,
+				Scope:          sc.String(),
+				Type:           artifact.TypeSkill,
+				Name:           skillName(dir, sc.Path, skillMd),
+				Source:         artifact.Source{Kind: artifact.SourceLocal, Ref: dir},
+				DiscoveredFrom: skillMd,
+				Description:    frontmatterDescription(skillMd),
+				Capabilities:   capabilitiesFromSkill(skillMd),
+			}
+			a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+// skillDirs expands the manifest's skill globs against root and returns the
+// directories that hold a SKILL.md, in manifest order then lexical order,
+// each reported once. Symlinked directories are followed. Patterns were
+// validated at load, so a glob error here cannot happen.
+func (m manifest) skillDirs(root string) []string {
+	seen := map[string]bool{}
+	var dirs []string
+	for _, g := range m.Skills {
+		matches, _ := filepath.Glob(filepath.Join(root, g))
+		sort.Strings(matches)
+		for _, match := range matches {
+			dir := filepath.Clean(match)
+			if seen[dir] {
+				continue
+			}
+			info, err := os.Stat(dir) // follows a symlinked skill dir
+			if err != nil || !info.IsDir() {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err != nil {
+				continue
+			}
+			seen[dir] = true
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
+}
+
+// skillName is the directory base name for a catalog entry. For the repo
+// root itself ("." in the manifest) it is the frontmatter name, falling back
+// to the checkout's directory name.
+func skillName(dir, root, skillMd string) string {
+	if filepath.Clean(dir) != filepath.Clean(root) {
+		return filepath.Base(dir)
+	}
+	if n := frontmatterValue(skillMd, "name"); n != "" {
+		return n
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
+	}
+	return filepath.Base(abs)
 }
