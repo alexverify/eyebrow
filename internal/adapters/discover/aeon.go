@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -82,13 +81,5 @@ func capabilitiesFromSkill(skillMd string) artifact.Capabilities {
 			}
 		}
 	}
-	if len(hosts) == 0 {
-		return artifact.Capabilities{}
-	}
-	out := make([]string, 0, len(hosts))
-	for h := range hosts {
-		out = append(out, h)
-	}
-	sort.Strings(out)
-	return artifact.Capabilities{Network: out}
+	return networkCapabilities(hosts)
 }

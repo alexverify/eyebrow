@@ -190,6 +190,20 @@ func skillName(dir, root, skillMd string) string {
 	return filepath.Base(abs)
 }
 
+// networkCapabilities turns a host set into the sorted Network capability,
+// or the zero value when the set is empty.
+func networkCapabilities(hosts map[string]bool) artifact.Capabilities {
+	if len(hosts) == 0 {
+		return artifact.Capabilities{}
+	}
+	out := make([]string, 0, len(hosts))
+	for h := range hosts {
+		out = append(out, h)
+	}
+	sort.Strings(out)
+	return artifact.Capabilities{Network: out}
+}
+
 // capabilities merges the SKILL.md call-line fingerprint with every host in
 // the manifest's harvest files. SKILL.md keeps the call-line rule so a doc
 // link in prose stays out; harvest files are an explicit opt-in by the
@@ -207,15 +221,7 @@ func (m manifest) capabilities(dir, skillMd string) artifact.Capabilities {
 			}
 		}
 	}
-	if len(hosts) == 0 {
-		return artifact.Capabilities{}
-	}
-	out := make([]string, 0, len(hosts))
-	for h := range hosts {
-		out = append(out, h)
-	}
-	sort.Strings(out)
-	return artifact.Capabilities{Network: out}
+	return networkCapabilities(hosts)
 }
 
 // hostsInFile returns every URL host found on any line of a regular file.
