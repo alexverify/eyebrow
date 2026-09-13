@@ -18,23 +18,32 @@ import (
 
 // Hasher computes content digests over directories or single files.
 type Hasher struct {
-	// skipDirs are directory names excluded from traversal. .git is metadata,
-	// not shipped code. node_modules is deliberately NOT skipped: it is the
-	// code that actually runs and must be part of the integrity anchor.
+	// skipDirs are directory names excluded from traversal at every depth.
+	// .git is metadata, not shipped code. node_modules is deliberately NOT
+	// skipped: it is the code that actually runs and must be part of the
+	// integrity anchor.
 	skipDirs map[string]bool
-	// skipFiles are file names excluded from the digest: eyebrow's own state
-	// files. A root-level skill hashes the repo root, and scan writes the
-	// lockfile into that same root. Including it would change the digest it
-	// just recorded on every regeneration. Verifier metadata, like .git.
+	// rootSkipDirs are directory names excluded only when they sit directly
+	// under the walk root: eyebrow's own state dir, .eyebrow. A root-level
+	// skill hashes the repo root, and scan writes into .eyebrow at that same
+	// root, so including it would change the digest it just recorded on
+	// every regeneration. A nested .eyebrow dir belongs to whatever it is
+	// nested in and is hashed like ordinary content.
+	rootSkipDirs map[string]bool
+	// skipFiles are file names excluded from the digest only when they sit
+	// directly under the walk root: eyebrow's own state files. A root-level
+	// skill hashes the repo root, and scan writes the lockfile into that
+	// same root; including it would change the digest it just recorded on
+	// every regeneration. A nested state file belongs to whatever it is
+	// nested in and is hashed like ordinary content.
 	skipFiles map[string]bool
 }
 
 // New returns a Hasher with default exclusions.
 func New() *Hasher {
 	return &Hasher{
-		// .eyebrow is eyebrow's own state dir (snapshots); scanning writes
-		// into it, so hashing it would churn the digest on every scan.
-		skipDirs: map[string]bool{".git": true, ".eyebrow": true},
+		skipDirs:     map[string]bool{".git": true},
+		rootSkipDirs: map[string]bool{".eyebrow": true},
 		skipFiles: map[string]bool{
 			"eyebrow.discover.json": true,
 			"eyebrowlock.json":      true,
@@ -100,13 +109,16 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 			if h.skipDirs[d.Name()] {
 				return fs.SkipDir
 			}
+			if h.rootSkipDirs[d.Name()] && filepath.Dir(path) == root {
+				return fs.SkipDir
+			}
 			return nil
 		}
 		// Hash only regular files; skip symlinks, sockets, devices.
 		if !d.Type().IsRegular() {
 			return nil
 		}
-		if h.skipFiles[d.Name()] {
+		if h.skipFiles[d.Name()] && filepath.Dir(path) == root {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)

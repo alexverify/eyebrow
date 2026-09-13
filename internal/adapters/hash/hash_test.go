@@ -136,6 +136,34 @@ func TestHashSkipsEyebrowStateFiles(t *testing.T) {
 			t.Errorf("eyebrow state file listed: %q", f.Path)
 		}
 	}
+
+	// A nested state file is not eyebrow's own state: it belongs to whatever
+	// skill or project ships it, and must be hashed like ordinary content.
+	// Only a state file directly at the walk root is eyebrow's own.
+	writeFile(t, filepath.Join(dir, "sub", "eyebrowlock.json"), `{"nested":true}`)
+	writeFile(t, filepath.Join(dir, "sub", ".eyebrow", "x"), "nested state dir")
+	withNested, filesNested, _, err := New().Hash(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if withNested == got {
+		t.Error("nested eyebrowlock.json/.eyebrow did not change the digest, want them hashed")
+	}
+	var sawLock, sawDir bool
+	for _, f := range filesNested {
+		if f.Path == "sub/eyebrowlock.json" {
+			sawLock = true
+		}
+		if f.Path == "sub/.eyebrow/x" {
+			sawDir = true
+		}
+	}
+	if !sawLock {
+		t.Error("sub/eyebrowlock.json not in file list, want a nested state file hashed")
+	}
+	if !sawDir {
+		t.Error("sub/.eyebrow/x not in file list, want a nested .eyebrow dir hashed")
+	}
 }
 
 func TestHashMissingRoot(t *testing.T) {
