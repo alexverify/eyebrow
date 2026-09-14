@@ -32,6 +32,23 @@ inventory without writing anything.
 When a change is expected (you updated a skill on purpose), re-run
 `eyebrow scan` to re-lock, review the diff in version control, and move on.
 
+## Declare your own layout
+
+Built-in discovery knows where each AI coding tool keeps its add-ons. A repo that publishes its own skill catalog in a layout eyebrow does not know can declare it with an `eyebrow.discover.json` at the project root:
+
+```json
+{
+  "version": 1,
+  "name": "venice-skills",
+  "skills": ["skills/*"],
+  "harvest": ["scripts/*.sh", "references/*.md"]
+}
+```
+
+`name` becomes the tool id on every skill the manifest declares and is part of each artifact's ID. `skills` lists globs relative to the repo root; a match counts when it is a directory holding `SKILL.md`, and `"."` declares the whole repo as one skill. `harvest` lists globs relative to each skill directory; every URL host in a matched file joins the skill's network capability, so `failOnCapabilityExpansion` fires when a script gains a new endpoint. `SKILL.md` itself keeps the call-line rule, so a doc link in prose does not count. Adding a harvest glob to an existing manifest widens the fingerprint, so a policy with failOnCapabilityExpansion fails verify once for every skill that gains hosts; re-run scan to re-lock.
+
+When the manifest is present it owns the root: the AEON and skills-lock adapters stay inert there. A repo moving off one of those adapters keeps its lockfile IDs by reusing that adapter's tool id as `name` (`aeon` or `skills-lock`). A manifest that fails to parse or validate fails the scan with exit code 3 and names the bad field, so a typo never reads as an empty catalog.
+
 ## Team: gate CI on "approved, unmodified, signed"
 
 One-time setup, committed to the repo:

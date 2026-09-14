@@ -250,3 +250,24 @@ inferred as "unused." Activations record only *that* an artifact ran and when
 as the shim. An artifact that the user never installs the hooks for stays a
 silent no-op: telemetry is opt-in and additive, never a precondition for the
 scan view.
+
+## Declared layouts are JSON, fail loudly, and win over inferred markers
+
+Ten of the first fourteen partner audits needed a new Go discoverer before
+eyebrow could see the partner's skills. `eyebrow.discover.json` lets a repo
+declare its layout instead. Three choices:
+
+- **JSON, not YAML.** A YAML parser would be a second external dependency
+  on a tool whose premise is having almost none. Every partner manifest we
+  have seen is small enough that JSON costs nothing.
+- **A broken manifest fails the scan.** A committed file that parses to
+  "zero artifacts" would silently disable the gate on a typo. Unknown
+  fields, a bad version, and an empty `skills` list all return an error
+  naming the field; scan and verify exit 3.
+- **The manifest owns its root.** The AEON and skills-lock adapters skip
+  any root that carries the manifest, so a catalog is never reported
+  twice. Explicit beats inferred. Per-tool adapters (`.claude/skills`,
+  `.cursor`, and the rest) are untouched; they cover different paths.
+
+The manifest's `name` is the artifact tool id, which keeps lockfile IDs
+stable for a repo that migrates from a built-in catalog adapter.
