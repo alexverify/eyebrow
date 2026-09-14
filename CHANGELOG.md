@@ -9,6 +9,34 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-09-14
+
+### Added
+
+- Declared layout discovery. A repo that publishes skills in a layout eyebrow
+  does not know can commit an `eyebrow.discover.json` at its root: `name`
+  becomes the tool id on every declared skill, `skills` lists globs relative to
+  the repo root (a match counts when it is a directory holding `SKILL.md`, and
+  `"."` declares the whole repo as one skill), and `harvest` lists globs
+  relative to each skill directory whose URL hosts join the skill's network
+  capability. Globs cannot escape the repo root, duplicate skill names across
+  globs fail the scan, and a manifest that fails to parse or validate exits 3
+  and names the bad field instead of reading as an empty catalog. When the
+  manifest is present it owns the root and the AEON and skills-lock adapters
+  stay inert there; reusing `aeon` or `skills-lock` as `name` keeps existing
+  lockfile IDs.
+
+### Changed
+
+- Skill frontmatter parsing reads any top-level key, not only `name` and
+  `description`.
+- The hasher skips eyebrow's own state at the walk root only: the `.eyebrow`
+  directory and the lockfile directly under the root are left out of a
+  root-level skill's digest, so a rescan no longer changes the digest it just
+  recorded. A nested `.eyebrow` or lockfile is hashed as ordinary content. A
+  lockfile that recorded a root-level skill with those files present will show
+  a one-time content change on the next scan.
+
 ## [0.4.6] - 2026-09-06
 
 ### Fixed
@@ -233,7 +261,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/alexverify/eyebrow/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/alexverify/eyebrow/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/alexverify/eyebrow/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/alexverify/eyebrow/compare/v0.4.3...v0.4.4
