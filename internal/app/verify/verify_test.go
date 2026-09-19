@@ -12,6 +12,7 @@ import (
 	"github.com/alexverify/eyebrow/internal/app/verify"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
 	"github.com/alexverify/eyebrow/internal/domain/finding"
+	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
 
@@ -135,5 +136,44 @@ func TestVerifyCIGatesOnNewCriticalFinding(t *testing.T) {
 	}
 	if len(res.Policy.Violations) != 1 || res.Policy.Violations[0].RuleID != "RCE" {
 		t.Fatalf("expected 1 RCE policy violation, got %+v", res.Policy.Violations)
+	}
+}
+
+func TestCheckDetectsDriftWithoutReadingAStore(t *testing.T) {
+	svc, store := harness(t, "sha256:new", nil)
+	seed(t, store, "sha256:old", nil)
+	locked, err := store.Read(context.Background(), "eyebrowlock.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.Check(context.Background(), locked, verify.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK {
+		t.Fatal("expected drift, got OK")
+	}
+	if len(res.Diff.Changes) != 1 || res.Diff.Changes[0].Kind != lockfile.DriftContentChanged {
+		t.Fatalf("unexpected diff: %+v", res.Diff)
+	}
+}
+
+func TestCheckAppliesPolicyInCIMode(t *testing.T) {
+	high := []finding.Finding{{RuleID: "X", Severity: finding.SeverityHigh}}
+	svc, store := harness(t, "sha256:same", high)
+	seed(t, store, "sha256:same", nil)
+	locked, err := store.Read(context.Background(), "eyebrowlock.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.Check(context.Background(), locked, verify.Options{CI: true, Policy: policy.Default()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK {
+		t.Fatal("a new high finding must fail the CI gate")
+	}
+	if len(res.Policy.Violations) != 1 || res.Policy.Violations[0].Kind != "finding" {
+		t.Fatalf("unexpected violations: %+v", res.Policy.Violations)
 	}
 }
