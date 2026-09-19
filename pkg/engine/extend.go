@@ -47,12 +47,27 @@ func (ad analyzerAdapter) Analyze(ctx context.Context, a artifact.Artifact, root
 	}
 	out := make([]finding.Finding, 0, len(fs))
 	for _, f := range fs {
+		sev := finding.Severity(f.Severity)
+		if !isKnownSeverity(sev) {
+			return nil, fmt.Errorf("extra analyzer: rule %q: unknown severity %q", f.RuleID, f.Severity)
+		}
 		out = append(out, finding.Finding{
-			RuleID: f.RuleID, Severity: finding.Severity(f.Severity), OWASP: f.Category,
+			RuleID: f.RuleID, Severity: sev, OWASP: f.Category,
 			File: f.File, Line: f.Line, Snippet: f.Snippet, Explanation: f.Explanation,
 		})
 	}
 	return out, nil
+}
+
+// isKnownSeverity reports whether sev is one of the five severities the
+// domain model defines.
+func isKnownSeverity(sev finding.Severity) bool {
+	switch sev {
+	case finding.SeverityCritical, finding.SeverityHigh, finding.SeverityMedium, finding.SeverityLow, finding.SeverityInfo:
+		return true
+	default:
+		return false
+	}
 }
 
 // AnalyzeContent is a no-op: extra analyzers see directories only.

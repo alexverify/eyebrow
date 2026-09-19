@@ -119,3 +119,18 @@ func TestExtraDiscovererRejectsUnknownType(t *testing.T) {
 		t.Fatal("expected an error for an unknown artifact type")
 	}
 }
+
+type badSeverityAnalyzer struct{}
+
+func (badSeverityAnalyzer) Analyze(_ context.Context, a engine.Artifact, root string) ([]engine.Finding, error) {
+	return []engine.Finding{{RuleID: "BAD-SEV", Severity: "HIGH"}}, nil
+}
+
+func TestExtraAnalyzerRejectsUnknownSeverity(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{Clock: fixedClock, Analyzers: []engine.Analyzer{badSeverityAnalyzer{}}})
+	_, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err == nil {
+		t.Fatal("expected an error for an unknown severity")
+	}
+}
