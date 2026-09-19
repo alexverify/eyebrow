@@ -183,3 +183,41 @@ func TestVerifyRejectsMalformedExpected(t *testing.T) {
 		t.Fatal("expected an error for malformed lockfile JSON")
 	}
 }
+
+func TestScanRejectsAMissingRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "does-not-exist")
+	e := engine.New(engine.Options{})
+	_, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err == nil {
+		t.Fatal("expected an error for a missing root")
+	}
+}
+
+func TestScanAcceptsAnEmptyRoot(t *testing.T) {
+	root := t.TempDir()
+	e := engine.New(engine.Options{Clock: fixedClock})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Artifacts) != 0 {
+		t.Fatalf("artifacts: %+v", rep.Artifacts)
+	}
+	if rep.Verdict != "pass" {
+		t.Fatalf("verdict %q, want pass", rep.Verdict)
+	}
+}
+
+func TestVerifyRejectsAMissingRoot(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{Clock: fixedClock})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+	_, err = e.Verify(context.Background(), engine.VerifyRequest{Root: missing, Expected: rep.Lockfile})
+	if err == nil {
+		t.Fatal("expected an error for a missing root")
+	}
+}

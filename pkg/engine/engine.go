@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/alexverify/eyebrow/internal/adapters/analyze"
@@ -94,6 +95,9 @@ type Report struct {
 // Scan discovers, pins, hashes, and analyzes everything under r.Root and
 // applies the policy's finding threshold to the fresh result.
 func (e *Engine) Scan(ctx context.Context, r ScanRequest) (Report, error) {
+	if err := checkRoot(r.Root); err != nil {
+		return Report{}, err
+	}
 	pol, err := parsePolicy(r.Policy)
 	if err != nil {
 		return Report{}, err
@@ -140,6 +144,9 @@ type VerifyReport struct {
 // Verify rebuilds the current state under r.Root and compares it with
 // r.Expected. Verdict follows the same rules as `eyebrow verify --ci`.
 func (e *Engine) Verify(ctx context.Context, r VerifyRequest) (VerifyReport, error) {
+	if err := checkRoot(r.Root); err != nil {
+		return VerifyReport{}, err
+	}
 	var locked lockfile.Lockfile
 	if err := json.Unmarshal(r.Expected, &locked); err != nil {
 		return VerifyReport{}, fmt.Errorf("parse expected lockfile: %w", err)
@@ -166,6 +173,20 @@ func (e *Engine) Verify(ctx context.Context, r VerifyRequest) (VerifyReport, err
 		Policy:  policyResultOf(res.Policy),
 		Verdict: verdictOf(res.OK),
 	}, nil
+}
+
+// checkRoot fails fast on a root that does not exist or is not a directory,
+// rather than surfacing whatever error a downstream discoverer happens to
+// produce for the same condition.
+func checkRoot(root string) error {
+	info, err := os.Stat(root)
+	if err != nil {
+		return fmt.Errorf("root %q: %w", root, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("root %q is not a directory", root)
+	}
+	return nil
 }
 
 func scopesOf(root string, global bool) []ports.Scope {
