@@ -2,6 +2,8 @@ package engine_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,10 +13,13 @@ import (
 
 type wordAnalyzer struct{ word string }
 
-func (w wordAnalyzer) Analyze(_ context.Context, a engine.Artifact, root string) ([]engine.Finding, error) {
+func (w wordAnalyzer) Analyze(_ context.Context, _ engine.Artifact, root string) ([]engine.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "SKILL.md"))
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil // not a skill directory; nothing to say
+	}
+	if err != nil {
+		return nil, err
 	}
 	if !containsWord(string(b), w.word) {
 		return nil, nil
@@ -58,8 +63,11 @@ type folderDiscoverer struct{}
 func (folderDiscoverer) Discover(_ context.Context, root string) ([]engine.Discovered, error) {
 	dir := filepath.Join(root, "personas")
 	entries, err := os.ReadDir(dir)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	var out []engine.Discovered
 	for _, en := range entries {
@@ -122,7 +130,7 @@ func TestExtraDiscovererRejectsUnknownType(t *testing.T) {
 
 type badSeverityAnalyzer struct{}
 
-func (badSeverityAnalyzer) Analyze(_ context.Context, a engine.Artifact, root string) ([]engine.Finding, error) {
+func (badSeverityAnalyzer) Analyze(_ context.Context, _ engine.Artifact, _ string) ([]engine.Finding, error) {
 	return []engine.Finding{{RuleID: "BAD-SEV", Severity: "HIGH"}}, nil
 }
 
