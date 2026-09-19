@@ -78,7 +78,10 @@ type ScanRequest struct {
 	// Global also scans the user-level tool configuration. Off for hosted use.
 	Global bool
 	// Policy is an optional policy document in the CLI's JSON format. Nil
-	// means the default policy (fail on high or worse).
+	// means the default policy (fail on high or worse). Approval and freeze
+	// rules (RequireApproval, RequireSignedApproval) do not apply to a fresh
+	// scan, since there is no prior approval to check against; only findings,
+	// capability expansion, and publisher/artifact block lists are evaluated.
 	Policy []byte
 }
 
@@ -102,6 +105,11 @@ func (e *Engine) Scan(ctx context.Context, r ScanRequest) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	// A fresh scan has no prior approvals to check against, so approval and
+	// freeze rules never apply here — only findings, capabilities, and block
+	// lists do. See ScanRequest.Policy.
+	pol.RequireApproval = false
+	pol.RequireSignedApproval = false
 	lf, err := e.scan.Build(ctx, scopesOf(r.Root, r.Global))
 	if err != nil {
 		return Report{}, err

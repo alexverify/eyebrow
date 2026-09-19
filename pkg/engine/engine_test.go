@@ -221,3 +221,21 @@ func TestVerifyRejectsAMissingRoot(t *testing.T) {
 		t.Fatal("expected an error for a missing root")
 	}
 }
+
+func TestScanIgnoresApprovalRules(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{Clock: fixedClock})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{
+		Root:   root,
+		Policy: []byte(`{"requireApproval":true}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Verdict != "pass" {
+		t.Fatalf("verdict %q, want pass; violations %+v", rep.Verdict, rep.Policy.Violations)
+	}
+	if len(rep.Policy.Violations) != 0 {
+		t.Fatalf("expected no violations, got %+v", rep.Policy.Violations)
+	}
+}
