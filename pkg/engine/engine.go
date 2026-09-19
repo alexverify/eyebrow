@@ -85,7 +85,17 @@ func New(o Options) *Engine {
 type ScanRequest struct {
 	// Root is the project root. Artifact IDs and local source refs derive
 	// from it, so use the same value the CLI would be run with (usually ".")
-	// when results must match a CLI lockfile.
+	// when results must match a CLI lockfile. Because IDs and refs derive from
+	// this exact string, a caller that needs results comparable across
+	// machines or directories — for example scanning in one directory and
+	// verifying the lockfile against another checkout of the same project —
+	// must set the working directory to the project root and pass Root: "."
+	// on every call, exactly as the CLI does. A different Root string (an
+	// absolute path, or a path relative to a different cwd) for the "same"
+	// project yields different artifact IDs and reads as drift even though
+	// nothing changed. There is no option to normalise this away: the
+	// relative-root convention is the one stable identity scheme, so use it
+	// rather than a machine-specific absolute path.
 	Root string
 	// Global also scans the user-level tool configuration. Off for hosted use.
 	Global bool
@@ -144,6 +154,12 @@ func (e *Engine) Scan(ctx context.Context, r ScanRequest) (Report, error) {
 
 // VerifyRequest compares the tree under Root with an approved lockfile.
 type VerifyRequest struct {
+	// Root is the project root, with the same stability requirement as
+	// ScanRequest.Root: artifact IDs and local source refs derive from this
+	// exact string, so comparing against a lockfile produced elsewhere (a
+	// different machine or checkout of the same project) requires running
+	// with the working directory set to the project and Root: ".", exactly
+	// as the CLI does.
 	Root   string
 	Global bool
 	// Expected is the lockfile JSON to compare against, as produced by Scan

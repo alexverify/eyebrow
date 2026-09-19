@@ -279,3 +279,32 @@ func TestOfflineEngineDoesNotResolveRemoteSources(t *testing.T) {
 		t.Fatalf("expected an unresolved-source finding rather than a network attempt, got %+v", found.Findings)
 	}
 }
+
+func TestVerifyIsStableAcrossDirectoriesWithRelativeRoot(t *testing.T) {
+	a := writeFixture(t, false)
+	b := writeFixture(t, false)
+
+	t.Chdir(a)
+	e := engine.New(engine.Options{Clock: fixedClock, Generator: "engine-test"})
+	first, err := e.Scan(context.Background(), engine.ScanRequest{Root: "."})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Chdir(b)
+	v, err := e.Verify(context.Background(), engine.VerifyRequest{Root: ".", Expected: first.Lockfile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Status != "clean" || v.Verdict != "pass" {
+		t.Fatalf("expected clean/pass across directories with a relative root, got %+v", v)
+	}
+
+	second, err := e.Scan(context.Background(), engine.ScanRequest{Root: "."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(second.Lockfile, first.Lockfile) {
+		t.Fatalf("lockfile is not byte-identical across directories with a relative root\nfirst:  %s\nsecond: %s", first.Lockfile, second.Lockfile)
+	}
+}
