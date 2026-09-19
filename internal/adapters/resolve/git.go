@@ -27,6 +27,13 @@ func (g Git) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	if repoURL == "" {
 		return ports.Resolution{}, fmt.Errorf("git: empty repository URL in %q", src.Ref)
 	}
+	// A repository URL or ref beginning with "-" would be read by git as an
+	// option rather than a positional argument (e.g. "--upload-pack=..."),
+	// letting attacker-controlled source data run an arbitrary program. Refuse
+	// it before it ever reaches the subprocess.
+	if strings.HasPrefix(repoURL, "-") || strings.HasPrefix(ref, "-") {
+		return ports.Resolution{}, fmt.Errorf("git: repository URL or ref must not start with %q: %q", "-", src.Ref)
+	}
 
 	out, err := g.Runner.Run(ctx, "git", "ls-remote", repoURL, ref)
 	if err != nil {

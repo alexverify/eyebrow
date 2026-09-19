@@ -1,6 +1,7 @@
 package lockstore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -110,4 +111,27 @@ func containsIndent(b []byte) bool {
 		}
 	}
 	return false
+}
+
+func TestMarshalMatchesWrite(t *testing.T) {
+	lf := lockfile.Lockfile{Version: lockfile.Version, Generator: "test",
+		GeneratedAt: time.Date(2026, 9, 19, 0, 0, 0, 0, time.UTC)}
+	want, err := Marshal(lf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasSuffix(want, []byte("}\n")) {
+		t.Fatalf("Marshal must end with a newline, got %q", want[len(want)-3:])
+	}
+	path := filepath.Join(t.TempDir(), "eyebrowlock.json")
+	if err := New().Write(context.Background(), path, lf); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("Write bytes differ from Marshal bytes\nwrite: %s\nmarshal: %s", got, want)
+	}
 }

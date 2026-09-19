@@ -8,6 +8,7 @@ package discover
 
 import (
 	"context"
+	"sort"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -40,6 +41,28 @@ func (m *Multi) Discover(ctx context.Context, scopes []ports.Scope) ([]artifact.
 		out = append(out, arts...)
 	}
 	return out, nil
+}
+
+// Tools lists the tool names of the composed discoverers that declare one,
+// sorted and de-duplicated. Discoverers without a Tool method (the declared
+// manifest reader) are skipped.
+func (m *Multi) Tools() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range m.tools {
+		named, ok := t.(interface{ Tool() string })
+		if !ok {
+			continue
+		}
+		name := named.Tool()
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Default returns discoverers for every supported tool, led by the declared-layout

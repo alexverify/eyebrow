@@ -127,3 +127,18 @@ func TestGitResolveUnsignedCommitHasNoProvenance(t *testing.T) {
 		t.Errorf("an unsigned commit must not record provenance, got %q", res.Provenance)
 	}
 }
+
+func TestGitResolveRejectsArgumentsStartingWithDash(t *testing.T) {
+	runner := &run.Fake{}
+	g := Git{Runner: runner}
+	_, err := g.Resolve(context.Background(), artifact.Source{
+		Kind: artifact.SourceGit,
+		Ref:  "https://github.com/a/b#--upload-pack=echo",
+	})
+	if err == nil {
+		t.Fatal("expected an error for a ref starting with a dash")
+	}
+	if len(runner.Calls) != 0 {
+		t.Fatalf("runner should not have been invoked, got calls %v", runner.Calls)
+	}
+}

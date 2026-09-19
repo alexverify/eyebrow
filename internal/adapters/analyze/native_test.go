@@ -173,3 +173,23 @@ func TestNativeIgnoresBinaryAndIsQuietOnCleanCode(t *testing.T) {
 		t.Fatalf("expected no findings on clean+binary input, got %+v", got)
 	}
 }
+
+func TestRuleTableListsEveryNativeRule(t *testing.T) {
+	table := RuleTable()
+	if len(table) != len(rules) {
+		t.Fatalf("RuleTable has %d rules, native set has %d", len(table), len(rules))
+	}
+	seen := map[string]bool{}
+	for i, r := range table {
+		if r.ID == "" || r.Severity == "" || r.OWASP == "" || r.Explanation == "" {
+			t.Fatalf("rule %d has an empty field: %+v", i, r)
+		}
+		if seen[r.ID] {
+			t.Fatalf("duplicate rule id %q", r.ID)
+		}
+		seen[r.ID] = true
+		if r.ID != rules[i].id {
+			t.Fatalf("order differs at %d: %q vs %q", i, r.ID, rules[i].id)
+		}
+	}
+}

@@ -40,14 +40,24 @@ func (Store) Read(_ context.Context, path string) (lockfile.Lockfile, error) {
 	return lf, nil
 }
 
+// Marshal renders a lockfile exactly as Write persists it: two-space indented
+// JSON with a trailing newline. Callers that hold the bytes elsewhere (the
+// hosted engine) use it so their output is byte-identical to the CLI's.
+func Marshal(lf lockfile.Lockfile) ([]byte, error) {
+	b, err := json.MarshalIndent(lf, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
+}
+
 // Write serializes the lockfile deterministically and writes it atomically
 // (temp file + rename within the same directory).
 func (Store) Write(_ context.Context, path string, lf lockfile.Lockfile) error {
-	b, err := json.MarshalIndent(lf, "", "  ")
+	b, err := Marshal(lf)
 	if err != nil {
 		return err
 	}
-	b = append(b, '\n')
 
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".eyebrowlock-*.tmp")

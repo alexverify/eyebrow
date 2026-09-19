@@ -57,17 +57,26 @@ func (s *Service) Run(ctx context.Context, opts Options, out io.Writer) (Result,
 	if err != nil {
 		return Result{}, fmt.Errorf("read lockfile: %w", err)
 	}
+	res, err := s.Check(ctx, locked, opts)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := s.deps.Reporter.Verify(out, res.Diff); err != nil {
+		return Result{}, fmt.Errorf("report: %w", err)
+	}
+	return res, nil
+}
 
+// Check rebuilds the current state, compares it with locked, and applies the
+// policy gate in CI mode. It reads no store and writes no report, so a caller
+// that holds the lockfile bytes itself (the hosted engine) can use it directly.
+func (s *Service) Check(ctx context.Context, locked lockfile.Lockfile, opts Options) (Result, error) {
 	current, err := s.deps.Builder.Build(ctx, opts.Scopes)
 	if err != nil {
 		return Result{}, err
 	}
 
 	diff := lockfile.Compare(locked, current)
-
-	if err := s.deps.Reporter.Verify(out, diff); err != nil {
-		return Result{}, fmt.Errorf("report: %w", err)
-	}
 
 	ok := !diff.HasDrift()
 	var pres policy.Result

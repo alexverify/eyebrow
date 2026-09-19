@@ -93,6 +93,24 @@ var rules = []rule{
 	},
 }
 
+// RuleInfo describes one native rule without its pattern, for callers that
+// render findings or build allow lists.
+type RuleInfo struct {
+	ID          string
+	Severity    finding.Severity
+	OWASP       string
+	Explanation string
+}
+
+// RuleTable returns the native rule set in evaluation order.
+func RuleTable() []RuleInfo {
+	out := make([]RuleInfo, 0, len(rules))
+	for _, r := range rules {
+		out = append(out, RuleInfo{ID: r.id, Severity: r.severity, OWASP: r.owasp, Explanation: r.explain})
+	}
+	return out
+}
+
 // Native is the dependency-free analyzer.
 type Native struct {
 	rules        []rule

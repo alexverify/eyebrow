@@ -35,6 +35,17 @@ func NewRouter() *Router {
 	}}
 }
 
+// NewOfflineRouter wires only the resolvers that never shell out or make a
+// network request: Local and Inline. Every other source kind degrades to the
+// router's usual ErrUnsupported (recorded as a finding, not a failure) instead
+// of running git, npm, or a fetch.
+func NewOfflineRouter() *Router {
+	return &Router{resolvers: map[artifact.SourceKind]ports.Resolver{
+		artifact.SourceLocal:  Local{},
+		artifact.SourceInline: Inline{},
+	}}
+}
+
 // Resolve satisfies ports.Resolver by delegating to the per-kind resolver.
 func (r *Router) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution, error) {
 	res, ok := r.resolvers[src.Kind]
