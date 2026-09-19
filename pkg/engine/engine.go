@@ -65,7 +65,7 @@ func New(o Options) *Engine {
 	sc := scan.New(deps)
 	return &Engine{
 		scan:   sc,
-		verify: verify.New(verify.Deps{Builder: sc, Lock: lockstore.New()}),
+		verify: verify.New(verify.Deps{Builder: sc}),
 	}
 }
 
