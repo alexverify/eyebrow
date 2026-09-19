@@ -9,6 +9,35 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-19
+
+### Added
+
+- Public Go package `pkg/engine`, the first supported way to embed eyebrow in
+  another Go program. `New` wires the same discoverers, resolvers, hasher, and
+  analyzers the CLI uses. `Scan` returns the lockfile bytes exactly as
+  `eyebrow scan` writes them, plus typed artifacts, findings, policy
+  violations, and a pass or fail verdict. `Verify` compares a directory with a
+  lockfile held in memory and reports drift the same way `verify --ci` does.
+  `Rules` lists the native rule table and `Version` describes the build, the
+  source kinds, and the tools discovery covers. Extra analyzers and
+  discoverers plug in through the `Analyzer` and `Discoverer` interfaces; the
+  engine owns artifact IDs and rejects unknown types and severities. An
+  `Offline` option resolves local and inline sources only. A missing root is
+  an error, and a fresh scan ignores approval and freeze rules, since there is
+  no approved state to compare with. Artifact IDs and local refs derive from
+  the root path, so callers that need results comparable across machines run
+  with the working directory set to the project and `Root: "."`, as the CLI
+  does.
+
+### Changed
+
+- The git resolver refuses a repository URL or ref that starts with a dash
+  before it runs `git ls-remote`, so a declared source cannot pass options to
+  git. No other CLI behaviour changes; the internal refactors behind the new
+  package (`lockstore.Marshal`, `verify.Check`, `analyze.RuleTable`,
+  `discover.Tools`) keep `verify` output and exit codes identical.
+
 ## [0.4.7] - 2026-09-14
 
 ### Added
@@ -261,7 +290,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/alexverify/eyebrow/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/alexverify/eyebrow/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/alexverify/eyebrow/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/alexverify/eyebrow/compare/v0.4.4...v0.4.5
