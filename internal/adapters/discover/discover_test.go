@@ -3,6 +3,7 @@ package discover
 import (
 	"context"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
@@ -66,5 +67,27 @@ func TestDefaultReportsManifestCatalogOnce(t *testing.T) {
 	}
 	if len(tools) != 1 || tools[0] != "my-catalog" {
 		t.Errorf("skill a reported under tools %v, want exactly [my-catalog]", tools)
+	}
+}
+
+func TestDefaultToolsIncludesClaudeCodeAndIsSorted(t *testing.T) {
+	tools := Default().Tools()
+	if len(tools) == 0 {
+		t.Fatal("no tools listed")
+	}
+	if !sort.StringsAreSorted(tools) {
+		t.Fatalf("not sorted: %v", tools)
+	}
+	found := false
+	for i, name := range tools {
+		if name == "claude-code" {
+			found = true
+		}
+		if i > 0 && tools[i-1] == name {
+			t.Fatalf("duplicate %q", name)
+		}
+	}
+	if !found {
+		t.Fatalf("claude-code missing from %v", tools)
 	}
 }
