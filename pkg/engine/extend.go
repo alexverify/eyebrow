@@ -11,6 +11,10 @@ import (
 
 // Analyzer is an extra static analyzer. Analyze receives an artifact and the
 // directory holding its resolved files, and returns the findings it adds.
+// Extra analyzers see artifact directories only, never inline content: an
+// artifact whose source is inline (a hook or rules file carried as literal
+// text rather than a file on disk) is not passed to Analyze at all, since
+// there is no directory to hand it.
 type Analyzer interface {
 	Analyze(ctx context.Context, a Artifact, root string) ([]Finding, error)
 }

@@ -9,4 +9,16 @@
 //
 // Stability: the API is versioned with the module. Until the module reaches
 // v1, a breaking change to this package bumps the minor version.
+//
+// Concurrency: an *Engine is safe for concurrent use. Scan and Verify hold no
+// mutable state between calls, so one Engine built with New may serve many
+// concurrent requests.
+//
+// Resolution: unless Options.Offline is set, resolving a discovered artifact's
+// source may run the git and npm binaries and make network requests to hosts
+// named by the scanned content itself (a package registry, a git remote, an
+// MCP server's declared URL). A hosted caller embedding this package should
+// run it inside a sandboxed process — the same way the eyebrow CLI's own
+// runtime firewall (`eyebrow wrap`) confines an MCP server — or set Offline to
+// remove the network and subprocess surface entirely.
 package engine
