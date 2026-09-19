@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -33,16 +34,64 @@ type Discovered struct {
 
 type analyzerAdapter struct{ a Analyzer }
 
-func (analyzerAdapter) Analyze(context.Context, artifact.Artifact, string) ([]finding.Finding, error) {
-	return nil, nil
+// Analyze maps the domain artifact to the public shape, runs the extra
+// analyzer on the resolved directory, and maps its findings back.
+func (ad analyzerAdapter) Analyze(ctx context.Context, a artifact.Artifact, root string) ([]finding.Finding, error) {
+	pub := Artifact{
+		ID: a.ID, Tool: a.Tool, Scope: a.Scope, Type: string(a.Type), Name: a.Name,
+		SourceKind: string(a.Source.Kind), SourceRef: a.Source.Ref, Digest: a.ContentHash,
+	}
+	fs, err := ad.a.Analyze(ctx, pub, root)
+	if err != nil {
+		return nil, fmt.Errorf("extra analyzer: %w", err)
+	}
+	out := make([]finding.Finding, 0, len(fs))
+	for _, f := range fs {
+		out = append(out, finding.Finding{
+			RuleID: f.RuleID, Severity: finding.Severity(f.Severity), OWASP: f.Category,
+			File: f.File, Line: f.Line, Snippet: f.Snippet, Explanation: f.Explanation,
+		})
+	}
+	return out, nil
 }
 
+// AnalyzeContent is a no-op: extra analyzers see directories only.
 func (analyzerAdapter) AnalyzeContent(context.Context, artifact.Artifact, []byte) ([]finding.Finding, error) {
 	return nil, nil
 }
 
 type discovererAdapter struct{ d Discoverer }
 
-func (discovererAdapter) Discover(context.Context, []ports.Scope) ([]artifact.Artifact, error) {
-	return nil, nil
+// Discover runs the extra discoverer once per project scope and stamps the
+// engine-owned fields: scope string and stable ID.
+func (dd discovererAdapter) Discover(ctx context.Context, scopes []ports.Scope) ([]artifact.Artifact, error) {
+	var out []artifact.Artifact
+	for _, sc := range scopes {
+		if sc.Kind != "project" {
+			continue
+		}
+		found, err := dd.d.Discover(ctx, sc.Path)
+		if err != nil {
+			return nil, fmt.Errorf("extra discoverer: %w", err)
+		}
+		for _, f := range found {
+			if !artifact.IsType(f.Type) {
+				return nil, fmt.Errorf("extra discoverer: unknown artifact type %q for %q", f.Type, f.Name)
+			}
+			if f.Tool == "" || f.Name == "" {
+				return nil, fmt.Errorf("extra discoverer: tool and name are required (got %+v)", f)
+			}
+			scope := sc.String()
+			out = append(out, artifact.Artifact{
+				ID:             artifact.MakeID(f.Tool, scope, artifact.Type(f.Type), f.Name),
+				Tool:           f.Tool,
+				Scope:          scope,
+				Type:           artifact.Type(f.Type),
+				Name:           f.Name,
+				Source:         artifact.Source{Kind: artifact.SourceKind(f.SourceKind), Ref: f.SourceRef},
+				DiscoveredFrom: f.DiscoveredFrom,
+			})
+		}
+	}
+	return out, nil
 }
