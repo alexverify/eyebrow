@@ -110,3 +110,76 @@ func TestScanRejectsABadPolicy(t *testing.T) {
 		t.Fatal("expected an error for malformed policy JSON")
 	}
 }
+
+func TestVerifyIsCleanOnAnUnchangedTree(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{Clock: fixedClock})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.Verify(context.Background(), engine.VerifyRequest{Root: root, Expected: rep.Lockfile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Status != "clean" || v.Verdict != "pass" || len(v.Changes) != 0 {
+		t.Fatalf("expected clean/pass, got %+v", v)
+	}
+}
+
+func TestVerifyReportsContentDrift(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{Clock: fixedClock})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill := filepath.Join(root, ".claude", "skills", "deploy-helper", "SKILL.md")
+	if err := os.WriteFile(skill, []byte("---\nname: deploy-helper\n---\nchanged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.Verify(context.Background(), engine.VerifyRequest{Root: root, Expected: rep.Lockfile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Status != "drift" || v.Verdict != "fail" {
+		t.Fatalf("expected drift/fail, got %+v", v)
+	}
+	if len(v.Changes) != 1 || v.Changes[0].Kind != "content_changed" || v.Changes[0].Name != "deploy-helper" {
+		t.Fatalf("unexpected changes %+v", v.Changes)
+	}
+	if v.Changes[0].Old == "" || v.Changes[0].New == "" || v.Changes[0].Old == v.Changes[0].New {
+		t.Fatalf("old and new digests must differ: %+v", v.Changes[0])
+	}
+}
+
+func TestVerifyAllowContentDriftPassesButStillReports(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{Clock: fixedClock})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill := filepath.Join(root, ".claude", "skills", "deploy-helper", "SKILL.md")
+	if err := os.WriteFile(skill, []byte("---\nname: deploy-helper\n---\nchanged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.Verify(context.Background(), engine.VerifyRequest{
+		Root: root, Expected: rep.Lockfile, Policy: []byte(`{"allowContentDrift":true}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Status != "drift" || v.Verdict != "pass" {
+		t.Fatalf("expected drift/pass, got %+v", v)
+	}
+}
+
+func TestVerifyRejectsMalformedExpected(t *testing.T) {
+	root := writeFixture(t, false)
+	e := engine.New(engine.Options{})
+	_, err := e.Verify(context.Background(), engine.VerifyRequest{Root: root, Expected: []byte("nope")})
+	if err == nil {
+		t.Fatal("expected an error for malformed lockfile JSON")
+	}
+}

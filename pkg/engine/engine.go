@@ -13,6 +13,7 @@ import (
 	"github.com/alexverify/eyebrow/internal/adapters/resolve"
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/app/scan"
+	"github.com/alexverify/eyebrow/internal/app/verify"
 	"github.com/alexverify/eyebrow/internal/domain/lockfile"
 	"github.com/alexverify/eyebrow/internal/domain/policy"
 )
@@ -35,7 +36,8 @@ type Options struct {
 
 // Engine runs scan and verify on a directory.
 type Engine struct {
-	scan *scan.Service
+	scan   *scan.Service
+	verify *verify.Service
 }
 
 // New builds an Engine wired with the same adapters the CLI uses.
@@ -59,7 +61,11 @@ func New(o Options) *Engine {
 	if o.Clock != nil {
 		deps.Clock = ports.ClockFunc(o.Clock)
 	}
-	return &Engine{scan: scan.New(deps)}
+	sc := scan.New(deps)
+	return &Engine{
+		scan:   sc,
+		verify: verify.New(verify.Deps{Builder: sc, Lock: lockstore.New()}),
+	}
 }
 
 // ScanRequest names the directory to scan.
@@ -109,6 +115,56 @@ func (e *Engine) Scan(ctx context.Context, r ScanRequest) (Report, error) {
 		Findings:  allFindings(lf),
 		Policy:    policyResultOf(pres),
 		Verdict:   verdictOf(pres.OK()),
+	}, nil
+}
+
+// VerifyRequest compares the tree under Root with an approved lockfile.
+type VerifyRequest struct {
+	Root   string
+	Global bool
+	// Expected is the lockfile JSON to compare against, as produced by Scan
+	// or by `eyebrow scan`.
+	Expected []byte
+	// Policy is applied as `verify --ci` applies it. Nil means the default.
+	Policy []byte
+}
+
+// VerifyReport is the outcome of a verify.
+type VerifyReport struct {
+	Status  string       `json:"status"` // "clean" | "drift"
+	Changes []Change     `json:"changes"`
+	Policy  PolicyResult `json:"policy"`
+	Verdict string       `json:"verdict"` // "pass" | "fail"
+}
+
+// Verify rebuilds the current state under r.Root and compares it with
+// r.Expected. Verdict follows the same rules as `eyebrow verify --ci`.
+func (e *Engine) Verify(ctx context.Context, r VerifyRequest) (VerifyReport, error) {
+	var locked lockfile.Lockfile
+	if err := json.Unmarshal(r.Expected, &locked); err != nil {
+		return VerifyReport{}, fmt.Errorf("parse expected lockfile: %w", err)
+	}
+	pol, err := parsePolicy(r.Policy)
+	if err != nil {
+		return VerifyReport{}, err
+	}
+	res, err := e.verify.Check(ctx, locked, verify.Options{
+		Scopes: scopesOf(r.Root, r.Global),
+		CI:     true,
+		Policy: pol,
+	})
+	if err != nil {
+		return VerifyReport{}, err
+	}
+	status := "clean"
+	if res.Diff.HasDrift() {
+		status = "drift"
+	}
+	return VerifyReport{
+		Status:  status,
+		Changes: changesOf(res.Diff),
+		Policy:  policyResultOf(res.Policy),
+		Verdict: verdictOf(res.OK),
 	}, nil
 }
 
