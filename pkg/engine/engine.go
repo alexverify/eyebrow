@@ -33,6 +33,14 @@ type Options struct {
 	Analyzers []Analyzer
 	// Discoverers run beside the built-in discoverers on every project root.
 	Discoverers []Discoverer
+	// Offline restricts resolution to local and inline sources: no git, npm,
+	// or network fetch ever runs. A remote source (npm, git, url, container,
+	// registry) degrades to the same unresolved-source finding it would get
+	// for any other unsupported kind, rather than being attempted. Use this
+	// when the engine runs somewhere without network access, or where a
+	// hosted caller wants to sandbox network activity by simply not needing
+	// it.
+	Offline bool
 }
 
 // Engine runs scan and verify on a directory.
@@ -51,9 +59,13 @@ func New(o Options) *Engine {
 	for _, d := range o.Discoverers {
 		discoverers = append(discoverers, discovererAdapter{d})
 	}
+	resolver := resolve.NewRouter()
+	if o.Offline {
+		resolver = resolve.NewOfflineRouter()
+	}
 	deps := scan.Deps{
 		Discoverer: discover.NewMulti(discoverers...),
-		Resolver:   resolve.NewRouter(),
+		Resolver:   resolver,
 		Hasher:     hash.New(),
 		Analyzer:   analyze.NewChain(analyzers...),
 		Lock:       lockstore.New(),

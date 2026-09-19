@@ -248,3 +248,34 @@ func TestScanIgnoresApprovalRules(t *testing.T) {
 		t.Fatalf("expected no violations, got %+v", rep.Policy.Violations)
 	}
 }
+
+func TestOfflineEngineDoesNotResolveRemoteSources(t *testing.T) {
+	root := t.TempDir()
+	mcpJSON := `{"mcpServers":{"example":{"command":"npx","args":["-y","some-package"]}}}`
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), []byte(mcpJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e := engine.New(engine.Options{Clock: fixedClock, Offline: true})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found *engine.Artifact
+	for i := range rep.Artifacts {
+		if rep.Artifacts[i].Name == "example" {
+			found = &rep.Artifacts[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("mcp artifact missing: %+v", rep.Artifacts)
+	}
+	var hit bool
+	for _, f := range found.Findings {
+		if f.RuleID == "RESOLVE-UNSUPPORTED" {
+			hit = true
+		}
+	}
+	if !hit {
+		t.Fatalf("expected an unresolved-source finding rather than a network attempt, got %+v", found.Findings)
+	}
+}
