@@ -3,8 +3,10 @@ package engine_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,6 +35,13 @@ func TestScanFindsTheSkillAndPasses(t *testing.T) {
 	}
 	if a.Digest == "" {
 		t.Fatal("digest missing")
+	}
+	b, err := json.Marshal(rep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"findings":[]`) {
+		t.Fatalf("expected empty findings to serialise as [], not null: %s", b)
 	}
 }
 

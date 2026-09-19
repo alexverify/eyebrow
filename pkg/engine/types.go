@@ -95,7 +95,7 @@ func findingsOf(artifactName string, fs []finding.Finding) []Finding {
 }
 
 func allFindings(lf lockfile.Lockfile) []Finding {
-	var out []Finding
+	out := make([]Finding, 0)
 	for _, e := range lf.Artifacts {
 		out = append(out, findingsOf(e.Name, e.Findings)...)
 	}
