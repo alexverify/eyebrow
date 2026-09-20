@@ -91,6 +91,7 @@ func Default() *Multi {
 		NewDroid(),
 		NewOpenClaude(),
 		NewOpenClaudeRegistry(),
+		NewAI17Z(),
 		NewAeon(),
 		NewSkillsLock(),
 	)

@@ -90,4 +90,13 @@ func TestDefaultToolsIncludesClaudeCodeAndIsSorted(t *testing.T) {
 	if !found {
 		t.Fatalf("claude-code missing from %v", tools)
 	}
+	foundAI17Z := false
+	for _, name := range tools {
+		if name == "ai17z" {
+			foundAI17Z = true
+		}
+	}
+	if !foundAI17Z {
+		t.Fatalf("ai17z missing from %v", tools)
+	}
 }
