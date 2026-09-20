@@ -53,7 +53,10 @@ func (n NPM) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	if version != "" {
 		spec = name + "@" + version
 	}
-	out, err := n.Runner.Run(ctx, "npm", "view", spec, "version", "--json")
+	if !isRegistrySpec(src.Ref) {
+		return ports.Resolution{}, fmt.Errorf("npm spec %q is not a registry package; git, url, file, and alias specs are not resolved", src.Ref)
+	}
+	out, err := n.Runner.Run(ctx, "npm", "view", spec, "version", "--json", "--ignore-scripts")
 	if err != nil {
 		return ports.Resolution{}, fmt.Errorf("npm view %s version: %w", spec, err)
 	}
@@ -64,7 +67,7 @@ func (n NPM) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	pinnedSpec := name + "@" + concrete
 
 	integrity := ""
-	if iout, ierr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.integrity", "--json"); ierr == nil {
+	if iout, ierr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.integrity", "--json", "--ignore-scripts"); ierr == nil {
 		integrity = parseNPMStringOutput(iout)
 	}
 
@@ -74,7 +77,7 @@ func (n NPM) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	// lookup is best-effort — an old npm, a private registry, or a package
 	// without provenance simply leaves this empty.
 	provenance := ""
-	if pout, perr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.attestations.provenance.predicateType", "--json"); perr == nil {
+	if pout, perr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.attestations.provenance.predicateType", "--json", "--ignore-scripts"); perr == nil {
 		provenance = parseNPMStringOutput(pout)
 	}
 
@@ -110,7 +113,7 @@ func (p packFetcher) fetch(ctx context.Context, spec string) (string, error) {
 // into destDir/package-root and returns that path. Split out from fetch so the
 // destination is injectable in tests.
 func (p packFetcher) fetchInto(ctx context.Context, spec, destDir string) (string, error) {
-	out, err := p.runner.Run(ctx, "npm", "pack", spec, "--pack-destination", destDir, "--json")
+	out, err := p.runner.Run(ctx, "npm", "pack", spec, "--pack-destination", destDir, "--json", "--ignore-scripts")
 	if err != nil {
 		return "", fmt.Errorf("npm pack %s: %w", spec, err)
 	}
