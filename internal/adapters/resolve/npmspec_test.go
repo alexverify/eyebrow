@@ -57,6 +57,28 @@ func TestIsRegistrySpec(t *testing.T) {
 	}
 }
 
+func TestIsStrictVersion(t *testing.T) {
+	cases := []struct {
+		v      string
+		accept bool
+	}{
+		{"1.2.3", true},
+		{"1.2.3-beta.1", true},
+		{"1.2.3+build.5", true},
+		{"git+ssh://attacker/x", false},
+		{"https://attacker/x.tgz", false},
+		{"latest", false},
+		{"1.2", false},
+		{"^1.2.3", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := isStrictVersion(c.v); got != c.accept {
+			t.Errorf("isStrictVersion(%q) = %v, want %v", c.v, got, c.accept)
+		}
+	}
+}
+
 func TestParseNPMStringOutput(t *testing.T) {
 	if got := parseNPMStringOutput([]byte(`"1.4.2"`)); got != "1.4.2" {
 		t.Errorf("string form = %q", got)

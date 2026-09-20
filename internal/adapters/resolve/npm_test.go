@@ -133,6 +133,20 @@ func TestNPMResolveIgnoresScripts(t *testing.T) {
 	}
 }
 
+func TestNPMResolveRejectsNonVersionFromRegistry(t *testing.T) {
+	r := &run.Fake{Responses: map[string]run.FakeResponse{
+		"npm view left-pad version --json --ignore-scripts": {Out: []byte(`"git+ssh://attacker/x"`)},
+	}}
+	n := NPM{Runner: r, Fetcher: stubFetcher{dir: "/tmp/extracted"}}
+	_, err := n.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceNPM, Ref: "left-pad"})
+	if err == nil {
+		t.Fatal("expected an error when the registry returns a non-version string")
+	}
+	if len(r.Calls) != 1 {
+		t.Fatalf("expected exactly the first view call, got %v", r.Calls)
+	}
+}
+
 func hasRule(fs []finding.Finding, rule string) bool {
 	for _, f := range fs {
 		if f.RuleID == rule {

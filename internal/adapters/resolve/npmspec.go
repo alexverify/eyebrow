@@ -19,6 +19,22 @@ var npmNameRE = regexp.MustCompile(`^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-
 // and multi-clause ranges with spaces are rejected.
 var npmVersionRE = regexp.MustCompile(`^[0-9A-Za-z.^~><=|*x+-]*$`)
 
+// npmStrictVersionRE matches a single concrete semver version: no range
+// operators, tags, wildcards, scheme prefixes, or paths — exactly what a
+// well-behaved registry's `npm view <spec> version` returns.
+var npmStrictVersionRE = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$`)
+
+// isStrictVersion reports whether v is a single concrete semver version
+// (major.minor.patch, with an optional pre-release/build suffix) and nothing
+// else. A registry response is trusted to feed further npm invocations only
+// after passing this check: a malicious or compromised registry (for example
+// one a scanned repo's .npmrc points at) could otherwise answer a `version`
+// query with a git or tarball URL spec, which npm's own spec dispatch would
+// then clone or download regardless of --ignore-scripts.
+func isStrictVersion(v string) bool {
+	return npmStrictVersionRE.MatchString(v)
+}
+
 // isRegistrySpec reports whether ref names a package on a registry: an
 // optional scope, a name, and an optional version or range. Git specs,
 // tarball URLs, file paths, and aliases are rejected so npm never clones,
