@@ -31,7 +31,7 @@ func TestAI17ZDiscoversPackages(t *testing.T) {
 	}
 
 	m := byName(got)
-	for _, name := range []string{"night-owl", "day-owl", "moonwatcher"} {
+	for _, name := range []string{"night-owl", "day-owl", "personas/moonwatcher"} {
 		a, ok := m[name]
 		if !ok {
 			t.Fatalf("missing artifact %q in %+v", name, got)
@@ -80,6 +80,59 @@ func TestAI17ZSkipsHiddenAndVendorDirs(t *testing.T) {
 	}
 	if got[0].Name != "visible" {
 		t.Fatalf("got %q, want visible", got[0].Name)
+	}
+}
+
+// artifact.MakeID hashes tool, scope, type, and name — never the path — so
+// two packages sharing a base name in different directories must get
+// distinct Names (and therefore distinct IDs), or lockfile.Compare silently
+// collapses one of them.
+func TestAI17ZSameFileNameInTwoDirectoriesGetsTwoIDs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "night-owl.ai17z-agent"),
+		`{"agent":{"name":"night-owl","home":"root"}}`)
+	writeFile(t, filepath.Join(dir, "personas", "night-owl.ai17z-agent"),
+		`{"agent":{"name":"night-owl","home":"personas"}}`)
+
+	got, err := NewAI17Z().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("discovered %d artifacts, want 2: %+v", len(got), got)
+	}
+
+	m := byName(got)
+	root, ok := m["night-owl"]
+	if !ok {
+		t.Fatalf("missing root-level artifact named night-owl in %+v", got)
+	}
+	nested, ok := m["personas/night-owl"]
+	if !ok {
+		t.Fatalf("missing nested artifact named personas/night-owl in %+v", got)
+	}
+	if root.ID == nested.ID {
+		t.Fatalf("root and nested night-owl packages share an ID %q, want distinct IDs", root.ID)
+	}
+}
+
+// The walk is bounded to at most 3 directories below the scope root: a
+// package inside the 3rd-level directory is found, one inside the 4th is
+// not.
+func TestAI17ZDepthBoundary(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a", "b", "c", "x.ai17z-agent"), `{"agent":{"name":"x"}}`)
+	writeFile(t, filepath.Join(dir, "a", "b", "c", "d", "y.ai17z-agent"), `{"agent":{"name":"y"}}`)
+
+	got, err := NewAI17Z().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("discovered %d artifacts, want 1: %+v", len(got), got)
+	}
+	if got[0].Name != "a/b/c/x" {
+		t.Fatalf("got name %q, want a/b/c/x", got[0].Name)
 	}
 }
 

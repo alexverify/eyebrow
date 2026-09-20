@@ -29,13 +29,15 @@ const ai17zMaxDepth = 3
 // imported since that helper is unexported and analyze sits on the far side
 // of discover in the dependency graph.
 var ai17zSkipDirs = map[string]bool{
-	"node_modules":  true,
-	".venv":         true,
-	"venv":          true,
-	"site-packages": true,
-	"vendor":        true,
-	"dist":          true,
-	"build":         true,
+	"node_modules":     true,
+	"bower_components": true,
+	".venv":            true,
+	"venv":             true,
+	"site-packages":    true,
+	"__pycache__":      true,
+	"vendor":           true,
+	"dist":             true,
+	"build":            true,
 }
 
 // AI17Z discovers AI17Z agent packages (*.ai17z-agent) under a project root.
@@ -79,10 +81,11 @@ func (a *AI17Z) discoverProject(sc ports.Scope) []artifact.Artifact {
 		if relErr != nil {
 			return nil
 		}
+		relSlash := filepath.ToSlash(rel)
 		// depth is how many directories under root this entry's parent chain
 		// crosses: 0 for a direct child of root, 1 for a grandchild, and so
 		// on — the number of "/" separators in the relative path.
-		depth := strings.Count(filepath.ToSlash(rel), "/")
+		depth := strings.Count(relSlash, "/")
 		if d.IsDir() {
 			if strings.HasPrefix(d.Name(), ".") || ai17zSkipDirs[d.Name()] {
 				return fs.SkipDir
@@ -100,7 +103,15 @@ func (a *AI17Z) discoverProject(sc ports.Scope) []artifact.Artifact {
 		if !d.Type().IsRegular() || !strings.HasSuffix(d.Name(), ai17zExt) {
 			return nil
 		}
-		art, ok := ai17zArtifact(a.Tool(), path, scope, d.Name())
+		// Name is the path relative to the scope root (forward slashes),
+		// not the bare file name: MakeID hashes tool/scope/type/name but
+		// never the path, so two packages sharing a base name in different
+		// directories (root/night-owl.ai17z-agent and
+		// root/personas/night-owl.ai17z-agent) must still get distinct
+		// names — and therefore distinct IDs — or lockfile.Compare silently
+		// collapses one of them.
+		name := strings.TrimSuffix(relSlash, ai17zExt)
+		art, ok := ai17zArtifact(a.Tool(), path, scope, name)
 		if ok {
 			out = append(out, art)
 		}
@@ -112,13 +123,15 @@ func (a *AI17Z) discoverProject(sc ports.Scope) []artifact.Artifact {
 
 // ai17zArtifact builds the artifact for one candidate file, or reports ok=false
 // when the content does not parse as a JSON object (a package edited into
-// garbage, or a file that merely shares the extension by accident).
-func ai17zArtifact(tool, path, scope, fileName string) (artifact.Artifact, bool) {
+// garbage, or a file that merely shares the extension by accident). name is
+// the file's path relative to the scope root (forward slashes, extension
+// stripped), which keeps same-named packages in different directories from
+// colliding on ID (see the call site).
+func ai17zArtifact(tool, path, scope, name string) (artifact.Artifact, bool) {
 	b, err := os.ReadFile(path)
 	if err != nil || !looksLikeJSONObject(b) {
 		return artifact.Artifact{}, false
 	}
-	name := strings.TrimSuffix(fileName, ai17zExt)
 	a := artifact.Artifact{
 		Tool:           tool,
 		Type:           artifact.TypeSubagent,
