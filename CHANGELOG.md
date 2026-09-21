@@ -9,6 +9,25 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-21
+
+### Added
+
+- AI17Z agent packages. A `*.ai17z-agent` file under a project root is
+  discovered as a `subagent` artifact of tool `ai17z`, hashed, scanned by the
+  native rules, and locked like any other artifact. Hidden and vendored
+  directories are skipped. The package's own checksum field is not verified
+  yet.
+
+### Changed
+
+- The npm resolver accepts registry package specs only: an optional scope, a
+  name, and an optional version or range. Git specs, tarball URLs, `file:`
+  paths, and `npm:` aliases are refused with a resolution finding instead of
+  being handed to `npm view` and `npm pack`, which would clone, download, or
+  read a local path and, for git specs, run the package's lifecycle scripts.
+  Every npm invocation now passes `--ignore-scripts`.
+
 ## [0.5.0] - 2026-09-19
 
 ### Added
@@ -290,7 +309,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/alexverify/eyebrow/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/alexverify/eyebrow/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/alexverify/eyebrow/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/alexverify/eyebrow/compare/v0.4.5...v0.4.6
