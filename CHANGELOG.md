@@ -9,6 +9,35 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-21
+
+### Security
+
+- `engine.Options.ConfineToRoot` for embedders that scan untrusted trees.
+  Before this release, an MCP entry whose `command` was an absolute path,
+  such as `/etc/passwd` or another tenant's directory, made the engine
+  hash and analyze that host path. Its lines then showed up in finding
+  snippets. With `ConfineToRoot` set, the engine does not read a local
+  source whose path resolves outside the scan root (symlinks followed),
+  or a local source that is missing from it. It reports a
+  `LOCAL-OUTSIDE-ROOT` finding (high) instead, so the scan finishes and
+  the verdict fails. The engine hashes and analyzes the exact path it
+  checked. The option also works with `Offline`. `Scan` and `Verify`
+  return an error if `ConfineToRoot` and `Global` are both set, because
+  global discovery reads the host's own configuration. Discovery still
+  opens fixed-name config files inside the root, so embedders must also
+  remove symlinks, hard links and special files from the tree before a
+  scan. The CLI does not change: scanning an absolute command path on
+  your own machine is still allowed. Hosted and multi-tenant embedders
+  should set the option.
+
+### Changed
+
+- `engine.Version().RuleCount` now counts every built-in rule id,
+  including rules the pipeline raises without a pattern match, such as
+  `LOCAL-OUTSIDE-ROOT`. `engine.Rules()` lists them too.
+```
+
 ## [0.5.2] - 2026-09-21
 
 ### Added
@@ -321,7 +350,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/alexverify/eyebrow/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/alexverify/eyebrow/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/alexverify/eyebrow/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/alexverify/eyebrow/compare/v0.4.7...v0.5.0
