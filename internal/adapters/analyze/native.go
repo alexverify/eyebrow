@@ -102,13 +102,22 @@ type RuleInfo struct {
 	Explanation string
 }
 
-// RuleTable returns the native rule set in evaluation order.
+// RuleTable returns the native rule set in evaluation order, followed by the
+// rules the scan pipeline itself raises without a pattern match.
 func RuleTable() []RuleInfo {
-	out := make([]RuleInfo, 0, len(rules))
+	pipeline := pipelineRules()
+	out := make([]RuleInfo, 0, len(rules)+len(pipeline))
 	for _, r := range rules {
 		out = append(out, RuleInfo{ID: r.id, Severity: r.severity, OWASP: r.owasp, Explanation: r.explain})
 	}
-	return out
+	return append(out, pipeline...)
+}
+
+// pipelineRules lists findings the pipeline raises outside pattern matching,
+// so their ids are reserved in RuleTable like any native rule.
+func pipelineRules() []RuleInfo {
+	f := finding.LocalOutsideRoot()
+	return []RuleInfo{{ID: f.RuleID, Severity: f.Severity, OWASP: f.OWASP, Explanation: f.Explanation}}
 }
 
 // Native is the dependency-free analyzer.
