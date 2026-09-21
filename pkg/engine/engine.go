@@ -47,10 +47,23 @@ type Options struct {
 	// processes such as git and npm are not affected. Use it to enforce a
 	// destination policy in a hosted setting; nil uses net.Dialer.
 	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
+	// ConfineToRoot refuses to read any local source whose path resolves
+	// outside the scan root (after following symlinks). Such a source is
+	// reported as a finding instead of being hashed or analyzed. Embedders
+	// that scan untrusted trees must set it.
+	//
+	// The finding is LOCAL-OUTSIDE-ROOT (severity high), so the default
+	// policy fails the verdict. A path that does not exist is refused the
+	// same way. Confinement is independent of Offline and applies with it.
+	ConfineToRoot bool
 }
 
 // Engine runs scan and verify on a directory.
 type Engine struct {
+	opts Options
+	deps scan.Deps
+	// scan and verify serve unconfined requests. A confined request builds
+	// its own pair, since the resolver needs that request's root.
 	scan   *scan.Service
 	verify *verify.Service
 }
@@ -65,16 +78,9 @@ func New(o Options) *Engine {
 	for _, d := range o.Discoverers {
 		discoverers = append(discoverers, discovererAdapter{d})
 	}
-	resolver := resolve.NewRouter()
-	switch {
-	case o.Offline:
-		resolver = resolve.NewOfflineRouter()
-	case o.DialContext != nil:
-		resolver = resolve.NewRouterWith(resolve.RouterOptions{DialContext: o.DialContext})
-	}
 	deps := scan.Deps{
 		Discoverer: discover.NewMulti(discoverers...),
-		Resolver:   resolver,
+		Resolver:   routerFor(o, ""),
 		Hasher:     hash.New(),
 		Analyzer:   analyze.NewChain(analyzers...),
 		Lock:       lockstore.New(),
@@ -85,9 +91,33 @@ func New(o Options) *Engine {
 	}
 	sc := scan.New(deps)
 	return &Engine{
+		opts:   o,
+		deps:   deps,
 		scan:   sc,
 		verify: verify.New(verify.Deps{Builder: sc}),
 	}
+}
+
+// routerFor builds the resolver for o, confining local sources to
+// confineRoot when it is not empty.
+func routerFor(o Options, confineRoot string) ports.Resolver {
+	ro := resolve.RouterOptions{DialContext: o.DialContext, ConfineRoot: confineRoot}
+	if o.Offline {
+		return resolve.NewOfflineRouterWith(ro)
+	}
+	return resolve.NewRouterWith(ro)
+}
+
+// services returns the scan and verify services for a request on root. With
+// ConfineToRoot set, they use a resolver confined to root.
+func (e *Engine) services(root string) (*scan.Service, *verify.Service) {
+	if !e.opts.ConfineToRoot {
+		return e.scan, e.verify
+	}
+	deps := e.deps
+	deps.Resolver = routerFor(e.opts, root)
+	sc := scan.New(deps)
+	return sc, verify.New(verify.Deps{Builder: sc})
 }
 
 // ScanRequest names the directory to scan.
@@ -141,7 +171,8 @@ func (e *Engine) Scan(ctx context.Context, r ScanRequest) (Report, error) {
 	// lists do. See ScanRequest.Policy.
 	pol.RequireApproval = false
 	pol.RequireSignedApproval = false
-	lf, err := e.scan.Build(ctx, scopesOf(r.Root, r.Global))
+	sc, _ := e.services(r.Root)
+	lf, err := sc.Build(ctx, scopesOf(r.Root, r.Global))
 	if err != nil {
 		return Report{}, err
 	}
@@ -200,7 +231,8 @@ func (e *Engine) Verify(ctx context.Context, r VerifyRequest) (VerifyReport, err
 	if err != nil {
 		return VerifyReport{}, err
 	}
-	res, err := e.verify.Check(ctx, locked, verify.Options{
+	_, vs := e.services(r.Root)
+	res, err := vs.Check(ctx, locked, verify.Options{
 		Scopes: scopesOf(r.Root, r.Global),
 		CI:     true,
 		Policy: pol,
