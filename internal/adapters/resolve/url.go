@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -52,6 +53,13 @@ type TLSCertFetcher struct {
 	// InsecureSkipVerify disables chain verification (used only in tests against
 	// httptest servers). Production leaves this false.
 	InsecureSkipVerify bool
+	// DialContext, when set, opens the raw TCP connection instead of a plain
+	// net.Dialer. It runs after DNS resolution (the address is already
+	// host:port), so a caller can enforce a destination policy — refusing
+	// private, link-local, or metadata addresses — at the point the engine
+	// itself would otherwise connect. Nil keeps the previous tls.Dialer
+	// behaviour.
+	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 // SPKIPin satisfies CertFetcher.
@@ -68,17 +76,34 @@ func (f TLSCertFetcher) SPKIPin(ctx context.Context, rawURL string) (string, err
 		host += ":443"
 	}
 
-	dialer := &tls.Dialer{Config: &tls.Config{InsecureSkipVerify: f.InsecureSkipVerify}} //nolint:gosec // opt-in for tests only
-	conn, err := dialer.DialContext(ctx, "tcp", host)
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
+	cfg := &tls.Config{InsecureSkipVerify: f.InsecureSkipVerify} //nolint:gosec // opt-in for tests only
 
-	tconn, ok := conn.(*tls.Conn)
-	if !ok {
-		return "", fmt.Errorf("unexpected connection type %T", conn)
+	var tconn *tls.Conn
+	if f.DialContext != nil {
+		raw, err := f.DialContext(ctx, "tcp", host)
+		if err != nil {
+			return "", fmt.Errorf("dial %s: %w", host, err)
+		}
+		tconn = tls.Client(raw, cfg)
+		if err := tconn.HandshakeContext(ctx); err != nil {
+			tconn.Close()
+			return "", fmt.Errorf("tls handshake with %s: %w", host, err)
+		}
+	} else {
+		dialer := &tls.Dialer{Config: cfg}
+		conn, err := dialer.DialContext(ctx, "tcp", host)
+		if err != nil {
+			return "", err
+		}
+		var ok bool
+		tconn, ok = conn.(*tls.Conn)
+		if !ok {
+			conn.Close()
+			return "", fmt.Errorf("unexpected connection type %T", conn)
+		}
 	}
+	defer tconn.Close()
+
 	certs := tconn.ConnectionState().PeerCertificates
 	if len(certs) == 0 {
 		return "", fmt.Errorf("no peer certificate from %s", host)

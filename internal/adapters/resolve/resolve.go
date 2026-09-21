@@ -7,6 +7,7 @@ package resolve
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -21,17 +22,34 @@ type Router struct {
 	resolvers map[artifact.SourceKind]ports.Resolver
 }
 
+// RouterOptions configure NewRouterWith.
+type RouterOptions struct {
+	// DialContext, when set, opens every TCP connection the router's
+	// resolvers make themselves: the url resolver's TLS probe and the
+	// registry resolver's HTTP fetch (and its own TLS probe of the
+	// distribution host). Child processes such as git and npm are not
+	// affected. Nil keeps the standard library's default dialer, exactly
+	// like NewRouter.
+	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
+}
+
 // NewRouter wires the default per-kind resolvers.
 func NewRouter() *Router {
+	return NewRouterWith(RouterOptions{})
+}
+
+// NewRouterWith wires the default per-kind resolvers, threading opts.DialContext
+// into every resolver that opens a network connection itself.
+func NewRouterWith(opts RouterOptions) *Router {
 	runner := run.OS{}
 	return &Router{resolvers: map[artifact.SourceKind]ports.Resolver{
 		artifact.SourceLocal:     Local{},
 		artifact.SourceInline:    Inline{},
 		artifact.SourceNPM:       NewNPM(runner),
 		artifact.SourceGit:       NewGit(runner),
-		artifact.SourceURL:       NewURL(TLSCertFetcher{}),
+		artifact.SourceURL:       NewURL(TLSCertFetcher{DialContext: opts.DialContext}),
 		artifact.SourceContainer: NewContainer(runner),
-		artifact.SourceRegistry:  NewRegistry(),
+		artifact.SourceRegistry:  NewRegistryWith(opts.DialContext),
 	}}
 }
 

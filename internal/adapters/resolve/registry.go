@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
@@ -43,6 +44,26 @@ type Registry struct {
 // NewRegistry builds a Registry resolver with the real TLS fetcher.
 func NewRegistry() Registry {
 	return Registry{Client: http.DefaultClient, Fetcher: TLSCertFetcher{}}
+}
+
+// NewRegistryWith builds a Registry resolver whose HTTP fetch and TLS probe
+// both dial through dialCtx. A nil dialCtx behaves exactly like NewRegistry.
+// Use it to enforce a destination policy on the registry fetch itself, in
+// addition to the distribution host's TLS probe.
+func NewRegistryWith(dialCtx func(ctx context.Context, network, address string) (net.Conn, error)) Registry {
+	return Registry{
+		Client:  httpClientFor(dialCtx),
+		Fetcher: TLSCertFetcher{DialContext: dialCtx},
+	}
+}
+
+// httpClientFor builds an *http.Client whose transport dials through dialCtx,
+// or http.DefaultClient when dialCtx is nil.
+func httpClientFor(dialCtx func(ctx context.Context, network, address string) (net.Conn, error)) *http.Client {
+	if dialCtx == nil {
+		return http.DefaultClient
+	}
+	return &http.Client{Transport: &http.Transport{DialContext: dialCtx}}
 }
 
 // Resolve satisfies ports.Resolver. Source.Ref is the app record URL.
