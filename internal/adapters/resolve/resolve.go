@@ -10,10 +10,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
 	"github.com/alexverify/eyebrow/internal/domain/digest"
+	"github.com/alexverify/eyebrow/internal/domain/finding"
 	"github.com/alexverify/eyebrow/internal/platform/run"
 )
 
@@ -31,6 +33,11 @@ type RouterOptions struct {
 	// affected. Nil keeps the standard library's default dialer, exactly
 	// like NewRouter.
 	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
+	// ConfineRoot, when set, confines local sources to this directory: a
+	// local path that resolves outside it (after following symlinks) is
+	// refused with a LOCAL-OUTSIDE-ROOT finding instead of being resolved,
+	// so nothing downstream reads it. Empty leaves local sources unconfined.
+	ConfineRoot string
 }
 
 // NewRouter wires the default per-kind resolvers.
@@ -43,7 +50,7 @@ func NewRouter() *Router {
 func NewRouterWith(opts RouterOptions) *Router {
 	runner := run.OS{}
 	return &Router{resolvers: map[artifact.SourceKind]ports.Resolver{
-		artifact.SourceLocal:     Local{},
+		artifact.SourceLocal:     Local{Root: opts.ConfineRoot},
 		artifact.SourceInline:    Inline{},
 		artifact.SourceNPM:       NewNPM(runner),
 		artifact.SourceGit:       NewGit(runner),
@@ -58,8 +65,14 @@ func NewRouterWith(opts RouterOptions) *Router {
 // router's usual ErrUnsupported (recorded as a finding, not a failure) instead
 // of running git, npm, or a fetch.
 func NewOfflineRouter() *Router {
+	return NewOfflineRouterWith(RouterOptions{})
+}
+
+// NewOfflineRouterWith is NewOfflineRouter with opts.ConfineRoot applied to
+// the local resolver. DialContext is unused: an offline router never dials.
+func NewOfflineRouterWith(opts RouterOptions) *Router {
 	return &Router{resolvers: map[artifact.SourceKind]ports.Resolver{
-		artifact.SourceLocal:  Local{},
+		artifact.SourceLocal:  Local{Root: opts.ConfineRoot},
 		artifact.SourceInline: Inline{},
 	}}
 }
@@ -74,13 +87,24 @@ func (r *Router) Resolve(ctx context.Context, src artifact.Source) (ports.Resolu
 }
 
 // Local resolves a filesystem path to an absolute, hashable location.
-type Local struct{}
+type Local struct {
+	// Root, when set, confines resolution to that directory. A path that
+	// does not resolve (after following symlinks) to Root or below it is
+	// refused: the resolution carries a LOCAL-OUTSIDE-ROOT finding and no
+	// LocalPath, so the hasher and analyzers never open it. A path that does
+	// not exist or cannot be evaluated is refused the same way. Empty means
+	// unconfined, which is what the CLI wants on a developer's own machine.
+	Root string
+}
 
 // Resolve satisfies ports.Resolver.
-func (Local) Resolve(_ context.Context, src artifact.Source) (ports.Resolution, error) {
+func (l Local) Resolve(_ context.Context, src artifact.Source) (ports.Resolution, error) {
 	path := src.Ref
 	if path == "" {
 		path = src.Command
+	}
+	if l.Root != "" && !within(l.Root, path) {
+		return ports.Resolution{PinnedRef: path, Warnings: []finding.Finding{finding.LocalOutsideRoot()}}, nil
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -96,6 +120,34 @@ func (Local) Resolve(_ context.Context, src artifact.Source) (ports.Resolution, 
 	// at a different path. Scanned with a relative --path, the ref stays relative
 	// and portable; an already-absolute ref is preserved as-is.
 	return ports.Resolution{LocalPath: abs, PinnedRef: path}, nil
+}
+
+// within reports whether path, with every symlink followed, is root or lies
+// under it. Any error (a missing path, an unreadable link) reports false, so
+// confinement fails closed.
+func within(root, path string) bool {
+	rootReal, err := realAbs(root)
+	if err != nil {
+		return false
+	}
+	real, err := realAbs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(rootReal, real)
+	if err != nil || filepath.IsAbs(rel) {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// realAbs returns the absolute path of p with every symlink resolved.
+func realAbs(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
 }
 
 // Inline content-addresses literal text (hooks, rules, context). By convention

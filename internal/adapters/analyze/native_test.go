@@ -176,8 +176,8 @@ func TestNativeIgnoresBinaryAndIsQuietOnCleanCode(t *testing.T) {
 
 func TestRuleTableListsEveryNativeRule(t *testing.T) {
 	table := RuleTable()
-	if len(table) != len(rules) {
-		t.Fatalf("RuleTable has %d rules, native set has %d", len(table), len(rules))
+	if len(table) != len(rules)+len(pipelineRules()) {
+		t.Fatalf("RuleTable has %d rules, native set has %d, pipeline set %d", len(table), len(rules), len(pipelineRules()))
 	}
 	seen := map[string]bool{}
 	for i, r := range table {
@@ -188,8 +188,21 @@ func TestRuleTableListsEveryNativeRule(t *testing.T) {
 			t.Fatalf("duplicate rule id %q", r.ID)
 		}
 		seen[r.ID] = true
-		if r.ID != rules[i].id {
+		if i < len(rules) && r.ID != rules[i].id {
 			t.Fatalf("order differs at %d: %q vs %q", i, r.ID, rules[i].id)
 		}
 	}
+}
+
+func TestRuleTableListsTheConfinementRule(t *testing.T) {
+	want := finding.LocalOutsideRoot()
+	for _, r := range RuleTable() {
+		if r.ID == finding.RuleLocalOutsideRoot {
+			if r.Severity != want.Severity || r.OWASP != want.OWASP || r.Explanation != want.Explanation {
+				t.Fatalf("table entry %+v does not match the finding %+v", r, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s missing from RuleTable", finding.RuleLocalOutsideRoot)
 }
