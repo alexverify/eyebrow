@@ -9,6 +9,18 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-21
+
+### Added
+
+- `engine.Options.DialContext`. An embedder of `pkg/engine` can supply the
+  dialer for every TCP connection the engine opens itself: the url resolver's
+  TLS pinning probe and the registry resolver's fetch. A hosted worker uses it
+  to refuse private, link-local, and metadata destinations at connect time,
+  after DNS resolves, which also closes DNS rebinding. Child processes such as
+  git, npm, and cosign are not affected. `Offline` keeps priority and skips
+  all network resolution regardless of the hook.
+
 ## [0.5.1] - 2026-09-21
 
 ### Added
@@ -309,7 +321,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/alexverify/eyebrow/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/alexverify/eyebrow/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/alexverify/eyebrow/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/alexverify/eyebrow/compare/v0.4.6...v0.4.7
