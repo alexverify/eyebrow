@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -41,6 +42,11 @@ type Options struct {
 	// hosted caller wants to sandbox network activity by simply not needing
 	// it.
 	Offline bool
+	// DialContext, when set, opens every TCP connection the engine makes
+	// itself (the url resolver's TLS probe and the registry fetch). Child
+	// processes such as git and npm are not affected. Use it to enforce a
+	// destination policy in a hosted setting; nil uses net.Dialer.
+	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 // Engine runs scan and verify on a directory.
@@ -60,8 +66,11 @@ func New(o Options) *Engine {
 		discoverers = append(discoverers, discovererAdapter{d})
 	}
 	resolver := resolve.NewRouter()
-	if o.Offline {
+	switch {
+	case o.Offline:
 		resolver = resolve.NewOfflineRouter()
+	case o.DialContext != nil:
+		resolver = resolve.NewRouterWith(resolve.RouterOptions{DialContext: o.DialContext})
 	}
 	deps := scan.Deps{
 		Discoverer: discover.NewMulti(discoverers...),
