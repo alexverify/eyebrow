@@ -76,7 +76,14 @@ func (f TLSCertFetcher) SPKIPin(ctx context.Context, rawURL string) (string, err
 		host += ":443"
 	}
 
-	cfg := &tls.Config{InsecureSkipVerify: f.InsecureSkipVerify} //nolint:gosec // opt-in for tests only
+	// tls.Dialer fills ServerName from the address on its own; tls.Client
+	// does not, so the hooked path sets it here or every verified handshake
+	// fails before it starts.
+	serverName, _, err := net.SplitHostPort(host)
+	if err != nil {
+		return "", fmt.Errorf("url host %q: %w", host, err)
+	}
+	cfg := &tls.Config{ServerName: serverName, InsecureSkipVerify: f.InsecureSkipVerify} //nolint:gosec // opt-in for tests only
 
 	var tconn *tls.Conn
 	if f.DialContext != nil {
@@ -86,7 +93,7 @@ func (f TLSCertFetcher) SPKIPin(ctx context.Context, rawURL string) (string, err
 		}
 		tconn = tls.Client(raw, cfg)
 		if err := tconn.HandshakeContext(ctx); err != nil {
-			tconn.Close()
+			_ = tconn.Close()
 			return "", fmt.Errorf("tls handshake with %s: %w", host, err)
 		}
 	} else {
@@ -98,11 +105,11 @@ func (f TLSCertFetcher) SPKIPin(ctx context.Context, rawURL string) (string, err
 		var ok bool
 		tconn, ok = conn.(*tls.Conn)
 		if !ok {
-			conn.Close()
+			_ = conn.Close()
 			return "", fmt.Errorf("unexpected connection type %T", conn)
 		}
 	}
-	defer tconn.Close()
+	defer func() { _ = tconn.Close() }()
 
 	certs := tconn.ConnectionState().PeerCertificates
 	if len(certs) == 0 {

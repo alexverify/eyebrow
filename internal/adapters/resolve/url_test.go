@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http/httptest"
@@ -155,5 +156,39 @@ func TestURLResolveSurfacesDialContextError(t *testing.T) {
 	}
 	if !strings.Contains(explanation, wantErr.Error()) {
 		t.Fatalf("explanation %q does not contain the hook's error", explanation)
+	}
+}
+
+// TestTLSCertFetcherHookedPathSetsServerName proves the hooked path names the
+// server in the handshake: the server sees the SNI, and a verified handshake
+// (no InsecureSkipVerify) fails on the certificate, not on a missing name.
+func TestTLSCertFetcherHookedPathSetsServerName(t *testing.T) {
+	var sni string
+	srv := httptest.NewUnstartedServer(nil)
+	srv.TLS = &tls.Config{GetConfigForClient: func(h *tls.ClientHelloInfo) (*tls.Config, error) {
+		sni = h.ServerName
+		return nil, nil
+	}}
+	srv.StartTLS()
+	defer srv.Close()
+
+	hook := func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, network, srv.Listener.Addr().String())
+	}
+
+	if _, err := (TLSCertFetcher{InsecureSkipVerify: true, DialContext: hook}).SPKIPin(context.Background(), "https://pinned.example.invalid"); err != nil {
+		t.Fatalf("SPKIPin: %v", err)
+	}
+	if sni != "pinned.example.invalid" {
+		t.Errorf("server saw SNI %q, want pinned.example.invalid", sni)
+	}
+
+	_, err := (TLSCertFetcher{DialContext: hook}).SPKIPin(context.Background(), "https://pinned.example.invalid")
+	if err == nil {
+		t.Fatal("verified handshake against a self-signed server succeeded")
+	}
+	if strings.Contains(err.Error(), "ServerName") {
+		t.Fatalf("handshake failed on a missing server name: %v", err)
 	}
 }

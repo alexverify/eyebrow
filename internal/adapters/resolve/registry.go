@@ -63,7 +63,11 @@ func httpClientFor(dialCtx func(ctx context.Context, network, address string) (n
 	if dialCtx == nil {
 		return http.DefaultClient
 	}
-	return &http.Client{Transport: &http.Transport{DialContext: dialCtx}}
+	// Clone the default transport so proxies from the environment and the
+	// handshake and idle timeouts stay as they are; only the dial changes.
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DialContext = dialCtx
+	return &http.Client{Transport: t}
 }
 
 // Resolve satisfies ports.Resolver. Source.Ref is the app record URL.
