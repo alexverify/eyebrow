@@ -2,8 +2,11 @@ package resolve
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -137,5 +140,59 @@ func TestRegistryResolveRejectsRecordsItCannotUnderstand(t *testing.T) {
 	}
 	if len(res.Warnings) != 0 {
 		t.Errorf("must not emit listing findings about fields it never parsed, got %d", len(res.Warnings))
+	}
+}
+
+// TestRegistryUsesDialContextHook proves NewRegistryWith builds an HTTP
+// client whose transport dials through the caller's hook, so a hosted
+// embedder can enforce a destination policy on the registry fetch itself.
+func TestRegistryUsesDialContextHook(t *testing.T) {
+	srv := serveJSON(t, appRecord)
+
+	var gotNetwork, gotAddress string
+	hook := func(ctx context.Context, network, address string) (net.Conn, error) {
+		gotNetwork, gotAddress = network, address
+		var d net.Dialer
+		return d.DialContext(ctx, network, srv.Listener.Addr().String())
+	}
+
+	r := NewRegistryWith(hook)
+	r.Fetcher = fakeCertFetcher{pin: "sha256/AAAA"} // isolate the transport hook from the TLS probe path
+	res, err := r.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceRegistry, Ref: srv.URL})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if gotNetwork != "tcp" {
+		t.Errorf("network = %q, want tcp", gotNetwork)
+	}
+	if gotAddress == "" {
+		t.Error("dial hook was never called")
+	}
+	if res.ContentHash == "" {
+		t.Error("expected a content hash from the fetched manifest")
+	}
+}
+
+// TestRegistryDialContextErrorPropagates proves a hook's refusal reaches the
+// caller as a hard Resolve error (a registry fetch, unlike the TLS probe, has
+// nothing useful to report without the record).
+func TestRegistryDialContextErrorPropagates(t *testing.T) {
+	wantErr := errors.New("destination refused: private address")
+	hook := func(context.Context, string, string) (net.Conn, error) {
+		return nil, wantErr
+	}
+	r := NewRegistryWith(hook)
+	_, err := r.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceRegistry, Ref: "https://10.0.0.5/app"})
+	if err == nil || !strings.Contains(err.Error(), wantErr.Error()) {
+		t.Fatalf("err = %v, want to contain %q", err, wantErr.Error())
+	}
+}
+
+// TestNewRegistryWithNilUsesDefaultClient proves a nil hook leaves the
+// registry resolver on http.DefaultClient, matching NewRegistry.
+func TestNewRegistryWithNilUsesDefaultClient(t *testing.T) {
+	r := NewRegistryWith(nil)
+	if r.Client != http.DefaultClient {
+		t.Errorf("Client = %v, want http.DefaultClient", r.Client)
 	}
 }

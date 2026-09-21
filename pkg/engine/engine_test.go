@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -345,5 +347,76 @@ func TestVerifyIsStableAcrossDirectoriesWithRelativeRoot(t *testing.T) {
 	}
 	if !bytes.Equal(second.Lockfile, first.Lockfile) {
 		t.Fatalf("lockfile is not byte-identical across directories with a relative root\nfirst:  %s\nsecond: %s", first.Lockfile, second.Lockfile)
+	}
+}
+
+// TestDialContextGatesTheURLResolverConnection proves a hosted embedder can
+// refuse a destination (here, a private address) at connect time, after DNS,
+// by supplying Options.DialContext. The refusal must be visible in the
+// scan's findings rather than silently dropped.
+func TestDialContextGatesTheURLResolverConnection(t *testing.T) {
+	root := t.TempDir()
+	mcpJSON := `{"mcpServers":{"remote":{"url":"https://10.0.0.5/sse"}}}`
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), []byte(mcpJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	wantErr := errors.New("destination refused: private address")
+	var gotAddress string
+	refusing := func(_ context.Context, _, address string) (net.Conn, error) {
+		gotAddress = address
+		return nil, wantErr
+	}
+
+	e := engine.New(engine.Options{Clock: fixedClock, DialContext: refusing})
+	rep, err := e.Scan(context.Background(), engine.ScanRequest{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found *engine.Artifact
+	for i := range rep.Artifacts {
+		if rep.Artifacts[i].Name == "remote" {
+			found = &rep.Artifacts[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("mcp artifact missing: %+v", rep.Artifacts)
+	}
+	var explanation string
+	for _, f := range found.Findings {
+		if strings.Contains(f.Explanation, wantErr.Error()) {
+			explanation = f.Explanation
+		}
+	}
+	if explanation == "" {
+		t.Fatalf("expected a finding whose explanation contains the hook's error, got %+v", found.Findings)
+	}
+	if gotAddress != "10.0.0.5:443" {
+		t.Fatalf("hook called with address %q, want 10.0.0.5:443", gotAddress)
+	}
+}
+
+// TestOfflineNeverCallsDialContext proves Offline still short-circuits every
+// remote source before DialContext would ever be consulted.
+func TestOfflineNeverCallsDialContext(t *testing.T) {
+	root := t.TempDir()
+	mcpJSON := `{"mcpServers":{"remote":{"url":"https://10.0.0.5/sse"}}}`
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), []byte(mcpJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	hook := func(context.Context, string, string) (net.Conn, error) {
+		called = true
+		return nil, errors.New("must not be called")
+	}
+
+	e := engine.New(engine.Options{Clock: fixedClock, Offline: true, DialContext: hook})
+	if _, err := e.Scan(context.Background(), engine.ScanRequest{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("Offline must never invoke DialContext")
 	}
 }

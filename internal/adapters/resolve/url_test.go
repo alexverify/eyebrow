@@ -2,8 +2,11 @@ package resolve
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"net"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -56,5 +59,136 @@ func TestTLSCertFetcherAgainstLocalServer(t *testing.T) {
 	}
 	if len(pin) < len("sha256/") || pin[:len("sha256/")] != "sha256/" {
 		t.Fatalf("pin = %q, want sha256/ prefix", pin)
+	}
+}
+
+// TestTLSCertFetcherUsesDialContextHook proves the fetcher dials through a
+// caller-supplied hook rather than a bare net.Dialer, and that the hook sees
+// the resolved host:port (the point at which a destination policy can act,
+// after DNS but before any bytes are exchanged).
+func TestTLSCertFetcherUsesDialContextHook(t *testing.T) {
+	srv := httptest.NewTLSServer(nil)
+	defer srv.Close()
+
+	var gotNetwork, gotAddress string
+	hook := func(ctx context.Context, network, address string) (net.Conn, error) {
+		gotNetwork, gotAddress = network, address
+		var d net.Dialer
+		return d.DialContext(ctx, network, srv.Listener.Addr().String())
+	}
+
+	pin, err := (TLSCertFetcher{InsecureSkipVerify: true, DialContext: hook}).SPKIPin(context.Background(), "https://pinned.example.invalid")
+	if err != nil {
+		t.Fatalf("SPKIPin: %v", err)
+	}
+	if gotNetwork != "tcp" {
+		t.Errorf("network = %q, want tcp", gotNetwork)
+	}
+	if gotAddress != "pinned.example.invalid:443" {
+		t.Errorf("address = %q, want pinned.example.invalid:443", gotAddress)
+	}
+	if len(pin) < len("sha256/") || pin[:len("sha256/")] != "sha256/" {
+		t.Fatalf("pin = %q, want sha256/ prefix", pin)
+	}
+}
+
+// TestTLSCertFetcherWrapsDialContextError proves a hook's refusal (e.g. a
+// destination policy denying a private address) surfaces with its message
+// intact, rather than being swallowed or replaced.
+func TestTLSCertFetcherWrapsDialContextError(t *testing.T) {
+	wantErr := errors.New("destination refused: private address")
+	hook := func(context.Context, string, string) (net.Conn, error) {
+		return nil, wantErr
+	}
+	_, err := (TLSCertFetcher{DialContext: hook}).SPKIPin(context.Background(), "https://10.0.0.5")
+	if err == nil || !strings.Contains(err.Error(), wantErr.Error()) {
+		t.Fatalf("SPKIPin error = %v, want to contain %q", err, wantErr.Error())
+	}
+}
+
+// TestURLResolveUsesDialContextHook proves Resolve routes the TLS probe
+// through the fetcher's DialContext hook and still produces a pin.
+func TestURLResolveUsesDialContextHook(t *testing.T) {
+	srv := httptest.NewTLSServer(nil)
+	defer srv.Close()
+
+	var gotAddress string
+	hook := func(ctx context.Context, network, address string) (net.Conn, error) {
+		gotAddress = address
+		var d net.Dialer
+		return d.DialContext(ctx, network, srv.Listener.Addr().String())
+	}
+
+	u := URL{Fetcher: TLSCertFetcher{InsecureSkipVerify: true, DialContext: hook}}
+	res, err := u.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceURL, Ref: "https://pinned.example.invalid/sse"})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if gotAddress != "pinned.example.invalid:443" {
+		t.Errorf("address = %q, want pinned.example.invalid:443", gotAddress)
+	}
+	if res.CertSPKI == "" {
+		t.Error("expected a pin obtained through the hook")
+	}
+}
+
+// TestURLResolveSurfacesDialContextError proves a hook's error message
+// survives into the TLS-PIN-FAILED finding, so a hosted caller can see why a
+// connection was refused.
+func TestURLResolveSurfacesDialContextError(t *testing.T) {
+	wantErr := errors.New("destination refused: private address")
+	hook := func(context.Context, string, string) (net.Conn, error) {
+		return nil, wantErr
+	}
+	u := URL{Fetcher: TLSCertFetcher{DialContext: hook}}
+	res, err := u.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceURL, Ref: "https://10.0.0.5/sse"})
+	if err != nil {
+		t.Fatalf("Resolve must not hard-fail on a dial refusal: %v", err)
+	}
+	if !hasRule(res.Warnings, "TLS-PIN-FAILED") {
+		t.Fatal("expected a TLS-PIN-FAILED warning")
+	}
+	var explanation string
+	for _, w := range res.Warnings {
+		if w.RuleID == "TLS-PIN-FAILED" {
+			explanation = w.Explanation
+		}
+	}
+	if !strings.Contains(explanation, wantErr.Error()) {
+		t.Fatalf("explanation %q does not contain the hook's error", explanation)
+	}
+}
+
+// TestTLSCertFetcherHookedPathSetsServerName proves the hooked path names the
+// server in the handshake: the server sees the SNI, and a verified handshake
+// (no InsecureSkipVerify) fails on the certificate, not on a missing name.
+func TestTLSCertFetcherHookedPathSetsServerName(t *testing.T) {
+	var sni string
+	srv := httptest.NewUnstartedServer(nil)
+	srv.TLS = &tls.Config{GetConfigForClient: func(h *tls.ClientHelloInfo) (*tls.Config, error) {
+		sni = h.ServerName
+		return nil, nil
+	}}
+	srv.StartTLS()
+	defer srv.Close()
+
+	hook := func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, network, srv.Listener.Addr().String())
+	}
+
+	if _, err := (TLSCertFetcher{InsecureSkipVerify: true, DialContext: hook}).SPKIPin(context.Background(), "https://pinned.example.invalid"); err != nil {
+		t.Fatalf("SPKIPin: %v", err)
+	}
+	if sni != "pinned.example.invalid" {
+		t.Errorf("server saw SNI %q, want pinned.example.invalid", sni)
+	}
+
+	_, err := (TLSCertFetcher{DialContext: hook}).SPKIPin(context.Background(), "https://pinned.example.invalid")
+	if err == nil {
+		t.Fatal("verified handshake against a self-signed server succeeded")
+	}
+	if strings.Contains(err.Error(), "ServerName") {
+		t.Fatalf("handshake failed on a missing server name: %v", err)
 	}
 }
