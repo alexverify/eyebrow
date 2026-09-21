@@ -99,10 +99,8 @@ func assertConfined(t *testing.T, rep engine.Report, echo *lineEchoAnalyzer, out
 	}
 	echo.mu.Lock()
 	defer echo.mu.Unlock()
-	for _, r := range echo.roots {
-		if strings.HasPrefix(r, outside) {
-			t.Fatalf("extra analyzer called on outside path %q", r)
-		}
+	if len(echo.roots) != 0 {
+		t.Fatalf("extra analyzer called on %q; outside path %q must never be opened", echo.roots, outside)
 	}
 }
 
@@ -189,4 +187,16 @@ func TestRulesListsTheConfinementRule(t *testing.T) {
 		}
 	}
 	t.Fatal("LOCAL-OUTSIDE-ROOT missing from Rules")
+}
+
+func TestConfineToRootRefusesGlobal(t *testing.T) {
+	confinedTree(t, hostFile(t))
+	e := engine.New(engine.Options{Clock: fixedClock, ConfineToRoot: true})
+	const want = "engine: ConfineToRoot cannot be combined with Global"
+	if _, err := e.Scan(context.Background(), engine.ScanRequest{Root: ".", Global: true}); err == nil || err.Error() != want {
+		t.Fatalf("Scan err = %v, want %q", err, want)
+	}
+	if _, err := e.Verify(context.Background(), engine.VerifyRequest{Root: ".", Global: true, Expected: []byte("{}")}); err == nil || err.Error() != want {
+		t.Fatalf("Verify err = %v, want %q", err, want)
+	}
 }

@@ -3,9 +3,11 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/alexverify/eyebrow/internal/adapters/analyze"
@@ -55,6 +57,17 @@ type Options struct {
 	// The finding is LOCAL-OUTSIDE-ROOT (severity high), so the default
 	// policy fails the verdict. A path that does not exist is refused the
 	// same way. Confinement is independent of Offline and applies with it.
+	// It cannot be combined with ScanRequest.Global or VerifyRequest.Global:
+	// global discovery reads the host's own configuration, which confinement
+	// cannot cover, so Scan and Verify return an error for that pair.
+	//
+	// Confinement covers the sources the engine hashes and analyzes, not
+	// discovery itself. Discovery still opens fixed-name config and manifest
+	// files inside the root (.mcp.json, .claude/settings*.json,
+	// eyebrow.discover.json, SKILL.md frontmatter, registry.json, AI17Z
+	// packages) and follows symlinks there. Embedders that scan untrusted
+	// trees must also remove symlinks, hard links, and special files from
+	// the tree before the scan.
 	ConfineToRoot bool
 }
 
@@ -108,16 +121,34 @@ func routerFor(o Options, confineRoot string) ports.Resolver {
 	return resolve.NewRouterWith(ro)
 }
 
+// errConfineGlobal refuses a confined request that also asks for global
+// discovery, which reads the host's own configuration.
+var errConfineGlobal = errors.New("engine: ConfineToRoot cannot be combined with Global")
+
 // services returns the scan and verify services for a request on root. With
-// ConfineToRoot set, they use a resolver confined to root.
-func (e *Engine) services(root string) (*scan.Service, *verify.Service) {
+// ConfineToRoot set, they use a resolver confined to root, which is resolved
+// once here to an absolute, symlink-free path. Callers run checkRoot first,
+// so root is never empty: an empty root fails os.Stat there, before any
+// confinement is built.
+func (e *Engine) services(root string, global bool) (*scan.Service, *verify.Service, error) {
 	if !e.opts.ConfineToRoot {
-		return e.scan, e.verify
+		return e.scan, e.verify, nil
+	}
+	if global {
+		return nil, nil, errConfineGlobal
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, nil, fmt.Errorf("root %q: %w", root, err)
+	}
+	realRoot, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("root %q: %w", root, err)
 	}
 	deps := e.deps
-	deps.Resolver = routerFor(e.opts, root)
+	deps.Resolver = routerFor(e.opts, realRoot)
 	sc := scan.New(deps)
-	return sc, verify.New(verify.Deps{Builder: sc})
+	return sc, verify.New(verify.Deps{Builder: sc}), nil
 }
 
 // ScanRequest names the directory to scan.
@@ -171,7 +202,10 @@ func (e *Engine) Scan(ctx context.Context, r ScanRequest) (Report, error) {
 	// lists do. See ScanRequest.Policy.
 	pol.RequireApproval = false
 	pol.RequireSignedApproval = false
-	sc, _ := e.services(r.Root)
+	sc, _, err := e.services(r.Root, r.Global)
+	if err != nil {
+		return Report{}, err
+	}
 	lf, err := sc.Build(ctx, scopesOf(r.Root, r.Global))
 	if err != nil {
 		return Report{}, err
@@ -231,7 +265,10 @@ func (e *Engine) Verify(ctx context.Context, r VerifyRequest) (VerifyReport, err
 	if err != nil {
 		return VerifyReport{}, err
 	}
-	_, vs := e.services(r.Root)
+	_, vs, err := e.services(r.Root, r.Global)
+	if err != nil {
+		return VerifyReport{}, err
+	}
 	res, err := vs.Check(ctx, locked, verify.Options{
 		Scopes: scopesOf(r.Root, r.Global),
 		CI:     true,

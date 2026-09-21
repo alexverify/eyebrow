@@ -12,6 +12,6 @@ func LocalOutsideRoot() Finding {
 		RuleID:      RuleLocalOutsideRoot,
 		Severity:    SeverityHigh,
 		OWASP:       "ASK-02",
-		Explanation: "local source path is outside the scanned tree and was not read",
+		Explanation: "local source is outside the scanned tree or missing from it, and was not read",
 	}
 }

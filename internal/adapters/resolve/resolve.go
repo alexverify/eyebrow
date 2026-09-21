@@ -92,8 +92,10 @@ type Local struct {
 	// does not resolve (after following symlinks) to Root or below it is
 	// refused: the resolution carries a LOCAL-OUTSIDE-ROOT finding and no
 	// LocalPath, so the hasher and analyzers never open it. A path that does
-	// not exist or cannot be evaluated is refused the same way. Empty means
-	// unconfined, which is what the CLI wants on a developer's own machine.
+	// not exist or cannot be evaluated is refused the same way. Root must be
+	// absolute with every symlink already resolved; any other non-empty value
+	// refuses every path. Empty means unconfined, which is what the CLI wants
+	// on a developer's own machine.
 	Root string
 }
 
@@ -103,8 +105,14 @@ func (l Local) Resolve(_ context.Context, src artifact.Source) (ports.Resolution
 	if path == "" {
 		path = src.Command
 	}
-	if l.Root != "" && !within(l.Root, path) {
-		return ports.Resolution{PinnedRef: path, Warnings: []finding.Finding{finding.LocalOutsideRoot()}}, nil
+	if l.Root != "" {
+		checked, ok := within(l.Root, path)
+		if !ok {
+			return ports.Resolution{PinnedRef: path, Warnings: []finding.Finding{finding.LocalOutsideRoot()}}, nil
+		}
+		// Open exactly the path that passed the check, so a symlink swapped
+		// after the check cannot redirect the hasher or the analyzers.
+		return ports.Resolution{LocalPath: checked, PinnedRef: path}, nil
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -123,31 +131,26 @@ func (l Local) Resolve(_ context.Context, src artifact.Source) (ports.Resolution
 }
 
 // within reports whether path, with every symlink followed, is root or lies
-// under it. Any error (a missing path, an unreadable link) reports false, so
-// confinement fails closed.
-func within(root, path string) bool {
-	rootReal, err := realAbs(root)
+// under it, and returns that resolved path. root must already be absolute and
+// symlink-resolved. Any error (a missing path, an unreadable link) or a
+// relative root reports false, so confinement fails closed.
+func within(root, path string) (string, bool) {
+	if !filepath.IsAbs(root) {
+		return "", false
+	}
+	abs, err := filepath.Abs(path)
 	if err != nil {
-		return false
+		return "", false
 	}
-	real, err := realAbs(path)
+	resolved, err := filepath.EvalSymlinks(abs)
 	if err != nil {
-		return false
+		return "", false
 	}
-	rel, err := filepath.Rel(rootReal, real)
-	if err != nil || filepath.IsAbs(rel) {
-		return false
+	rel, err := filepath.Rel(root, resolved)
+	if err != nil || filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
 	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// realAbs returns the absolute path of p with every symlink resolved.
-func realAbs(p string) (string, error) {
-	abs, err := filepath.Abs(p)
-	if err != nil {
-		return "", err
-	}
-	return filepath.EvalSymlinks(abs)
+	return resolved, true
 }
 
 // Inline content-addresses literal text (hooks, rules, context). By convention
