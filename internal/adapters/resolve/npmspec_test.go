@@ -1,6 +1,9 @@
 package resolve
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseNPMSpec(t *testing.T) {
 	cases := []struct {
@@ -21,6 +24,57 @@ func TestParseNPMSpec(t *testing.T) {
 		if name != c.name || version != c.version || pinned != c.pinned {
 			t.Errorf("parseNPMSpec(%q) = (%q,%q,%v), want (%q,%q,%v)",
 				c.ref, name, version, pinned, c.name, c.version, c.pinned)
+		}
+	}
+}
+
+func TestIsRegistrySpec(t *testing.T) {
+	cases := []struct {
+		ref    string
+		accept bool
+	}{
+		{"left-pad", true},
+		{"left-pad@1.3.0", true},
+		{"@scope/name", true},
+		{"@scope/name@^2.0.0", true},
+		{"name@latest", true},
+		{"name@>=1 <2", false}, // whitespace in version
+		{"github:attacker/pwn", false},
+		{"git+https://x/y.git", false},
+		{"https://x/y.tgz", false},
+		{"file:../etc", false},
+		{"npm:other@1", false},
+		{"../x", false},
+		{"-flag", false},
+		{"@/x", false},
+		{strings.Repeat("a", 215), false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := isRegistrySpec(c.ref); got != c.accept {
+			t.Errorf("isRegistrySpec(%q) = %v, want %v", c.ref, got, c.accept)
+		}
+	}
+}
+
+func TestIsStrictVersion(t *testing.T) {
+	cases := []struct {
+		v      string
+		accept bool
+	}{
+		{"1.2.3", true},
+		{"1.2.3-beta.1", true},
+		{"1.2.3+build.5", true},
+		{"git+ssh://attacker/x", false},
+		{"https://attacker/x.tgz", false},
+		{"latest", false},
+		{"1.2", false},
+		{"^1.2.3", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := isStrictVersion(c.v); got != c.accept {
+			t.Errorf("isStrictVersion(%q) = %v, want %v", c.v, got, c.accept)
 		}
 	}
 }

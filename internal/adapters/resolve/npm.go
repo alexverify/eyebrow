@@ -53,7 +53,12 @@ func (n NPM) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	if version != "" {
 		spec = name + "@" + version
 	}
-	out, err := n.Runner.Run(ctx, "npm", "view", spec, "version", "--json")
+	if !isRegistrySpec(src.Ref) {
+		return ports.Resolution{}, fmt.Errorf("npm spec %q is not a registry package; git, url, file, and alias specs are not resolved", src.Ref)
+	}
+	// --ignore-scripts is a no-op for `view` (it never runs install/prepare
+	// scripts); it's passed anyway for uniformity with the `pack` call below.
+	out, err := n.Runner.Run(ctx, "npm", "view", spec, "version", "--json", "--ignore-scripts")
 	if err != nil {
 		return ports.Resolution{}, fmt.Errorf("npm view %s version: %w", spec, err)
 	}
@@ -61,10 +66,18 @@ func (n NPM) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	if concrete == "" {
 		return ports.Resolution{}, fmt.Errorf("npm: could not resolve a concrete version for %q", spec)
 	}
+	// The registry's answer feeds two further `npm view` calls and `npm pack`
+	// below. A malicious or compromised registry (e.g. one a scanned repo's
+	// .npmrc points at) could answer with a git or tarball spec instead of a
+	// version; npm's spec dispatch would then clone or download regardless of
+	// --ignore-scripts. Refuse anything that isn't a strict semver version.
+	if !isStrictVersion(concrete) {
+		return ports.Resolution{}, fmt.Errorf("npm registry returned a non-version %q for %s; refusing to resolve", concrete, spec)
+	}
 	pinnedSpec := name + "@" + concrete
 
 	integrity := ""
-	if iout, ierr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.integrity", "--json"); ierr == nil {
+	if iout, ierr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.integrity", "--json", "--ignore-scripts"); ierr == nil {
 		integrity = parseNPMStringOutput(iout)
 	}
 
@@ -74,7 +87,7 @@ func (n NPM) Resolve(ctx context.Context, src artifact.Source) (ports.Resolution
 	// lookup is best-effort — an old npm, a private registry, or a package
 	// without provenance simply leaves this empty.
 	provenance := ""
-	if pout, perr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.attestations.provenance.predicateType", "--json"); perr == nil {
+	if pout, perr := n.Runner.Run(ctx, "npm", "view", pinnedSpec, "dist.attestations.provenance.predicateType", "--json", "--ignore-scripts"); perr == nil {
 		provenance = parseNPMStringOutput(pout)
 	}
 
@@ -110,7 +123,7 @@ func (p packFetcher) fetch(ctx context.Context, spec string) (string, error) {
 // into destDir/package-root and returns that path. Split out from fetch so the
 // destination is injectable in tests.
 func (p packFetcher) fetchInto(ctx context.Context, spec, destDir string) (string, error) {
-	out, err := p.runner.Run(ctx, "npm", "pack", spec, "--pack-destination", destDir, "--json")
+	out, err := p.runner.Run(ctx, "npm", "pack", spec, "--pack-destination", destDir, "--json", "--ignore-scripts")
 	if err != nil {
 		return "", fmt.Errorf("npm pack %s: %w", spec, err)
 	}

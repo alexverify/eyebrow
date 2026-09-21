@@ -3,6 +3,7 @@ package resolve
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -20,15 +21,15 @@ func (s stubFetcher) fetch(context.Context, string) (string, error) { return s.d
 
 func npmRunner() *run.Fake {
 	return &run.Fake{Responses: map[string]run.FakeResponse{
-		"npm view some-mcp@1.4.2 version --json":        {Out: []byte(`"1.4.2"`)},
-		"npm view some-mcp@1.4.2 dist.integrity --json": {Out: []byte(`"sha512-abc"`)},
-		"npm view some-mcp@latest version --json":       {Out: []byte(`"1.4.2"`)},
+		"npm view some-mcp@1.4.2 version --json --ignore-scripts":        {Out: []byte(`"1.4.2"`)},
+		"npm view some-mcp@1.4.2 dist.integrity --json --ignore-scripts": {Out: []byte(`"sha512-abc"`)},
+		"npm view some-mcp@latest version --json --ignore-scripts":       {Out: []byte(`"1.4.2"`)},
 	}}
 }
 
 func TestNPMResolveCapturesProvenance(t *testing.T) {
 	r := npmRunner()
-	r.Responses["npm view some-mcp@1.4.2 dist.attestations.provenance.predicateType --json"] =
+	r.Responses["npm view some-mcp@1.4.2 dist.attestations.provenance.predicateType --json --ignore-scripts"] =
 		run.FakeResponse{Out: []byte(`"https://slsa.dev/provenance/v1"`)}
 	n := NPM{Runner: r, Fetcher: stubFetcher{dir: "/tmp/extracted"}}
 	res, err := n.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceNPM, Ref: "some-mcp@1.4.2"})
@@ -101,6 +102,48 @@ func TestNPMResolveDegradesWhenFetchFails(t *testing.T) {
 	// Pinning still succeeds even if code couldn't be downloaded.
 	if res.PinnedRef == "" || res.Integrity == "" {
 		t.Errorf("pinning should still succeed: ref=%q integrity=%q", res.PinnedRef, res.Integrity)
+	}
+}
+
+func TestNPMResolveRejectsNonRegistrySpec(t *testing.T) {
+	r := npmRunner()
+	n := NPM{Runner: r, Fetcher: stubFetcher{dir: "/tmp/extracted"}}
+	_, err := n.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceNPM, Ref: "github:attacker/pwn"})
+	if err == nil {
+		t.Fatal("expected an error for a non-registry spec")
+	}
+	if len(r.Calls) != 0 {
+		t.Fatalf("expected no npm invocations, got %v", r.Calls)
+	}
+}
+
+func TestNPMResolveIgnoresScripts(t *testing.T) {
+	r := npmRunner()
+	n := NPM{Runner: r, Fetcher: stubFetcher{dir: "/tmp/extracted"}}
+	if _, err := n.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceNPM, Ref: "some-mcp@1.4.2"}); err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	for _, call := range r.Calls {
+		if !strings.Contains(call, "--ignore-scripts") {
+			t.Errorf("call %q missing --ignore-scripts", call)
+		}
+	}
+	if len(r.Calls) == 0 {
+		t.Fatal("expected at least one npm invocation")
+	}
+}
+
+func TestNPMResolveRejectsNonVersionFromRegistry(t *testing.T) {
+	r := &run.Fake{Responses: map[string]run.FakeResponse{
+		"npm view left-pad version --json --ignore-scripts": {Out: []byte(`"git+ssh://attacker/x"`)},
+	}}
+	n := NPM{Runner: r, Fetcher: stubFetcher{dir: "/tmp/extracted"}}
+	_, err := n.Resolve(context.Background(), artifact.Source{Kind: artifact.SourceNPM, Ref: "left-pad"})
+	if err == nil {
+		t.Fatal("expected an error when the registry returns a non-version string")
+	}
+	if len(r.Calls) != 1 {
+		t.Fatalf("expected exactly the first view call, got %v", r.Calls)
 	}
 }
 

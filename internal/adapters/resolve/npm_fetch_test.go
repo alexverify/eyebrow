@@ -18,7 +18,7 @@ func TestPackFetcherDownloadsAndExtracts(t *testing.T) {
 	})
 
 	runner := &run.Fake{Responses: map[string]run.FakeResponse{
-		"npm pack some-mcp@1.4.2 --pack-destination " + tmp + " --json": {
+		"npm pack some-mcp@1.4.2 --pack-destination " + tmp + " --json --ignore-scripts": {
 			Out: []byte(`[{"filename":"some-mcp-1.4.2.tgz"}]`),
 		},
 	}}
