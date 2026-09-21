@@ -72,14 +72,14 @@ func (a *AI17Z) discoverProject(sc ports.Scope) []artifact.Artifact {
 
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil // unreadable entry: skip it, keep walking
+			return skipEntry(d) // unreadable entry: skip it, keep walking
 		}
 		if path == root {
 			return nil
 		}
 		rel, relErr := filepath.Rel(root, path)
 		if relErr != nil {
-			return nil
+			return skipEntry(d)
 		}
 		relSlash := filepath.ToSlash(rel)
 		// depth is how many directories under root this entry's parent chain
@@ -119,6 +119,15 @@ func (a *AI17Z) discoverProject(sc ports.Scope) []artifact.Artifact {
 	})
 
 	return out
+}
+
+// skipEntry is the walk's answer to an entry it cannot use: a directory is
+// pruned, anything else is left out. Neither stops the walk.
+func skipEntry(d fs.DirEntry) error {
+	if d != nil && d.IsDir() {
+		return fs.SkipDir
+	}
+	return nil
 }
 
 // ai17zArtifact builds the artifact for one candidate file, or reports ok=false
