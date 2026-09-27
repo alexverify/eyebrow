@@ -68,6 +68,16 @@ func (a *App) runScan(ctx context.Context, args []string) int {
 	// Read the prior lockfile first (best-effort) so the verdict can report drift
 	// against the baseline scan is about to overwrite.
 	prior, _ := lockstore.New().Read(ctx, *c.lockfile)
+	// A --tool scan writes only that tool; over a lockfile holding others it
+	// would silently drop them.
+	if *tool != "" {
+		for _, e := range prior.Artifacts {
+			if !strings.EqualFold(e.Tool, *tool) {
+				fmt.Fprintf(a.Stderr, "scan: lockfile %s holds other tools' artifacts; use a separate --lockfile with --tool\n", *c.lockfile)
+				return ExitUsage
+			}
+		}
+	}
 
 	svc := a.capturingScanService(*c.json, *c.rules, *c.path)
 	lf, err := svc.Run(ctx, scan.Options{
@@ -122,6 +132,7 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 		LockfilePath: *c.lockfile,
 		CI:           *ci,
 		Policy:       pol,
+		Tool:         *tool,
 	}, a.Stdout)
 	if err != nil {
 		return a.fail("verify", err)

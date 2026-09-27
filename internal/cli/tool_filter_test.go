@@ -202,3 +202,54 @@ func TestToolVerifyReportsDriftAsJSON(t *testing.T) {
 		t.Fatalf("want one content_changed for demo, got %+v", d.Changes)
 	}
 }
+
+// A lockfile from a full scan holds every tool. verify --tool compares only
+// that tool's entries, so the others do not read as removed.
+func TestToolVerifyIgnoresOtherToolsInLockfile(t *testing.T) {
+	project, lock := openclawHome(t)
+	ctx := context.Background()
+	app, _, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"scan", "--path", project, "--global", "--lockfile", lock, "--json"}); code != cli.ExitOK {
+		t.Fatalf("full scan exit %d: %s", code, errBuf)
+	}
+	app, out, errBuf := newApp()
+	code := app.Execute(ctx, []string{"verify", "--path", project, "--global", "--tool", "openclaw", "--lockfile", lock, "--json"})
+	if code != cli.ExitOK {
+		t.Fatalf("verify --tool exit %d, want %d: %s\n%s", code, cli.ExitOK, errBuf, out)
+	}
+	var d verifyJSON
+	oneJSONDoc(t, out.Bytes(), &d)
+	if len(d.Changes) != 0 {
+		t.Fatalf("verify --tool must report no changes, got %+v", d.Changes)
+	}
+}
+
+// scan --tool on a lockfile holding other tools would drop them; it refuses
+// and leaves the lockfile as it was.
+func TestToolScanRefusesToShrinkSharedLockfile(t *testing.T) {
+	project, lock := openclawHome(t)
+	ctx := context.Background()
+	app, _, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"scan", "--path", project, "--global", "--lockfile", lock, "--json"}); code != cli.ExitOK {
+		t.Fatalf("full scan exit %d: %s", code, errBuf)
+	}
+	before, err := os.ReadFile(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, _, errBuf = newApp()
+	code := app.Execute(ctx, []string{"scan", "--path", project, "--global", "--tool", "openclaw", "--lockfile", lock, "--json"})
+	if code != cli.ExitUsage {
+		t.Fatalf("scan --tool exit %d, want %d", code, cli.ExitUsage)
+	}
+	if !strings.Contains(errBuf.String(), "holds other tools' artifacts; use a separate --lockfile with --tool") {
+		t.Errorf("stderr must explain the refusal: %q", errBuf)
+	}
+	after, err := os.ReadFile(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("scan --tool rewrote the shared lockfile")
+	}
+}
