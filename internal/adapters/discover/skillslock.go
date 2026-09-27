@@ -12,13 +12,16 @@ import (
 // SkillsLock discovers skills published by repos in the skills-lock ecosystem
 // (dexter-mcp, solana-foundation/pay). Those repos keep their catalog at a
 // top-level skills/<slug>/SKILL.md and declare it with a skills-lock.json at
-// the root — a provenance lock that records where a skill came from but does
-// not fingerprint its content or reach. Discovery is gated on that marker so
-// the adapter is inert for every other repo: a plain skills/ directory
-// elsewhere must not get artifacts injected into its scan. AEON repos use the
-// same layout under their own aeon.yml marker; when both markers are present
-// the AEON adapter owns the layout and this one stays inert, so no skill is
-// reported twice.
+// the root, the lock the Vercel skills CLI writes. Each entry records where a
+// skill came from and a sha256 over its installed folder; catalog skills that
+// the lock names carry that hash as their integrity anchor (see
+// applySkillsLockPins). Discovery is gated on that marker so the adapter is
+// inert for every other repo: a plain skills/ directory elsewhere must not
+// get artifacts injected into its scan. AEON repos use the same layout under
+// their own aeon.yml marker; when both markers are present the AEON adapter
+// owns the layout and this one stays inert, so no skill is reported twice.
+// Skills the same lock installs under .claude/skills are the Claude Code
+// adapter's, which applies the same pins.
 type SkillsLock struct{}
 
 // NewSkillsLock constructs the skills-lock catalog discoverer.
@@ -48,6 +51,7 @@ func (s *SkillsLock) Discover(_ context.Context, scopes []ports.Scope) ([]artifa
 		for i := range skills {
 			skills[i].Capabilities = capabilitiesFromSkill(skills[i].DiscoveredFrom)
 		}
+		applySkillsLockPins(sc.Path, skills)
 		out = append(out, skills...)
 	}
 	return out, nil

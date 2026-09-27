@@ -34,7 +34,9 @@ func (c *ClaudeCode) Discover(_ context.Context, scopes []ports.Scope) ([]artifa
 		case "project":
 			dot := filepath.Join(sc.Path, ".claude")
 			out = append(out, mcpServersFromConfig(c.Tool(), filepath.Join(sc.Path, ".mcp.json"), sc.String(), parse.JSON)...)
-			out = append(out, skillsFromDir(c.Tool(), filepath.Join(dot, "skills"), sc.String())...)
+			skills := skillsFromDir(c.Tool(), filepath.Join(dot, "skills"), sc.String())
+			applySkillsLockPins(sc.Path, skills) // npx skills add records a folder hash per skill here
+			out = append(out, skills...)
 			out = append(out, mdFilesFromDir(c.Tool(), filepath.Join(dot, "agents"), sc.String(), artifact.TypeSubagent)...)
 			out = append(out, c.hooksFromSettings(filepath.Join(dot, "settings.json"), sc.String())...)
 			out = append(out, c.hooksFromSettings(filepath.Join(dot, "settings.local.json"), sc.String())...)
