@@ -14,6 +14,7 @@ import (
 var completionCommands = []struct{ name, desc string }{
 	{"scan", "Discover, resolve, hash, and analyze artifacts; write the lockfile"},
 	{"verify", "Recompute and diff against the lockfile"},
+	{"check", "Scan one folder as an untrusted skill or plugin (install gate)"},
 	{"diff", "Show what changed since the last lockfile"},
 	{"digest", "Summarize what changed since the lockfile"},
 	{"sbom", "Export the lockfile as an SBOM (CycloneDX or SPDX)"},

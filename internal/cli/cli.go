@@ -61,6 +61,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 	switch cmd {
 	case "scan":
 		return a.runScan(ctx, rest)
+	case "check":
+		return a.runCheck(ctx, rest)
 	case "verify":
 		return a.runVerify(ctx, rest)
 	case "diff":
@@ -129,6 +131,7 @@ Usage:
 Commands:
   scan      Discover, resolve, hash, and analyze artifacts; write the lockfile
   verify    Recompute and diff against the lockfile (rug-pull detector)
+  check     Scan one folder as an untrusted skill or plugin (install gate)
   diff      Show what changed since the last lockfile (informational)
   digest    Summarize what changed since the lockfile (--json for machine output)
   sbom      Export the lockfile as an SBOM (--format cyclonedx|spdx, --o file)
