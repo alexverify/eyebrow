@@ -10,10 +10,11 @@ import (
 // embedder sees a rule id in a report that Rules() and RuleCount never named.
 func TestRulesListsEveryPipelineRule(t *testing.T) {
 	want := map[string]string{
-		"LOCAL-OUTSIDE-ROOT":   "high",
-		"SKILLS-LOCK-MISMATCH": "high",
-		"RESOLVE-UNSUPPORTED":  "medium",
-		"RESOLVE-FAILED":       "high",
+		"LOCAL-OUTSIDE-ROOT":           "high",
+		"SKILLS-LOCK-MISMATCH":         "high",
+		"CLAWHUB-FINGERPRINT-MISMATCH": "high",
+		"RESOLVE-UNSUPPORTED":          "medium",
+		"RESOLVE-FAILED":               "high",
 	}
 	for _, r := range engine.Rules() {
 		if sev, ok := want[r.ID]; ok {

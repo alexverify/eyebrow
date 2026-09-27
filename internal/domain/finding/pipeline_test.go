@@ -63,10 +63,11 @@ func TestResolveFailedCarriesTheError(t *testing.T) {
 // generic explanation must not leak a placeholder from the constructor.
 func TestPipelineRulesListsEveryPipelineRuleOnce(t *testing.T) {
 	want := map[string]Severity{
-		RuleLocalOutsideRoot:   SeverityHigh,
-		RuleSkillsLockMismatch: SeverityHigh,
-		RuleResolveUnsupported: SeverityMedium,
-		RuleResolveFailed:      SeverityHigh,
+		RuleLocalOutsideRoot:           SeverityHigh,
+		RuleSkillsLockMismatch:         SeverityHigh,
+		RuleClawHubFingerprintMismatch: SeverityHigh,
+		RuleResolveUnsupported:         SeverityMedium,
+		RuleResolveFailed:              SeverityHigh,
 	}
 	got := PipelineRules()
 	if len(got) != len(want) {
