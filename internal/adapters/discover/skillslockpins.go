@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -74,14 +73,7 @@ func applySkillsLockPins(root string, arts []artifact.Artifact) {
 		if err != nil || actual == recorded {
 			continue
 		}
-		a.Findings = append(a.Findings, finding.Finding{
-			RuleID:   "SKILLS-LOCK-MISMATCH",
-			Severity: finding.SeverityHigh,
-			OWASP:    "ASK-02",
-			File:     skillsLockFile,
-			Explanation: fmt.Sprintf("skills-lock.json records sha256 %s for this skill but the folder hashes to %s under the skills CLI algorithm; the pinned content changed after the lock was written",
-				recorded, actual),
-		})
+		a.Findings = append(a.Findings, finding.SkillsLockMismatch(recorded, actual))
 	}
 }
 

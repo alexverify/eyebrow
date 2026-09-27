@@ -114,10 +114,14 @@ func RuleTable() []RuleInfo {
 }
 
 // pipelineRules lists findings the pipeline raises outside pattern matching,
-// so their ids are reserved in RuleTable like any native rule.
+// so their ids are reserved in RuleTable like any native rule. The finding
+// package owns the registry; this only reshapes it.
 func pipelineRules() []RuleInfo {
-	f := finding.LocalOutsideRoot()
-	return []RuleInfo{{ID: f.RuleID, Severity: f.Severity, OWASP: f.OWASP, Explanation: f.Explanation}}
+	var out []RuleInfo
+	for _, f := range finding.PipelineRules() {
+		out = append(out, RuleInfo{ID: f.RuleID, Severity: f.Severity, OWASP: f.OWASP, Explanation: f.Explanation})
+	}
+	return out
 }
 
 // Native is the dependency-free analyzer.

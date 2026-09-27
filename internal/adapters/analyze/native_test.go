@@ -206,3 +206,17 @@ func TestRuleTableListsTheConfinementRule(t *testing.T) {
 	}
 	t.Fatalf("%s missing from RuleTable", finding.RuleLocalOutsideRoot)
 }
+
+// The pipeline rules come from the finding package's registry, so a rule added
+// there is reserved here without a second list to keep in sync.
+func TestRuleTableIncludesRegisteredPipelineRules(t *testing.T) {
+	ids := map[string]bool{}
+	for _, r := range RuleTable() {
+		ids[r.ID] = true
+	}
+	for _, want := range []string{"LOCAL-OUTSIDE-ROOT", "SKILLS-LOCK-MISMATCH", "RESOLVE-UNSUPPORTED", "RESOLVE-FAILED"} {
+		if !ids[want] {
+			t.Errorf("%s missing from RuleTable", want)
+		}
+	}
+}
