@@ -15,6 +15,8 @@ func TestRulesListsEveryPipelineRule(t *testing.T) {
 		"CLAWHUB-FINGERPRINT-MISMATCH": "high",
 		"RESOLVE-UNSUPPORTED":          "medium",
 		"RESOLVE-FAILED":               "high",
+		"CHECK-UNSCANNED-FILE":         "medium",
+		"CHECK-UNSAFE-ENTRY":           "high",
 	}
 	for _, r := range engine.Rules() {
 		if sev, ok := want[r.ID]; ok {

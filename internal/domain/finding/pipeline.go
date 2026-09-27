@@ -16,6 +16,12 @@ const (
 	RuleResolveUnsupported = "RESOLVE-UNSUPPORTED"
 	// RuleResolveFailed: resolving the source to verifiable code failed.
 	RuleResolveFailed = "RESOLVE-FAILED"
+	// RuleUnscannedFile: `check` found a file it could not analyze (binary,
+	// too large or unreadable), so the folder is not fully covered.
+	RuleUnscannedFile = "CHECK-UNSCANNED-FILE"
+	// RuleUnsafeEntry: `check` found an entry it refuses to open, such as a
+	// symlink out of the folder or a named pipe.
+	RuleUnsafeEntry = "CHECK-UNSAFE-ENTRY"
 )
 
 // SkillsLockMismatch is the finding for a skill whose folder, hashed with the
@@ -51,10 +57,30 @@ func ResolveFailed(err error) Finding {
 	return f
 }
 
+// UnscannedFile is the finding `check` records for a file it could not
+// analyze. reason says why ("binary content", "larger than 32 MiB",
+// "unreadable"); the file's content never appears.
+func UnscannedFile(rel, reason string) Finding {
+	f := unscannedFile
+	f.File = rel
+	f.Explanation = "file was not analyzed: " + reason
+	return f
+}
+
+// UnsafeEntry is the finding `check` records for an entry it refuses to open.
+// reason says what the entry is ("symlink pointing outside the folder",
+// "named pipe or device", "unresolvable symlink").
+func UnsafeEntry(rel, reason string) Finding {
+	f := unsafeEntry
+	f.File = rel
+	f.Explanation = "entry was not opened: " + reason
+	return f
+}
+
 // PipelineRules lists one template per rule the pipeline raises without a
 // pattern match, with a generic explanation for rule tables.
 func PipelineRules() []Finding {
-	return []Finding{LocalOutsideRoot(), skillsLockMismatch, clawHubFingerprintMismatch, resolveUnsupported, resolveFailed}
+	return []Finding{LocalOutsideRoot(), skillsLockMismatch, clawHubFingerprintMismatch, resolveUnsupported, resolveFailed, unscannedFile, unsafeEntry}
 }
 
 var (
@@ -83,5 +109,17 @@ var (
 		Severity:    SeverityHigh,
 		OWASP:       "ASK-02",
 		Explanation: "the source could not be resolved to verifiable code",
+	}
+	unscannedFile = Finding{
+		RuleID:      RuleUnscannedFile,
+		Severity:    SeverityMedium,
+		OWASP:       "ASK-02",
+		Explanation: "a file in the checked folder could not be analyzed (binary, too large or unreadable)",
+	}
+	unsafeEntry = Finding{
+		RuleID:      RuleUnsafeEntry,
+		Severity:    SeverityHigh,
+		OWASP:       "ASK-02",
+		Explanation: "an entry in the checked folder was not opened (symlink out of the folder, named pipe or device)",
 	}
 )

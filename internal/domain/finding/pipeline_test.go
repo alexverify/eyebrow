@@ -68,6 +68,8 @@ func TestPipelineRulesListsEveryPipelineRuleOnce(t *testing.T) {
 		RuleClawHubFingerprintMismatch: SeverityHigh,
 		RuleResolveUnsupported:         SeverityMedium,
 		RuleResolveFailed:              SeverityHigh,
+		RuleUnscannedFile:              SeverityMedium,
+		RuleUnsafeEntry:                SeverityHigh,
 	}
 	got := PipelineRules()
 	if len(got) != len(want) {
