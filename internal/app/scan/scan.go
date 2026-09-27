@@ -105,20 +105,10 @@ func (s *Service) enrich(ctx context.Context, a *artifact.Artifact) error {
 		// the inability to establish integrity as a finding and move on.
 		// "Not yet supported" is a softer signal than an outright failure.
 		if errors.Is(err, ports.ErrUnsupported) || errors.Is(err, ports.ErrNotImplemented) {
-			a.Findings = append(a.Findings, finding.Finding{
-				RuleID:      "RESOLVE-UNSUPPORTED",
-				Severity:    finding.SeverityMedium,
-				OWASP:       "ASK-02",
-				Explanation: fmt.Sprintf("source kind %q cannot be resolved yet; its integrity cannot be locked", a.Source.Kind),
-			})
+			a.Findings = append(a.Findings, finding.ResolveUnsupported(string(a.Source.Kind)))
 			return nil
 		}
-		a.Findings = append(a.Findings, finding.Finding{
-			RuleID:      "RESOLVE-FAILED",
-			Severity:    finding.SeverityHigh,
-			OWASP:       "ASK-02",
-			Explanation: "could not resolve source to verifiable code: " + err.Error(),
-		})
+		a.Findings = append(a.Findings, finding.ResolveFailed(err))
 		return nil
 	}
 
