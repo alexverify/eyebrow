@@ -1,8 +1,10 @@
 package cli_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,5 +116,89 @@ func TestToolResetsBetweenInvocations(t *testing.T) {
 	}
 	if !hasNonOpenClaw {
 		t.Fatalf("second scan: want non-openclaw tools, got only %+v", lf2.Artifacts)
+	}
+}
+
+// oneJSONDoc decodes exactly one JSON document from b and fails if anything
+// but whitespace follows it (a posture line, a policy line).
+func oneJSONDoc(t *testing.T, b []byte, v any) {
+	t.Helper()
+	dec := json.NewDecoder(bytes.NewReader(b))
+	if err := dec.Decode(v); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, b)
+	}
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); err != io.EOF {
+		t.Fatalf("stdout has content after the JSON document:\n%s", b)
+	}
+}
+
+type verifyJSON struct {
+	Changes []struct {
+		Kind string `json:"kind"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"changes"`
+}
+
+func TestToolScanVerifyRoundTripIsCleanJSON(t *testing.T) {
+	project, lock := openclawHome(t)
+	ctx := context.Background()
+	args := []string{"--path", project, "--global", "--tool", "openclaw", "--lockfile", lock, "--json"}
+
+	app, out, errBuf := newApp()
+	if code := app.Execute(ctx, append([]string{"scan"}, args...)); code != cli.ExitOK {
+		t.Fatalf("scan exit %d: %s", code, errBuf)
+	}
+	var lf struct {
+		Artifacts []struct {
+			ID       string `json:"id"`
+			Tool     string `json:"tool"`
+			Type     string `json:"type"`
+			Name     string `json:"name"`
+			Findings []struct {
+				RuleID   string `json:"ruleId"`
+				Severity string `json:"severity"`
+			} `json:"findings"`
+		} `json:"artifacts"`
+	}
+	oneJSONDoc(t, out.Bytes(), &lf)
+	if len(lf.Artifacts) != 1 || lf.Artifacts[0].ID == "" || lf.Artifacts[0].Type != "skill" {
+		t.Fatalf("unexpected scan JSON: %+v", lf)
+	}
+
+	app, out, errBuf = newApp()
+	if code := app.Execute(ctx, append([]string{"verify"}, args...)); code != cli.ExitOK {
+		t.Fatalf("verify exit %d: %s\n%s", code, errBuf, out)
+	}
+	var clean verifyJSON
+	oneJSONDoc(t, out.Bytes(), &clean)
+	if len(clean.Changes) != 0 {
+		t.Fatalf("round trip must be clean, got %+v", clean.Changes)
+	}
+}
+
+func TestToolVerifyReportsDriftAsJSON(t *testing.T) {
+	project, lock := openclawHome(t)
+	ctx := context.Background()
+	args := []string{"--path", project, "--global", "--tool", "openclaw", "--lockfile", lock, "--json"}
+	app, _, errBuf := newApp()
+	if code := app.Execute(ctx, append([]string{"scan"}, args...)); code != cli.ExitOK {
+		t.Fatalf("scan exit %d: %s", code, errBuf)
+	}
+	home, _ := os.UserHomeDir()
+	skillMd := filepath.Join(home, ".openclaw", "skills", "demo", "SKILL.md")
+	if err := os.WriteFile(skillMd, []byte("---\ndescription: demo\n---\nchanged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app, out, errBuf := newApp()
+	if code := app.Execute(ctx, append([]string{"verify"}, args...)); code != cli.ExitDrift {
+		t.Fatalf("verify exit %d, want %d: %s", code, cli.ExitDrift, errBuf)
+	}
+	var d verifyJSON
+	oneJSONDoc(t, out.Bytes(), &d)
+	if len(d.Changes) != 1 || d.Changes[0].Kind != "content_changed" || d.Changes[0].Name != "demo" || d.Changes[0].ID == "" {
+		t.Fatalf("want one content_changed for demo, got %+v", d.Changes)
 	}
 }
