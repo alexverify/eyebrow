@@ -9,6 +9,31 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-09-27
+
+### Added
+
+- `skills-lock.json` pins. The Vercel skills CLI (`npx skills add`) writes
+  a `skills-lock.json` at the project root with a `computedHash` for each
+  installed skill: a sha256 over the whole installed folder. eyebrow now
+  reads those entries. A skill the lock names, under `.claude/skills/`
+  (Claude Code adapter) or `skills/` (skills-lock adapter), carries the
+  recorded hash as its integrity anchor in `source.integrity`. When the
+  folder no longer hashes to that value under the CLI's own algorithm, the
+  skill gets a `SKILLS-LOCK-MISMATCH` finding (high, file
+  `skills-lock.json`), so `verify --ci` fails under the default policy. A
+  lock whose recorded value changes later shows as `integrity_changed`
+  drift. The hash reproduces the CLI byte for byte: files sorted by
+  relative path with JavaScript `localeCompare` (punctuation before
+  digits before letters, letters compared without case, lowercase first
+  on a tie), then sha256 over each path followed by its bytes, with
+  `.git` and `node_modules` pruned and symlinks ignored. Checked against
+  a real lock: the `agent-browser` skill vendored in `elie222/inbox-zero`
+  reproduces its recorded hash exactly, and a one-byte edit fails the
+  gate. File names outside ASCII fall back to code-point order, which can
+  differ from the CLI. A missing or malformed lock pins nothing and does
+  not stop discovery.
+
 ## [0.5.3] - 2026-09-21
 
 ### Security
@@ -36,7 +61,6 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 - `engine.Version().RuleCount` now counts every built-in rule id,
   including rules the pipeline raises without a pattern match, such as
   `LOCAL-OUTSIDE-ROOT`. `engine.Rules()` lists them too.
-```
 
 ## [0.5.2] - 2026-09-21
 
@@ -350,7 +374,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/alexverify/eyebrow/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/alexverify/eyebrow/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/alexverify/eyebrow/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/alexverify/eyebrow/compare/v0.5.0...v0.5.1
