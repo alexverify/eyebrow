@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -129,6 +130,7 @@ type Native struct {
 	rules        []rule
 	maxFileBytes int64 // files larger than this are skipped (likely assets)
 	maxPerRule   int   // cap findings per rule per file to limit noise
+	strict       bool
 }
 
 // NewNative returns the analyzer with the default ruleset and limits.
@@ -136,9 +138,19 @@ func NewNative() *Native {
 	return &Native{rules: rules, maxFileBytes: 2 << 20, maxPerRule: 5}
 }
 
+// NewStrictNative returns the analyzer `check` uses on an untrusted folder.
+// It analyzes every directory (vendor dirs and .git included), raises the file
+// limit to 32 MiB, and reports instead of skipping: a file it cannot analyze
+// yields CHECK-UNSCANNED-FILE and an entry it will not open (a symlink out of
+// the folder, a named pipe, a device) yields CHECK-UNSAFE-ENTRY.
+func NewStrictNative() *Native {
+	return &Native{rules: rules, maxFileBytes: 32 << 20, maxPerRule: 5, strict: true}
+}
+
 // Analyze walks the resolved code at root and returns findings. root may be a
 // directory or a single file. It never returns an error for ordinary scan
-// conditions (unreadable individual files are skipped), keeping scan resilient.
+// conditions (unreadable individual files are skipped, or reported in strict
+// mode), keeping scan resilient.
 func (n *Native) Analyze(ctx context.Context, _ artifact.Artifact, root string) ([]finding.Finding, error) {
 	info, err := os.Stat(root)
 	if err != nil {
@@ -146,13 +158,28 @@ func (n *Native) Analyze(ctx context.Context, _ artifact.Artifact, root string) 
 	}
 
 	var out []finding.Finding
+	unscanned := func(rel, reason string) {
+		if n.strict {
+			out = append(out, finding.UnscannedFile(rel, reason))
+		}
+	}
 	scanFile := func(path, rel string) {
 		fi, err := os.Stat(path)
-		if err != nil || fi.Size() > n.maxFileBytes {
+		if err != nil {
+			unscanned(rel, "unreadable")
+			return
+		}
+		if fi.Size() > n.maxFileBytes {
+			unscanned(rel, fmt.Sprintf("larger than %d MiB", n.maxFileBytes>>20))
 			return
 		}
 		b, err := os.ReadFile(path)
-		if err != nil || looksBinary(b) {
+		if err != nil {
+			unscanned(rel, "unreadable")
+			return
+		}
+		if looksBinary(b) {
+			unscanned(rel, "binary content")
 			return
 		}
 		out = append(out, n.scanContent(rel, b)...)
@@ -163,30 +190,71 @@ func (n *Native) Analyze(ctx context.Context, _ artifact.Artifact, root string) 
 		return out, nil
 	}
 
+	// Symlink targets are judged against the resolved root, so a folder
+	// reached through a symlink (macOS $TMPDIR) does not read as outside itself.
+	realRoot := root
+	if n.strict {
+		if r, err := filepath.EvalSymlinks(root); err == nil {
+			realRoot = r
+		}
+	}
+
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			if !n.strict || path == root {
+				return err
+			}
+			rel, _ := filepath.Rel(root, path)
+			out = append(out, finding.UnscannedFile(filepath.ToSlash(rel), "unreadable"))
+			if d != nil && d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		if d.IsDir() {
-			if isVendorDir(d.Name()) {
+			if !n.strict && isVendorDir(d.Name()) {
 				return fs.SkipDir
 			}
 			return nil
 		}
+		rel, _ := filepath.Rel(root, path)
+		rel = filepath.ToSlash(rel)
 		if !d.Type().IsRegular() {
+			if n.strict {
+				if f, ok := unsafeEntry(realRoot, path, rel, d.Type()); ok {
+					out = append(out, f)
+				}
+			}
 			return nil
 		}
-		rel, _ := filepath.Rel(root, path)
-		scanFile(path, filepath.ToSlash(rel))
+		scanFile(path, rel)
 		return nil
 	})
 	if walkErr != nil {
 		return out, walkErr
 	}
 	return out, nil
+}
+
+// unsafeEntry judges a non-regular entry without opening it. A symlink that
+// resolves inside realRoot is harmless (its target is walked on its own); one
+// that resolves outside, or not at all, is reported, as is any pipe, device or
+// socket.
+func unsafeEntry(realRoot, path, rel string, mode fs.FileMode) (finding.Finding, bool) {
+	if mode&fs.ModeSymlink != 0 {
+		target, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return finding.UnsafeEntry(rel, "unresolvable symlink"), true
+		}
+		if r, err := filepath.Rel(realRoot, target); err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) || filepath.IsAbs(r) {
+			return finding.UnsafeEntry(rel, "symlink pointing outside the folder"), true
+		}
+		return finding.Finding{}, false
+	}
+	return finding.UnsafeEntry(rel, "named pipe or device"), true
 }
 
 // AnalyzeContent scans an in-memory blob (e.g. an inline hook command) using
