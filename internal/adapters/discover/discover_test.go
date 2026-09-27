@@ -27,6 +27,8 @@ func TestDefaultDiscoversAcrossTools(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".qwen", "settings.json"), `{"mcpServers":{"qw":{"command":"/abs/vex-mcp","args":["--project","p"]}}}`)
 	writeFile(t, filepath.Join(dir, ".factory", "mcp.json"), `{"mcpServers":{"dr":{"command":"/abs/vex-mcp","args":["--project","p"]}}}`)
 	writeFile(t, filepath.Join(home, ".kimi", "mcp.json"), `{"mcpServers":{"km":{"command":"/abs/vex-mcp","args":["--project","p"]}}}`)
+	t.Setenv("OPENCLAW_STATE_DIR", "")
+	writeFile(t, filepath.Join(home, ".openclaw", "openclaw.json"), `{mcp:{servers:{ocl:{command:'/abs/vex-mcp'}}}}`)
 
 	got, err := Default().Discover(context.Background(), []ports.Scope{{Kind: "project", Path: dir}, {Kind: "global"}})
 	if err != nil {
@@ -36,7 +38,7 @@ func TestDefaultDiscoversAcrossTools(t *testing.T) {
 	for _, a := range got {
 		tools[a.Tool] = true
 	}
-	for _, want := range []string{"claude-code", "cursor", "gemini", "opencode", "codex", "qwen-code", "kimi", "droid"} {
+	for _, want := range []string{"claude-code", "cursor", "gemini", "opencode", "codex", "qwen-code", "kimi", "droid", "openclaw"} {
 		if !tools[want] {
 			t.Errorf("Default() did not discover tool %q; tools seen: %v", want, tools)
 		}

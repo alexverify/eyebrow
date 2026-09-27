@@ -9,6 +9,9 @@ const (
 	// RuleSkillsLockMismatch: a skill named in skills-lock.json no longer
 	// hashes to the folder hash the lock recorded.
 	RuleSkillsLockMismatch = "SKILLS-LOCK-MISMATCH"
+	// RuleClawHubFingerprintMismatch: a ClawHub-installed skill no longer
+	// hashes to the fingerprint its .clawhub/origin.json recorded.
+	RuleClawHubFingerprintMismatch = "CLAWHUB-FINGERPRINT-MISMATCH"
 	// RuleResolveUnsupported: the source kind has no resolver yet.
 	RuleResolveUnsupported = "RESOLVE-UNSUPPORTED"
 	// RuleResolveFailed: resolving the source to verifiable code failed.
@@ -21,6 +24,15 @@ const (
 func SkillsLockMismatch(recorded, actual string) Finding {
 	f := skillsLockMismatch
 	f.Explanation = fmt.Sprintf("skills-lock.json records sha256 %s for this skill but the folder hashes to %s under the skills CLI algorithm; the pinned content changed after the lock was written", recorded, actual)
+	return f
+}
+
+// ClawHubFingerprintMismatch is the finding for a ClawHub-installed skill whose
+// folder, hashed with ClawHub's own fingerprint algorithm, no longer matches
+// the fingerprint recorded in its .clawhub/origin.json at install.
+func ClawHubFingerprintMismatch(recorded, actual string) Finding {
+	f := clawHubFingerprintMismatch
+	f.Explanation = fmt.Sprintf(".clawhub/origin.json records fingerprint %s for this skill but the folder hashes to %s under the ClawHub algorithm; the installed content changed after install", recorded, actual)
 	return f
 }
 
@@ -42,7 +54,7 @@ func ResolveFailed(err error) Finding {
 // PipelineRules lists one template per rule the pipeline raises without a
 // pattern match, with a generic explanation for rule tables.
 func PipelineRules() []Finding {
-	return []Finding{LocalOutsideRoot(), skillsLockMismatch, resolveUnsupported, resolveFailed}
+	return []Finding{LocalOutsideRoot(), skillsLockMismatch, clawHubFingerprintMismatch, resolveUnsupported, resolveFailed}
 }
 
 var (
@@ -52,6 +64,13 @@ var (
 		OWASP:       "ASK-02",
 		File:        "skills-lock.json",
 		Explanation: "skills-lock.json records a folder hash for this skill that the folder no longer matches under the skills CLI algorithm",
+	}
+	clawHubFingerprintMismatch = Finding{
+		RuleID:      RuleClawHubFingerprintMismatch,
+		Severity:    SeverityHigh,
+		OWASP:       "ASK-02",
+		File:        ".clawhub/origin.json",
+		Explanation: ".clawhub/origin.json records a fingerprint for this skill that the folder no longer matches under the ClawHub algorithm",
 	}
 	resolveUnsupported = Finding{
 		RuleID:      RuleResolveUnsupported,
