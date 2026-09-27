@@ -58,7 +58,11 @@ func (a *App) flagSet(name string) *flag.FlagSet {
 func (a *App) runScan(ctx context.Context, args []string) int {
 	fs := a.flagSet("scan")
 	c := bindCommon(fs)
+	tool := fs.String("tool", "", "only discover artifacts from this tool (e.g. openclaw)")
 	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if !a.selectTool("scan", *tool) {
 		return ExitUsage
 	}
 	// Read the prior lockfile first (best-effort) so the verdict can report drift
@@ -95,7 +99,11 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 	trustedKeys := fs.String("trusted-keys", "eyebrow.trustedkeys", "committed trusted-keys registry checked by requireSignature")
 	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL (opt-in: pull org policy and trusted keys)")
 	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
+	tool := fs.String("tool", "", "only discover artifacts from this tool (e.g. openclaw)")
 	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if !a.selectTool("verify", *tool) {
 		return ExitUsage
 	}
 
