@@ -79,7 +79,7 @@ func (a *App) runCheck(ctx context.Context, args []string) int {
 		Discoverer: discover.NewDir(root),
 		Resolver:   resolve.NewOfflineRouterWith(resolve.RouterOptions{ConfineRoot: root}),
 		Hasher:     hash.New(),
-		Analyzer:   analyze.NewChain(analyze.NewNative()),
+		Analyzer:   analyze.NewChain(analyze.NewStrictNative()),
 		Clock:      a.Clock,
 	})
 	lf, err := svc.Build(ctx, []ports.Scope{{Kind: "project", Path: root}})
