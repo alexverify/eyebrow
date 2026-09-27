@@ -195,12 +195,11 @@ func reporter(jsonOut bool) ports.Reporter {
 // selectTool validates --tool and scopes this invocation's discovery to it.
 // An empty value keeps every tool.
 func (a *App) selectTool(cmd, tool string) bool {
-	if tool == "" {
-		return true
-	}
-	if _, err := discover.Only(tool); err != nil {
-		fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
-		return false
+	if tool != "" {
+		if _, err := discover.Only(tool); err != nil {
+			fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
+			return false
+		}
 	}
 	a.tool = tool
 	return true

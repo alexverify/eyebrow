@@ -64,3 +64,55 @@ func TestToolFlagRejectsUnknownTool(t *testing.T) {
 		}
 	}
 }
+
+func TestToolResetsBetweenInvocations(t *testing.T) {
+	project, lock := openclawHome(t)
+	lock2 := filepath.Join(t.TempDir(), "lock2.json")
+
+	app, out, _ := newApp()
+
+	// First invocation: scan with --tool openclaw
+	code := app.Execute(context.Background(), []string{"scan", "--path", project, "--global", "--tool", "openclaw", "--lockfile", lock, "--json"})
+	if code != cli.ExitOK {
+		t.Fatalf("first scan exit %d", code)
+	}
+	var lf1 struct {
+		Artifacts []struct {
+			Tool string `json:"tool"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &lf1); err != nil {
+		t.Fatalf("first scan stdout not JSON: %v", err)
+	}
+	if len(lf1.Artifacts) != 1 || lf1.Artifacts[0].Tool != "openclaw" {
+		t.Fatalf("first scan: want only openclaw, got %+v", lf1.Artifacts)
+	}
+
+	// Reset output buffer for second invocation
+	out.Reset()
+
+	// Second invocation: scan without --tool on same App
+	code = app.Execute(context.Background(), []string{"scan", "--path", project, "--global", "--lockfile", lock2, "--json"})
+	if code != cli.ExitOK {
+		t.Fatalf("second scan exit %d", code)
+	}
+	var lf2 struct {
+		Artifacts []struct {
+			Tool string `json:"tool"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &lf2); err != nil {
+		t.Fatalf("second scan stdout not JSON: %v", err)
+	}
+	// Second scan should include non-openclaw tools (e.g., claude-code from fixture)
+	hasNonOpenClaw := false
+	for _, a := range lf2.Artifacts {
+		if a.Tool != "openclaw" {
+			hasNonOpenClaw = true
+			break
+		}
+	}
+	if !hasNonOpenClaw {
+		t.Fatalf("second scan: want non-openclaw tools, got only %+v", lf2.Artifacts)
+	}
+}
