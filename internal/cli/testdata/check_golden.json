@@ -1,0 +1,17 @@
+{
+  "verdict": "block",
+  "failOn": "high",
+  "type": "skill",
+  "name": "demo",
+  "contentHash": "<hash>",
+  "findings": [
+    {
+      "ruleId": "SENSITIVE-PATH-READ",
+      "severity": "high",
+      "owasp": "ASK-06",
+      "file": "SKILL.md",
+      "line": 4,
+      "blocking": true
+    }
+  ]
+}
