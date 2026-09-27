@@ -53,6 +53,8 @@ func New(stdout, stderr io.Writer) *App {
 
 // Execute dispatches a subcommand and returns a process exit code.
 func (a *App) Execute(ctx context.Context, args []string) int {
+	// A tool selected by one command must never narrow the next one.
+	a.tool = ""
 	if len(args) == 0 {
 		a.usage()
 		return ExitUsage

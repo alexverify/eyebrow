@@ -253,3 +253,27 @@ func TestToolScanRefusesToShrinkSharedLockfile(t *testing.T) {
 		t.Fatal("scan --tool rewrote the shared lockfile")
 	}
 }
+
+// A --tool from one command must not leak into a later command on the same
+// App that takes no --tool (diff).
+func TestToolDoesNotLeakIntoDiff(t *testing.T) {
+	project, lock := openclawHome(t)
+	ctx := context.Background()
+	full := filepath.Join(t.TempDir(), "full.json")
+	app, out, errBuf := newApp()
+	if code := app.Execute(ctx, []string{"scan", "--path", project, "--global", "--lockfile", full, "--json"}); code != cli.ExitOK {
+		t.Fatalf("full scan exit %d: %s", code, errBuf)
+	}
+	if code := app.Execute(ctx, []string{"scan", "--path", project, "--global", "--tool", "openclaw", "--lockfile", lock, "--json"}); code != cli.ExitOK {
+		t.Fatalf("scan --tool exit %d: %s", code, errBuf)
+	}
+	out.Reset()
+	if code := app.Execute(ctx, []string{"diff", "--path", project, "--global", "--lockfile", full, "--json"}); code != cli.ExitOK {
+		t.Fatalf("diff exit %d: %s", code, errBuf)
+	}
+	var d verifyJSON
+	oneJSONDoc(t, out.Bytes(), &d)
+	if len(d.Changes) != 0 {
+		t.Fatalf("diff inherited --tool from the previous command: %+v", d.Changes)
+	}
+}

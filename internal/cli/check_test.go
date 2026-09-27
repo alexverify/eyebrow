@@ -287,7 +287,9 @@ func TestCheckWritesNothing(t *testing.T) {
 	before := listTree(t, dir)
 	cwd := t.TempDir()
 	t.Chdir(cwd)
-	runCheck(t, dir, "--json")
+	if code, _, _, _ := runCheck(t, dir, "--json"); code != cli.ExitDrift {
+		t.Fatalf("exit %d, want %d", code, cli.ExitDrift)
+	}
 	if after := listTree(t, dir); strings.Join(after, "\n") != strings.Join(before, "\n") {
 		t.Errorf("folder changed:\nbefore %v\nafter  %v", before, after)
 	}
@@ -319,5 +321,34 @@ func TestCheckTextOutput(t *testing.T) {
 	}
 	if strings.Contains(stdout, "id_rsa") {
 		t.Errorf("text output leaked file content:\n%s", stdout)
+	}
+}
+
+// A hostile file name must not forge output lines: a name with a control
+// character is printed quoted, on one line.
+func TestCheckTextQuotesControlCharactersInNames(t *testing.T) {
+	dir := stagedSkill(t, "ok\n")
+	name := "a\nb.sh"
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(checkPipePayload), 0o644); err != nil {
+		t.Skipf("file name with a newline unavailable: %v", err)
+	}
+	code, _, stdout, _ := runCheck(t, dir)
+	if code != cli.ExitDrift {
+		t.Fatalf("exit %d", code)
+	}
+	var found bool
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, "RCE-PIPE-EXEC") {
+			if !strings.Contains(line, `"a\nb.sh":1`) {
+				t.Errorf("name not quoted on one line: %q", line)
+			}
+			found = true
+		}
+		if line == "b.sh:1" || strings.HasPrefix(line, "b.sh") {
+			t.Errorf("file name forged a line: %q", line)
+		}
+	}
+	if !found {
+		t.Fatalf("no RCE-PIPE-EXEC line:\n%s", stdout)
 	}
 }

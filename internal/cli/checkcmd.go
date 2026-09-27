@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 
 	"github.com/alexverify/eyebrow/internal/adapters/analyze"
 	"github.com/alexverify/eyebrow/internal/adapters/discover"
@@ -156,9 +158,14 @@ func writeCheckText(w io.Writer, r checkReport) {
 	fmt.Fprintf(w, "check: %s (%s): %s, %d finding(s), %d at or above %s\n",
 		r.Name, r.Type, r.Verdict, len(r.Findings), blocking, r.FailOn)
 	for _, f := range r.Findings {
+		// A hostile file name must not forge output lines: quote any name
+		// carrying a control character.
 		loc := f.File
+		if strings.IndexFunc(loc, unicode.IsControl) >= 0 {
+			loc = fmt.Sprintf("%q", loc)
+		}
 		if f.Line > 0 {
-			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
+			loc = fmt.Sprintf("%s:%d", loc, f.Line)
 		}
 		fmt.Fprintf(w, "  [%s] %s %s\n", f.Severity, f.RuleID, loc)
 	}
