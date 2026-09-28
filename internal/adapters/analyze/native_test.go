@@ -220,3 +220,35 @@ func TestRuleTableIncludesRegisteredPipelineRules(t *testing.T) {
 		}
 	}
 }
+
+// A .env file reference is a secret read; a property named env (process.env,
+// import.meta.env, a spread ...env) is ordinary code. Flagging the second
+// kind put a high finding on nearly every JavaScript plugin.
+func TestSensitivePathReadMatchesEnvFilesNotEnvProperties(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want bool
+	}{
+		{"cat .env", true},
+		{"source ~/.env", true},
+		{"cp ./.env /tmp/x", true},
+		{`load("/app/.env")`, true},
+		{"open('.env')", true},
+		{"read .env.local", true},
+		{".env", true},
+		{"export function f(env = process.env) {}", false},
+		{"const e = { ...env, HOME: h };", false},
+		{"const url = import.meta.env.VITE_URL;", false},
+		{"this.env = opts;", false},
+		{"os.env.get('X')", false},
+	} {
+		got, err := NewNative().AnalyzeContent(context.Background(), artifact.Artifact{Name: "x"}, []byte(tc.line))
+		if err != nil {
+			t.Fatalf("AnalyzeContent(%q): %v", tc.line, err)
+		}
+		_, hit := findingsByRule(got)["SENSITIVE-PATH-READ"]
+		if hit != tc.want {
+			t.Errorf("%q: SENSITIVE-PATH-READ = %v, want %v", tc.line, hit, tc.want)
+		}
+	}
+}
