@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexverify/eyebrow/internal/adapters/discover"
 	"github.com/alexverify/eyebrow/internal/adapters/historystore"
 	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
 	"github.com/alexverify/eyebrow/internal/adapters/notify"
@@ -387,6 +388,12 @@ func (a *App) runList(ctx context.Context, args []string) int {
 	if *typ != "" && !artifact.IsType(*typ) {
 		fmt.Fprintf(a.Stderr, "list: unknown --type %q (want %s)\n", *typ, strings.Join(typeNames(), ", "))
 		return ExitUsage
+	}
+	if *tool != "" {
+		if _, err := discover.Only(*tool); err != nil {
+			fmt.Fprintf(a.Stderr, "list: %v\n", err)
+			return ExitUsage
+		}
 	}
 	svc := a.scanService(*c.json, *c.rules)
 	lf, err := svc.Build(ctx, a.scopes(*c.path, *c.global, *c.registry))

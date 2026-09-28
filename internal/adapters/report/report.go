@@ -25,8 +25,14 @@ func encode(w io.Writer, v any) error {
 // Scan writes the full lockfile as JSON.
 func (JSON) Scan(w io.Writer, lf lockfile.Lockfile) error { return encode(w, lf) }
 
-// Verify writes the diff as JSON.
-func (JSON) Verify(w io.Writer, d lockfile.Diff) error { return encode(w, d) }
+// Verify writes the diff as JSON. No drift is an empty list, never null, so
+// consumers can iterate changes without a nil check.
+func (JSON) Verify(w io.Writer, d lockfile.Diff) error {
+	if d.Changes == nil {
+		d.Changes = []lockfile.Change{}
+	}
+	return encode(w, d)
+}
 
 // List writes the artifacts as JSON.
 func (JSON) List(w io.Writer, lf lockfile.Lockfile) error { return encode(w, lf.Artifacts) }

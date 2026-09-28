@@ -171,6 +171,10 @@ func TestToolScanVerifyRoundTripIsCleanJSON(t *testing.T) {
 	if code := app.Execute(ctx, append([]string{"verify"}, args...)); code != cli.ExitOK {
 		t.Fatalf("verify exit %d: %s\n%s", code, errBuf, out)
 	}
+	// No drift is an empty list, never null: the plugin iterates it.
+	if !bytes.Contains(out.Bytes(), []byte(`"changes": []`)) {
+		t.Errorf("clean verify must print \"changes\": [], got:\n%s", out)
+	}
 	var clean verifyJSON
 	oneJSONDoc(t, out.Bytes(), &clean)
 	if len(clean.Changes) != 0 {
@@ -275,5 +279,15 @@ func TestToolDoesNotLeakIntoDiff(t *testing.T) {
 	oneJSONDoc(t, out.Bytes(), &d)
 	if len(d.Changes) != 0 {
 		t.Fatalf("diff inherited --tool from the previous command: %+v", d.Changes)
+	}
+}
+
+// list --tool rejects an unknown id the same way scan and verify do.
+func TestListToolRejectsUnknownTool(t *testing.T) {
+	project, _ := openclawHome(t)
+	app, _, errBuf := newApp()
+	code := app.Execute(context.Background(), []string{"list", "--path", project, "--tool", "nope"})
+	if code != cli.ExitUsage || !strings.Contains(errBuf.String(), `unknown tool "nope"`) {
+		t.Fatalf("exit %d, stderr %s", code, errBuf)
 	}
 }
