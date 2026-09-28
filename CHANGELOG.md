@@ -9,6 +9,8 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-09-28
+
 ### Fixed
 
 - `SENSITIVE-PATH-READ` no longer matches `process.env`, `import.meta.env`,
@@ -428,7 +430,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/alexverify/eyebrow/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/alexverify/eyebrow/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/alexverify/eyebrow/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/alexverify/eyebrow/compare/v0.5.2...v0.5.3
