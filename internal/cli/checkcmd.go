@@ -60,7 +60,7 @@ func (a *App) runCheck(ctx context.Context, args []string) int {
 		return ExitUsage
 	}
 	if fs.NArg() == 0 {
-		fmt.Fprintln(a.Stderr, "check: missing folder (usage: eyebrow check <dir> [--json] [--fail-on high])")
+		_, _ = fmt.Fprintln(a.Stderr, "check: missing folder (usage: eyebrow check <dir> [--json] [--fail-on high])")
 		return ExitUsage
 	}
 	dir := fs.Arg(0)
@@ -69,19 +69,19 @@ func (a *App) runCheck(ctx context.Context, args []string) int {
 		return ExitUsage
 	}
 	if fs.NArg() != 0 {
-		fmt.Fprintf(a.Stderr, "check: unexpected argument %q\n", fs.Arg(0))
+		_, _ = fmt.Fprintf(a.Stderr, "check: unexpected argument %q\n", fs.Arg(0))
 		return ExitUsage
 	}
 	threshold := finding.Severity(*failOn)
 	switch threshold {
 	case finding.SeverityCritical, finding.SeverityHigh, finding.SeverityMedium, finding.SeverityLow:
 	default:
-		fmt.Fprintf(a.Stderr, "check: unknown --fail-on %q (want critical, high, medium or low)\n", *failOn)
+		_, _ = fmt.Fprintf(a.Stderr, "check: unknown --fail-on %q (want critical, high, medium or low)\n", *failOn)
 		return ExitUsage
 	}
 	root, err := checkFolder(dir)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "check: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "check: %v\n", err)
 		return ExitUsage
 	}
 
@@ -157,18 +157,18 @@ func checkFolder(dir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("folder %q: %w", dir, err)
 	}
-	real, err := filepath.EvalSymlinks(abs)
+	resolved, err := filepath.EvalSymlinks(abs)
 	if err != nil {
 		return "", fmt.Errorf("folder %q: %w", dir, err)
 	}
-	info, err := os.Stat(real)
+	info, err := os.Stat(resolved)
 	if err != nil {
 		return "", fmt.Errorf("folder %q: %w", dir, err)
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("%q is not a folder", dir)
 	}
-	return real, nil
+	return resolved, nil
 }
 
 func writeCheckText(w io.Writer, r checkReport) {
@@ -178,17 +178,17 @@ func writeCheckText(w io.Writer, r checkReport) {
 			blocking++
 		}
 	}
-	fmt.Fprintf(w, "check: %s (%s): %s, %d finding(s), %d at or above %s\n",
+	_, _ = fmt.Fprintf(w, "check: %s (%s): %s, %d finding(s), %d at or above %s\n",
 		safeText(r.Name), r.Type, r.Verdict, len(r.Findings), blocking, r.FailOn)
 	for _, f := range r.Findings {
 		loc := safeText(f.File)
 		if f.Line > 0 {
 			loc = fmt.Sprintf("%s:%d", loc, f.Line)
 		}
-		fmt.Fprintf(w, "  [%s] %s %s\n", f.Severity, f.RuleID, loc)
+		_, _ = fmt.Fprintf(w, "  [%s] %s %s\n", f.Severity, f.RuleID, loc)
 	}
 	if r.UnscannedOmitted > 0 {
-		fmt.Fprintf(w, "  … %d more CHECK-UNSCANNED-FILE not listed\n", r.UnscannedOmitted)
+		_, _ = fmt.Fprintf(w, "  … %d more CHECK-UNSCANNED-FILE not listed\n", r.UnscannedOmitted)
 	}
 }
 

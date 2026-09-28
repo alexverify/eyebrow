@@ -202,7 +202,7 @@ func reporter(jsonOut bool) ports.Reporter {
 func (a *App) selectTool(cmd, tool string) bool {
 	if tool != "" {
 		if _, err := discover.Only(tool); err != nil {
-			fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
+			_, _ = fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
 			return false
 		}
 	}

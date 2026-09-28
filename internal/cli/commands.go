@@ -74,7 +74,7 @@ func (a *App) runScan(ctx context.Context, args []string) int {
 	if *tool != "" {
 		for _, e := range prior.Artifacts {
 			if !strings.EqualFold(e.Tool, *tool) {
-				fmt.Fprintf(a.Stderr, "scan: lockfile %s holds other tools' artifacts; use a separate --lockfile with --tool\n", *c.lockfile)
+				_, _ = fmt.Fprintf(a.Stderr, "scan: lockfile %s holds other tools' artifacts; use a separate --lockfile with --tool\n", *c.lockfile)
 				return ExitUsage
 			}
 		}
@@ -391,7 +391,7 @@ func (a *App) runList(ctx context.Context, args []string) int {
 	}
 	if *tool != "" {
 		if _, err := discover.Only(*tool); err != nil {
-			fmt.Fprintf(a.Stderr, "list: %v\n", err)
+			_, _ = fmt.Fprintf(a.Stderr, "list: %v\n", err)
 			return ExitUsage
 		}
 	}

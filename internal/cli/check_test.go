@@ -141,9 +141,9 @@ func TestCheckUsageErrors(t *testing.T) {
 // OpenClaw stages under $TMPDIR, which on macOS is reached through a symlink.
 // The confined resolver must accept the folder itself.
 func TestCheckFolderThroughSymlink(t *testing.T) {
-	real := stagedSkill(t, "ok\n")
+	target := stagedSkill(t, "ok\n")
 	link := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 	code, r, _, stderr := runCheck(t, link, "--json")
