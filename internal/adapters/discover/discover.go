@@ -8,7 +8,9 @@ package discover
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -96,4 +98,22 @@ func Default() *Multi {
 		NewAeon(),
 		NewSkillsLock(),
 	)
+}
+
+// Only returns the default discoverers for one tool, matched case-insensitively
+// like list --tool, so a command scoped to one tool never reads another tool's
+// configuration. An unknown tool is an error naming the valid ids.
+func Only(tool string) (*Multi, error) {
+	all := Default()
+	var keep []ports.Discoverer
+	for _, t := range all.tools {
+		named, ok := t.(interface{ Tool() string })
+		if ok && strings.EqualFold(named.Tool(), tool) {
+			keep = append(keep, t)
+		}
+	}
+	if len(keep) == 0 {
+		return nil, fmt.Errorf("unknown tool %q (want one of: %s)", tool, strings.Join(all.Tools(), ", "))
+	}
+	return NewMulti(keep...), nil
 }

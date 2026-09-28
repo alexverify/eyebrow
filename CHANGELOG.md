@@ -9,6 +9,48 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+### Added
+
+- OpenClaw discovery (tool id `openclaw`). eyebrow reads the OpenClaw state
+  dir (`$OPENCLAW_STATE_DIR`, default `~/.openclaw`): MCP servers from
+  `mcp.servers` in `openclaw.json`, skills from `skills/` and every
+  `skills.load.extraDirs` entry, and plugins from `extensions/` (each folder
+  with an `openclaw.plugin.json`). A project counts as OpenClaw's only when it
+  holds `.openclaw/` or `.clawhub/`; then its `skills/` and
+  `.openclaw/extensions/` are read too. `openclaw.json` is JSON5, read by a new
+  dependency-free JSON5 reader.
+- ClawHub pins. A skill installed from ClawHub carries the `fingerprint` from
+  its `.clawhub/origin.json` as its integrity anchor. When the folder no longer
+  hashes to it under ClawHub's own algorithm, the skill gets a
+  `CLAWHUB-FINGERPRINT-MISMATCH` finding (high). A skill with a `.gitignore` or
+  `.clawhubignore` stays unpinned, because eyebrow does not evaluate ignore
+  patterns.
+- `eyebrow check <dir> [--json] [--fail-on high]` scans one folder as an
+  untrusted skill or plugin, for install gates. It writes nothing, resolves
+  nothing outside the folder, and makes no network calls. It analyzes vendor
+  folders and `.git` too. A file it cannot analyze (binary, larger than
+  32 MiB, unreadable) yields `CHECK-UNSCANNED-FILE` (medium); a symlink that
+  leaves the folder, a symlink that does not resolve, or a named pipe or
+  device yields `CHECK-UNSAFE-ENTRY` (high) and is never opened. The report
+  lists at most 20 unscanned files and counts the rest in `unscannedOmitted`.
+  Exit `1` when any finding reaches `--fail-on`. The JSON carries rule id,
+  severity, OWASP id, file, line and whether each finding blocks; it never
+  carries file content.
+- `--tool <id>` on `scan` and `verify` limits discovery to one tool, for
+  example `--tool openclaw`. `verify --tool` compares only that tool's locked
+  entries. `scan --tool` refuses (exit `2`) a lockfile that holds other tools'
+  artifacts, so it never shrinks a shared lockfile; give it its own
+  `--lockfile`.
+
+### Changed
+
+- `verify --json` prints `"changes": []` when nothing changed. It printed
+  `null` before.
+- `list --tool` with an unknown tool id exits `2` and names the valid ids, as
+  `scan` and `verify` do. It printed an empty list before.
+- The hasher streams each file into the digest instead of reading it whole.
+  Digests do not change.
+
 ## [0.5.4] - 2026-09-27
 
 ### Added

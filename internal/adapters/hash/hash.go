@@ -69,10 +69,9 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 		newest time.Time
 	)
 
-	add := func(rel string, b []byte) {
-		leaf := digest.Leaf(rel, b)
-		leaves = append(leaves, leaf)
-		files = append(files, artifact.FileRef{Path: rel, Hash: leaf.Hash})
+	add := func(rel, sum string) {
+		leaves = append(leaves, digest.FileHash{Path: rel, Hash: sum})
+		files = append(files, artifact.FileRef{Path: rel, Hash: sum})
 	}
 	touch := func(t time.Time) {
 		if t.After(newest) {
@@ -81,11 +80,11 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 	}
 
 	if !info.IsDir() {
-		b, err := os.ReadFile(root)
+		sum, err := sumFile(root)
 		if err != nil {
 			return "", nil, time.Time{}, err
 		}
-		add(filepath.Base(root), b)
+		add(filepath.Base(root), sum)
 		touch(info.ModTime())
 		return digest.Root(leaves), files, newest, nil
 	}
@@ -125,11 +124,11 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 		if err != nil {
 			return err
 		}
-		b, err := os.ReadFile(path)
+		sum, err := sumFile(path)
 		if err != nil {
 			return err
 		}
-		add(filepath.ToSlash(rel), b)
+		add(filepath.ToSlash(rel), sum)
 		if fi, ierr := d.Info(); ierr == nil {
 			touch(fi.ModTime())
 		}
@@ -141,4 +140,15 @@ func (h *Hasher) Hash(ctx context.Context, root string) (string, []artifact.File
 
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return digest.Root(leaves), files, newest, nil
+}
+
+// sumFile streams a file through digest.SumReader, so memory stays flat on a
+// huge file in an untrusted package.
+func sumFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	return digest.SumReader(f)
 }

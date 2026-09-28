@@ -49,6 +49,64 @@ Built-in discovery knows where each AI coding tool keeps its add-ons. A repo tha
 
 When the manifest is present it owns the root: the AEON and skills-lock adapters stay inert there. A repo moving off one of those adapters keeps its lockfile IDs by reusing that adapter's tool id as `name` (`aeon` or `skills-lock`). A manifest that fails to parse or validate fails the scan with exit code 3 and names the bad field, so a typo never reads as an empty catalog.
 
+## One tool only (`--tool`)
+
+`scan` and `verify` take `--tool <id>` to look at one tool and ignore the
+rest:
+
+```sh
+eyebrow scan   --global --tool openclaw --lockfile ~/.openclaw/eyebrowlock.json
+eyebrow verify --global --tool openclaw --lockfile ~/.openclaw/eyebrowlock.json
+```
+
+The id is case-insensitive; an unknown id exits `2` and lists the valid ones.
+`verify --tool` compares only that tool's entries, so a full lockfile works
+too. `scan --tool` will not overwrite a lockfile that holds other tools'
+artifacts: give each `--tool` scan its own `--lockfile`.
+
+## Check a package before you install it (`check`)
+
+`eyebrow check <dir>` scans one folder, a skill or plugin that is not
+installed yet, and exits `1` if a finding reaches `--fail-on` (default
+`high`):
+
+```sh
+eyebrow check ./downloaded-skill
+eyebrow check ./staged-plugin --json --fail-on critical
+```
+
+The folder is treated as hostile. `check` writes nothing, makes no network
+calls, and opens nothing outside the folder. It also reads the places a
+normal scan skips to cut noise: `node_modules/`, `venv/`, `.git/` and other
+vendor folders. When it cannot read a file (binary, larger than 32 MiB,
+unreadable) it says so with `CHECK-UNSCANNED-FILE` (medium) and does not skip
+it silently. A symlink that leaves the folder, or a named pipe or device, is
+reported as `CHECK-UNSAFE-ENTRY` (high) and never opened.
+
+The folder is a skill when it has a `SKILL.md` and a plugin otherwise. Its
+name comes from the `SKILL.md` `name:` field or the `package.json` name, so
+known-bad package names match the advisory feed.
+
+`--json` prints one document:
+
+```json
+{
+  "verdict": "block",
+  "failOn": "high",
+  "type": "skill",
+  "name": "demo",
+  "contentHash": "sha256-…",
+  "findings": [
+    { "ruleId": "SENSITIVE-PATH-READ", "severity": "high", "owasp": "ASK-06",
+      "file": "SKILL.md", "line": 4, "blocking": true }
+  ]
+}
+```
+
+It never carries file content. A package with many binary files lists the
+first 20 as `CHECK-UNSCANNED-FILE` and counts the rest in `unscannedOmitted`;
+the verdict counts all of them.
+
 ## Team: gate CI on "approved, unmodified, signed"
 
 One-time setup, committed to the repo:

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexverify/eyebrow/internal/adapters/discover"
 	"github.com/alexverify/eyebrow/internal/adapters/historystore"
 	"github.com/alexverify/eyebrow/internal/adapters/lockstore"
 	"github.com/alexverify/eyebrow/internal/adapters/notify"
@@ -58,12 +59,26 @@ func (a *App) flagSet(name string) *flag.FlagSet {
 func (a *App) runScan(ctx context.Context, args []string) int {
 	fs := a.flagSet("scan")
 	c := bindCommon(fs)
+	tool := fs.String("tool", "", "only discover artifacts from this tool (e.g. openclaw)")
 	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if !a.selectTool("scan", *tool) {
 		return ExitUsage
 	}
 	// Read the prior lockfile first (best-effort) so the verdict can report drift
 	// against the baseline scan is about to overwrite.
 	prior, _ := lockstore.New().Read(ctx, *c.lockfile)
+	// A --tool scan writes only that tool; over a lockfile holding others it
+	// would silently drop them.
+	if *tool != "" {
+		for _, e := range prior.Artifacts {
+			if !strings.EqualFold(e.Tool, *tool) {
+				_, _ = fmt.Fprintf(a.Stderr, "scan: lockfile %s holds other tools' artifacts; use a separate --lockfile with --tool\n", *c.lockfile)
+				return ExitUsage
+			}
+		}
+	}
 
 	svc := a.capturingScanService(*c.json, *c.rules, *c.path)
 	lf, err := svc.Run(ctx, scan.Options{
@@ -95,7 +110,11 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 	trustedKeys := fs.String("trusted-keys", "eyebrow.trustedkeys", "committed trusted-keys registry checked by requireSignature")
 	server := fs.String("server", envOr("EYEBROW_SERVER", ""), "control-plane URL (opt-in: pull org policy and trusted keys)")
 	token := fs.String("token", envOr("EYEBROW_TOKEN", ""), "machine token for the control plane")
+	tool := fs.String("tool", "", "only discover artifacts from this tool (e.g. openclaw)")
 	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if !a.selectTool("verify", *tool) {
 		return ExitUsage
 	}
 
@@ -114,6 +133,7 @@ func (a *App) runVerify(ctx context.Context, args []string) int {
 		LockfilePath: *c.lockfile,
 		CI:           *ci,
 		Policy:       pol,
+		Tool:         *tool,
 	}, a.Stdout)
 	if err != nil {
 		return a.fail("verify", err)
@@ -368,6 +388,12 @@ func (a *App) runList(ctx context.Context, args []string) int {
 	if *typ != "" && !artifact.IsType(*typ) {
 		fmt.Fprintf(a.Stderr, "list: unknown --type %q (want %s)\n", *typ, strings.Join(typeNames(), ", "))
 		return ExitUsage
+	}
+	if *tool != "" {
+		if _, err := discover.Only(*tool); err != nil {
+			_, _ = fmt.Fprintf(a.Stderr, "list: %v\n", err)
+			return ExitUsage
+		}
 	}
 	svc := a.scanService(*c.json, *c.rules)
 	lf, err := svc.Build(ctx, a.scopes(*c.path, *c.global, *c.registry))

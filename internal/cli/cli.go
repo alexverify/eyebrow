@@ -42,6 +42,8 @@ type App struct {
 	Stdout io.Writer
 	Stderr io.Writer
 	Clock  ports.Clock
+	// tool, set by --tool, limits discovery to one tool's discoverers.
+	tool string
 }
 
 // New constructs an App with the wall clock and the process stdin.
@@ -51,6 +53,8 @@ func New(stdout, stderr io.Writer) *App {
 
 // Execute dispatches a subcommand and returns a process exit code.
 func (a *App) Execute(ctx context.Context, args []string) int {
+	// A tool selected by one command must never narrow the next one.
+	a.tool = ""
 	if len(args) == 0 {
 		a.usage()
 		return ExitUsage
@@ -59,6 +63,8 @@ func (a *App) Execute(ctx context.Context, args []string) int {
 	switch cmd {
 	case "scan":
 		return a.runScan(ctx, rest)
+	case "check":
+		return a.runCheck(ctx, rest)
 	case "verify":
 		return a.runVerify(ctx, rest)
 	case "diff":
@@ -127,6 +133,7 @@ Usage:
 Commands:
   scan      Discover, resolve, hash, and analyze artifacts; write the lockfile
   verify    Recompute and diff against the lockfile (rug-pull detector)
+  check     Scan one folder as an untrusted skill or plugin (install gate)
   diff      Show what changed since the last lockfile (informational)
   digest    Summarize what changed since the lockfile (--json for machine output)
   sbom      Export the lockfile as an SBOM (--format cyclonedx|spdx, --o file)
@@ -190,12 +197,36 @@ func reporter(jsonOut bool) ports.Reporter {
 	return report.Text{}
 }
 
+// selectTool validates --tool and scopes this invocation's discovery to it.
+// An empty value keeps every tool.
+func (a *App) selectTool(cmd, tool string) bool {
+	if tool != "" {
+		if _, err := discover.Only(tool); err != nil {
+			_, _ = fmt.Fprintf(a.Stderr, "%s: %v\n", cmd, err)
+			return false
+		}
+	}
+	a.tool = tool
+	return true
+}
+
+// discoverer returns the discovery adapter for this invocation: every tool, or
+// only the one selectTool accepted.
+func (a *App) discoverer() ports.Discoverer {
+	if a.tool != "" {
+		if d, err := discover.Only(a.tool); err == nil {
+			return d
+		}
+	}
+	return discover.Default()
+}
+
 // scanService assembles the scan use case from concrete adapters. rulesDir
 // points the optional Semgrep accelerator at a rules pack; an absent dir is a
 // silent no-op (the native matchers are authoritative).
 func (a *App) scanService(jsonOut bool, rulesDir string) *scan.Service {
 	return scan.New(scan.Deps{
-		Discoverer: discover.Default(),
+		Discoverer: a.discoverer(),
 		Resolver:   resolve.NewRouter(),
 		Hasher:     hash.New(),
 		Analyzer:   analyze.NewChain(analyze.NewNative(), analyze.NewSemgrep(rulesDir)),
@@ -211,7 +242,7 @@ func (a *App) scanService(jsonOut bool, rulesDir string) *scan.Service {
 // read-only commands (verify/diff/digest/list) do not write baselines.
 func (a *App) capturingScanService(jsonOut bool, rulesDir, projectPath string) *scan.Service {
 	return scan.New(scan.Deps{
-		Discoverer: discover.Default(),
+		Discoverer: a.discoverer(),
 		Resolver:   resolve.NewRouter(),
 		Hasher:     hash.New(),
 		Analyzer:   analyze.NewChain(analyze.NewNative(), analyze.NewSemgrep(rulesDir)),

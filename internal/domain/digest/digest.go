@@ -12,6 +12,7 @@ package digest
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"sort"
 )
 
@@ -32,6 +33,16 @@ type FileHash struct {
 func Sum(b []byte) string {
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
+}
+
+// SumReader streams r and returns the same value Sum gives for its bytes.
+// The caller owns the reader; this package still opens nothing.
+func SumReader(r io.Reader) (string, error) {
+	h := sha256.New()
+	if _, err := io.Copy(h, r); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // Leaf computes the FileHash for a single file's contents.

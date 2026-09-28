@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/app/scan"
@@ -40,6 +41,10 @@ type Options struct {
 	LockfilePath string
 	CI           bool          // strict mode: also apply the policy gate
 	Policy       policy.Policy // the team policy (defaults applied by Evaluate)
+	// Tool, when set, limits the comparison to locked entries from that tool,
+	// so a lockfile holding every tool does not report the others as removed.
+	// The lockfile signature is still checked over the whole file.
+	Tool string
 }
 
 // Result captures the verification outcome. OK is the single source of truth
@@ -76,19 +81,22 @@ func (s *Service) Check(ctx context.Context, locked lockfile.Lockfile, opts Opti
 		return Result{}, err
 	}
 
-	diff := lockfile.Compare(locked, current)
+	// The signature covers the whole lockfile, so it is checked on locked;
+	// everything else compares only the selected tool's entries.
+	compared := onlyTool(locked, opts.Tool)
+	diff := lockfile.Compare(compared, current)
 
 	ok := !diff.HasDrift()
 	var pres policy.Result
 	if opts.CI {
-		pres = policy.Evaluate(opts.Policy, locked, current)
+		pres = policy.Evaluate(opts.Policy, compared, current)
 		if opts.Policy.RequireSignature {
 			if v := s.signatureViolation(locked); v != nil {
 				pres.Violations = append(pres.Violations, *v)
 			}
 		}
 		if opts.Policy.RequireSignedApproval {
-			pres.Violations = append(pres.Violations, s.approvalViolations(locked)...)
+			pres.Violations = append(pres.Violations, s.approvalViolations(compared)...)
 		}
 		// AllowContentDrift downgrades a bare content change from a hard failure to
 		// a reported-but-passing signal: for a prose catalog the meaningful
@@ -102,6 +110,22 @@ func (s *Service) Check(ctx context.Context, locked lockfile.Lockfile, opts Opti
 		}
 	}
 	return Result{Diff: diff, Policy: pres, OK: ok}, nil
+}
+
+// onlyTool returns locked with only the entries from tool, or locked itself
+// when tool is empty. It never modifies locked.
+func onlyTool(locked lockfile.Lockfile, tool string) lockfile.Lockfile {
+	if tool == "" {
+		return locked
+	}
+	out := locked
+	out.Artifacts = nil
+	for _, e := range locked.Artifacts {
+		if strings.EqualFold(e.Tool, tool) {
+			out.Artifacts = append(out.Artifacts, e)
+		}
+	}
+	return out
 }
 
 // approvalViolations checks that every approved artifact carries a valid

@@ -1,6 +1,9 @@
 package digest
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestSumIsStable(t *testing.T) {
 	// SHA-256 of the empty input is a well-known constant.
@@ -75,5 +78,19 @@ func TestInlineMatchesSingleFileTree(t *testing.T) {
 func TestEmptyTreeIsStable(t *testing.T) {
 	if Root(nil) != Root([]FileHash{}) {
 		t.Fatal("Root(nil) must equal Root(empty)")
+	}
+}
+
+// SumReader streams and must equal Sum over the same bytes, so the hasher can
+// stream large files without changing any digest.
+func TestSumReaderMatchesSum(t *testing.T) {
+	for _, b := range [][]byte{nil, []byte("x"), bytes.Repeat([]byte("abc\n"), 1<<20)} {
+		got, err := SumReader(bytes.NewReader(b))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := Sum(b); got != want {
+			t.Errorf("len %d: SumReader %s, Sum %s", len(b), got, want)
+		}
 	}
 }
