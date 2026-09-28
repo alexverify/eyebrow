@@ -9,6 +9,8 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-09-28
+
 ### Added
 
 - OpenClaw discovery (tool id `openclaw`). eyebrow reads the OpenClaw state
@@ -416,7 +418,8 @@ Initial release.
 - **`fleet`**: export/push a machine snapshot and print the team blast-radius
   ("git is the backend").
 
-[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/alexverify/eyebrow/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/alexverify/eyebrow/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/alexverify/eyebrow/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/alexverify/eyebrow/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/alexverify/eyebrow/compare/v0.5.1...v0.5.2
