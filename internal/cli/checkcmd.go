@@ -38,7 +38,15 @@ type checkReport struct {
 	Name        string         `json:"name"`
 	ContentHash string         `json:"contentHash,omitempty"`
 	Findings    []checkFinding `json:"findings"`
+	// UnscannedOmitted counts CHECK-UNSCANNED-FILE findings left out of
+	// Findings past maxUnscannedListed. The verdict still counts them.
+	UnscannedOmitted int `json:"unscannedOmitted,omitempty"`
 }
+
+// maxUnscannedListed caps the CHECK-UNSCANNED-FILE findings a report lists. A
+// package with images, native addons or a git history has hundreds of files
+// no rule can read; listing each buries the findings that matter.
+const maxUnscannedListed = 20
 
 // runCheck scans one folder as an untrusted skill or plugin: the install gate
 // for a package staged before it lands. Local resolution is confined to the
@@ -100,15 +108,30 @@ func (a *App) runCheck(ctx context.Context, args []string) int {
 		ContentHash: e.ContentHash,
 		Findings:    []checkFinding{},
 	}
+	// The folder reader and the analyzer can both report the same entry (a
+	// symlinked SKILL.md); list each rule, file and line once.
+	seen := map[checkFinding]bool{}
+	unscanned := 0
 	for _, f := range e.Findings {
 		blocking := f.Severity.AtLeast(threshold)
 		if blocking {
 			rep.Verdict = "block"
 		}
-		rep.Findings = append(rep.Findings, checkFinding{
+		cf := checkFinding{
 			RuleID: f.RuleID, Severity: string(f.Severity), OWASP: f.OWASP,
 			File: f.File, Line: f.Line, Blocking: blocking,
-		})
+		}
+		if seen[cf] {
+			continue
+		}
+		seen[cf] = true
+		if f.RuleID == finding.RuleUnscannedFile {
+			if unscanned++; unscanned > maxUnscannedListed {
+				rep.UnscannedOmitted++
+				continue
+			}
+		}
+		rep.Findings = append(rep.Findings, cf)
 	}
 
 	if *jsonOut {
@@ -156,17 +179,25 @@ func writeCheckText(w io.Writer, r checkReport) {
 		}
 	}
 	fmt.Fprintf(w, "check: %s (%s): %s, %d finding(s), %d at or above %s\n",
-		r.Name, r.Type, r.Verdict, len(r.Findings), blocking, r.FailOn)
+		safeText(r.Name), r.Type, r.Verdict, len(r.Findings), blocking, r.FailOn)
 	for _, f := range r.Findings {
-		// A hostile file name must not forge output lines: quote any name
-		// carrying a control character.
-		loc := f.File
-		if strings.IndexFunc(loc, unicode.IsControl) >= 0 {
-			loc = fmt.Sprintf("%q", loc)
-		}
+		loc := safeText(f.File)
 		if f.Line > 0 {
 			loc = fmt.Sprintf("%s:%d", loc, f.Line)
 		}
 		fmt.Fprintf(w, "  [%s] %s %s\n", f.Severity, f.RuleID, loc)
 	}
+	if r.UnscannedOmitted > 0 {
+		fmt.Fprintf(w, "  … %d more CHECK-UNSCANNED-FILE not listed\n", r.UnscannedOmitted)
+	}
+}
+
+// safeText quotes a name the package supplied (its own name, a file name)
+// when it carries a control character, so a hostile package cannot forge
+// output lines or send terminal escapes.
+func safeText(s string) string {
+	if strings.IndexFunc(s, unicode.IsControl) >= 0 {
+		return fmt.Sprintf("%q", s)
+	}
+	return s
 }

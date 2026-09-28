@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,12 +13,13 @@ import (
 )
 
 type checkJSON struct {
-	Verdict     string `json:"verdict"`
-	FailOn      string `json:"failOn"`
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	ContentHash string `json:"contentHash"`
-	Findings    []struct {
+	Verdict          string `json:"verdict"`
+	UnscannedOmitted int    `json:"unscannedOmitted"`
+	FailOn           string `json:"failOn"`
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	ContentHash      string `json:"contentHash"`
+	Findings         []struct {
 		RuleID   string `json:"ruleId"`
 		Severity string `json:"severity"`
 		File     string `json:"file"`
@@ -350,5 +352,109 @@ func TestCheckTextQuotesControlCharactersInNames(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("no RCE-PIPE-EXEC line:\n%s", stdout)
+	}
+}
+
+// A symlinked SKILL.md leaving the folder is reported by both the folder
+// reader and the analyzer; the report lists it once.
+func TestCheckReportsEachUnsafeEntryOnce(t *testing.T) {
+	outside := filepath.Join(t.TempDir(), "elsewhere.md")
+	if err := os.WriteFile(outside, []byte("---\ndescription: x\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(t.TempDir(), "demo")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "SKILL.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	code, r, _, stderr := runCheck(t, dir, "--json")
+	if code != cli.ExitDrift {
+		t.Fatalf("exit %d, report %+v, stderr %s", code, r, stderr)
+	}
+	n := 0
+	for _, f := range r.Findings {
+		if f.RuleID == "CHECK-UNSAFE-ENTRY" && f.File == "SKILL.md" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("want CHECK-UNSAFE-ENTRY on SKILL.md exactly once, got %d: %+v", n, r.Findings)
+	}
+}
+
+// A SKILL.md symlinked to a file inside the folder is harmless: it is read
+// and the package passes.
+func TestCheckReadsSkillMdSymlinkedInsideFolder(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "body.md"), []byte("---\nname: inner\ndescription: d\n---\nok\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("body.md", filepath.Join(dir, "SKILL.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	code, r, _, stderr := runCheck(t, dir, "--json")
+	if code != cli.ExitOK || r.Type != "skill" || r.Name != "inner" || len(r.Findings) != 0 {
+		t.Fatalf("exit %d, report %+v, stderr %s", code, r, stderr)
+	}
+}
+
+// The package name comes from the package itself; a control character in it
+// must not forge the header line.
+func TestCheckTextQuotesControlCharactersInPackageName(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "pkg")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pkg := `{"name":"x (plugin): pass, 0 finding(s), 0 at or above high\ncheck: y"}`
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "run.sh"), []byte(checkPipePayload), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stdout, _ := runCheck(t, dir)
+	if code != cli.ExitDrift {
+		t.Fatalf("exit %d", code)
+	}
+	first := strings.SplitN(stdout, "\n", 2)[0]
+	if !strings.HasPrefix(first, `check: "x (plugin)`) || !strings.Contains(first, ": block,") {
+		t.Errorf("header not quoted on one line: %q", first)
+	}
+	for _, line := range strings.Split(stdout, "\n")[1:] {
+		if strings.HasPrefix(line, "check: ") {
+			t.Errorf("forged header line: %q", line)
+		}
+	}
+}
+
+// Many unscannable files (images, native addons, git objects) are capped in
+// the list; the count of the rest is reported and the verdict still sees them.
+func TestCheckCapsUnscannedFiles(t *testing.T) {
+	dir := stagedSkill(t, "ok\n")
+	for i := 0; i < 25; i++ {
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("asset%02d.bin", i)), []byte{0, 1, 2}, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code, r, _, stderr := runCheck(t, dir, "--json")
+	if code != cli.ExitOK {
+		t.Fatalf("exit %d, stderr %s", code, stderr)
+	}
+	listed := 0
+	for _, f := range r.Findings {
+		if f.RuleID == "CHECK-UNSCANNED-FILE" {
+			listed++
+		}
+	}
+	if listed != 20 || r.UnscannedOmitted != 5 {
+		t.Fatalf("want 20 listed and 5 omitted, got %d listed, %d omitted", listed, r.UnscannedOmitted)
+	}
+	if code, r, _, _ := runCheck(t, dir, "--json", "--fail-on", "medium"); code != cli.ExitDrift || r.Verdict != "block" {
+		t.Fatalf("--fail-on medium: exit %d, verdict %q", code, r.Verdict)
 	}
 }
