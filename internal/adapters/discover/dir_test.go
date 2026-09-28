@@ -141,3 +141,17 @@ func TestDirIgnoresOversizedPackageJSON(t *testing.T) {
 		t.Errorf("oversized package.json was read: name %q", a.Name)
 	}
 }
+
+// A SKILL.md symlinked to a file inside the folder is read through the link;
+// the root may itself be reached through a symlink (macOS $TMPDIR).
+func TestDirReadsSkillMdSymlinkedInsideFolder(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "demo")
+	writeFile(t, filepath.Join(root, "body.md"), "---\nname: inner\ndescription: through the link\n---\n")
+	if err := os.Symlink("body.md", filepath.Join(root, "SKILL.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	a := dirArtifact(t, root)
+	if a.Type != artifact.TypeSkill || a.Name != "inner" || a.Description != "through the link" || len(a.Findings) != 0 {
+		t.Errorf("in-folder symlinked SKILL.md not read: %+v", a)
+	}
+}

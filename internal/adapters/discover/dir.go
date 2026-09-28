@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/alexverify/eyebrow/internal/app/ports"
 	"github.com/alexverify/eyebrow/internal/domain/artifact"
@@ -20,9 +21,10 @@ const maxPackageJSONBytes = 1 << 20
 // folder is a skill when it carries SKILL.md at its root and a plugin
 // otherwise. It is never part of Default.
 //
-// The folder is hostile input. Dir opens only regular files: a SKILL.md or
-// manifest that is a symlink, a named pipe or a directory is reported as
-// CHECK-UNSAFE-ENTRY and never read.
+// The folder is hostile input. Dir opens only regular files, reached directly
+// or through a symlink that stays inside the folder. A SKILL.md or manifest
+// that is any other kind of entry (a symlink out of the folder, a named pipe,
+// a directory) is reported as CHECK-UNSAFE-ENTRY and never read.
 type Dir struct {
 	root string
 }
@@ -47,9 +49,9 @@ func (d *Dir) Discover(_ context.Context, _ []ports.Scope) ([]artifact.Artifact,
 	if info, err := os.Lstat(skillMd); err == nil {
 		a.Type = artifact.TypeSkill
 		a.DiscoveredFrom = skillMd
-		if info.Mode().IsRegular() {
-			a.Description = frontmatterDescription(skillMd)
-			name = frontmatterValue(skillMd, "name")
+		if readable, ok := d.regular(skillMd, info.Mode()); ok {
+			a.Description = frontmatterDescription(readable)
+			name = frontmatterValue(readable, "name")
 		} else {
 			a.Findings = append(a.Findings, finding.UnsafeEntry("SKILL.md", entryKind(info.Mode())))
 		}
@@ -61,14 +63,19 @@ func (d *Dir) Discover(_ context.Context, _ []ports.Scope) ([]artifact.Artifact,
 				continue
 			}
 			a.DiscoveredFrom = p
-			if !info.Mode().IsRegular() {
+			if _, ok := d.regular(p, info.Mode()); !ok {
 				a.Findings = append(a.Findings, finding.UnsafeEntry(m, entryKind(info.Mode())))
 			}
 			break
 		}
 	}
 	if name == "" {
-		name = packageJSONName(filepath.Join(d.root, "package.json"))
+		pkg := filepath.Join(d.root, "package.json")
+		if info, err := os.Lstat(pkg); err == nil {
+			if readable, ok := d.regular(pkg, info.Mode()); ok {
+				name = packageJSONName(readable)
+			}
+		}
 	}
 	if name == "" {
 		name = filepath.Base(d.root)
@@ -76,6 +83,36 @@ func (d *Dir) Discover(_ context.Context, _ []ports.Scope) ([]artifact.Artifact,
 	a.Name = name
 	a.ID = artifact.MakeID(a.Tool, a.Scope, a.Type, a.Name)
 	return []artifact.Artifact{a}, nil
+}
+
+// regular returns the path to open for an entry of the folder when it is a
+// regular file, directly or through a symlink whose target stays inside the
+// folder. Any other entry, including a symlink out of the folder or one that
+// does not resolve, is not to be opened.
+func (d *Dir) regular(path string, mode fs.FileMode) (string, bool) {
+	if mode.IsRegular() {
+		return path, true
+	}
+	if mode&fs.ModeSymlink == 0 {
+		return "", false
+	}
+	root, err := filepath.EvalSymlinks(d.root)
+	if err != nil {
+		return "", false
+	}
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", false
+	}
+	ti, err := os.Lstat(target)
+	if err != nil || !ti.Mode().IsRegular() {
+		return "", false
+	}
+	return target, true
 }
 
 // packageJSONName returns package.json's top-level "name", or "" when the
