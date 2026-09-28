@@ -49,7 +49,10 @@ var rules = []rule{
 	},
 	{
 		id: "SENSITIVE-PATH-READ", severity: finding.SeverityHigh, owasp: "ASK-06",
-		re:      regexp.MustCompile(`(?i)(\.ssh/|\.aws/|\bid_rsa\b|\.env\b|\.config/solana|keychain|Login Data)`),
+		// .env counts only as a file name: the character before the dot must
+		// not be a word character or a dot, so process.env, import.meta.env
+		// and a ...env spread (ordinary JavaScript) do not match.
+		re:      regexp.MustCompile(`(?i)(\.ssh/|\.aws/|\bid_rsa\b|(^|[^\w.])\.env\b|\.config/solana|keychain|Login Data)`),
 		explain: "references sensitive credential or secret paths",
 	},
 	{

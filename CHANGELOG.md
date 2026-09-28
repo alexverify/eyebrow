@@ -9,6 +9,16 @@ Exit codes are part of the CLI contract and are covered by SemVer:
 
 ## [Unreleased]
 
+### Fixed
+
+- `SENSITIVE-PATH-READ` no longer matches `process.env`, `import.meta.env`,
+  `this.env` or a `...env` spread. The rule matched `.env` anywhere inside a
+  word, so it put a high finding on nearly every JavaScript skill and plugin,
+  and `eyebrow check` blocked them at the default threshold. `.env` now counts
+  only as a file name: the character before the dot must not be a letter,
+  digit, `_` or `.`. `cat .env`, `~/.env`, `"/app/.env"` and `.env.local`
+  still match. Content hashes do not change; only these findings go away.
+
 ## [0.5.5] - 2026-09-28
 
 ### Added
